@@ -1,0 +1,7 @@
+build/
+nrt-out/
+*.apk
+*.keystore
+*.jks
+local.properties
+.DS_Store

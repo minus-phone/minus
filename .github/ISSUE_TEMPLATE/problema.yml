@@ -1,0 +1,32 @@
+name: Qualcosa non funziona
+description: Segnala un problema di minus.
+labels: ["problema"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Grazie. Non scrivere qui nomi, numeri o messaggi di altre persone: questa pagina è pubblica.
+  - type: textarea
+    id: cosa
+    attributes:
+      label: Cosa è successo
+      description: Cosa stavi facendo e cosa ti aspettavi.
+    validations:
+      required: true
+  - type: textarea
+    id: passi
+    attributes:
+      label: Come rifarlo
+      placeholder: "1. Apro la ricerca\n2. Tocco …\n3. …"
+  - type: input
+    id: versione
+    attributes:
+      label: Versione di minus
+      placeholder: "0.12"
+    validations:
+      required: true
+  - type: input
+    id: telefono
+    attributes:
+      label: Telefono e versione di Android
+      placeholder: "Crosscall Core M5, Android 14"

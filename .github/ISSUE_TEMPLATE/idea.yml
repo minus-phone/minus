@@ -1,0 +1,19 @@
+name: Un'idea
+description: Proponi qualcosa che renderebbe minus più utile.
+labels: ["idea"]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Che problema risolve
+      description: Raccontalo dal tuo uso del telefono, prima della soluzione.
+    validations:
+      required: true
+  - type: textarea
+    id: proposta
+    attributes:
+      label: Cosa proponi
+  - type: markdown
+    attributes:
+      value: |
+        minus toglie più che aggiungere: un'idea che aggiunge una funzione deve togliere qualcosa da qualche altra parte, o rendere più facile tornare all'essenziale.

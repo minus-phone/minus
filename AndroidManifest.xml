@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="it.essenziale.launcher"
+    android:versionCode="19"
+    android:versionName="0.11">
+
+    <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="23" />
+
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
+    <application
+        android:label="Essenziale"
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+        <activity
+            android:name=".MainActivity"
+            android:launchMode="singleTask"
+            android:stateNotNeeded="true"
+            android:clearTaskOnLaunch="true"
+            android:excludeFromRecents="true"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize|stateAlwaysHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".ListActivity" android:screenOrientation="portrait" />
+        <activity android:name=".InboxActivity" android:screenOrientation="portrait" />
+        <activity android:name=".WeekActivity" android:screenOrientation="portrait" />
+        <activity android:name=".AddActivity" android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize|stateAlwaysHidden" />
+        <activity android:name=".SettingsActivity" android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize|stateAlwaysHidden" />
+        <activity android:name=".RepeatActivity" android:screenOrientation="portrait" />
+        <activity android:name=".PeopleActivity" android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize|stateAlwaysHidden" />
+        <activity android:name=".GroupsActivity" android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize|stateAlwaysHidden" />
+        <activity android:name=".ContainerActivity" android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize|stateAlwaysHidden" />
+        <activity android:name=".PauseActivity" android:screenOrientation="portrait" />
+        <activity android:name=".CalendarsActivity" android:screenOrientation="portrait" />
+        <activity android:name=".SessionActivity" android:screenOrientation="portrait" />
+        <activity android:name=".VoiceActivity" android:screenOrientation="portrait" />
+        <activity android:name=".VoiceHelpActivity" android:screenOrientation="portrait" />
+        <activity android:name=".ChangesActivity" android:screenOrientation="portrait" />
+        <activity android:name=".PortataActivity" android:screenOrientation="portrait" />
+        <activity android:name=".StickyActivity" android:screenOrientation="portrait" />
+        <activity android:name=".NightActivity" android:screenOrientation="portrait" android:excludeFromRecents="true" />
+        <activity android:name=".NightSettingsActivity" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".NightReportActivity" android:screenOrientation="portrait" />
+        <activity android:name=".DimActivity" android:screenOrientation="portrait" android:excludeFromRecents="true" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
+        <activity android:name=".AspettoActivity" android:screenOrientation="portrait" />
+        <activity android:name=".BugActivity" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
+        <receiver android:name=".ScopeReceiver" android:exported="false" />
+        <activity android:name=".SearchActivity" android:screenOrientation="portrait"
+            android:excludeFromRecents="true"
+            android:windowSoftInputMode="adjustResize|stateVisible" />
+        <activity android:name=".OnboardingActivity" android:screenOrientation="portrait"
+            android:excludeFromRecents="true"
+            android:windowSoftInputMode="adjustResize|stateAlwaysHidden" />
+        <activity
+            android:name=".FrictionActivity"
+            android:theme="@android:style/Theme.Material.NoActionBar"
+            android:windowSoftInputMode="adjustResize|stateHidden"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".LockActivity"
+            android:theme="@android:style/Theme.Material.NoActionBar"
+            android:launchMode="singleInstance"
+            android:taskAffinity="it.essenziale.launcher.lock"
+            android:excludeFromRecents="true"
+            android:noHistory="false"
+            android:screenOrientation="portrait" />
+
+        <service
+            android:name=".FilterService"
+            android:label="Essenziale – filtro notifiche"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>

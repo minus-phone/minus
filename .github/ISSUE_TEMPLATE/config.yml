@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Domande e idee generali
+    url: https://github.com/minus-phone/minus/discussions
+    about: Per parlarne prima di aprire una segnalazione.
