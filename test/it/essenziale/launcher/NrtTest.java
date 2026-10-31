@@ -63,6 +63,7 @@ public class NrtTest {
         recurrence();
         voice();
         cosa();
+        servizi();
         System.out.println("\nTotale: " + pass + " superati, " + fail + " falliti");
         FileWriter w = new FileWriter(a.length > 0 ? a[0] : "nrt-report.md");
         w.write("# Essenziale 0.6 · NRT automatico\n\nSuperati: " + pass + " · Falliti: " + fail + "\n");
@@ -101,7 +102,7 @@ public class NrtTest {
         for (String me : myNames) {
             cfg.myName = me;
             for (String pkg : LABELS.keySet())
-                if (!Rules.isCalendar(pkg)) // 0.4: i promemoria del calendario passano sempre (cambio voluto, sezione B2)
+                if (!Rules.isCalendar(pkg) && !Rules.pkgMatches("SMS", pkg) && !pkg.equals("it.bnl.apps.banking")) // 0.4: calendario (B2); 0.12.2: SMS e app di servizio (sezione 0.12.2)
                 for (String c : cats) for (int f : flags) for (String t : titles) for (String x : texts) for (int g = 0; g < 1; g++) { // 0.6: i gruppi cambiano di proposito (sezione B3)
                     boolean group = g == 1;
                     int old = LegacyV02.classify(OWN, pkg, c, f, t, x, group, LABELS.get(pkg), DEF_CONTACTS, DEF_WAITING_APPS, me);
@@ -562,5 +563,38 @@ public class NrtTest {
         eq("Pausa: 8 secondi di default", Cosa.pauseSeconds(0), 8);
         eq("Pausa: 4 secondi se scelti", Cosa.pauseSeconds(4), 4);
         eq("Pausa: valori strani tornano a 8", Cosa.pauseSeconds(5), 8);
+    }
+
+    static Rules.Config svc() {
+        Rules.Config cfg = new Rules.Config();
+        for (String[] r : Rules.rows(DEF_WAITING_APPS)) cfg.waitingApps.add(r[0]);
+        cfg.services.add("pkg:bank"); cfg.services.add("pkg:poste"); cfg.services.add("IO"); cfg.services.add("Banca");
+        return cfg;
+    }
+
+    static int svcLvl(String pkg, String label, String title, String text) {
+        Rules.Note n = new Rules.Note();
+        n.pkg = pkg; n.ownPkg = OWN; n.title = title; n.text = text; n.appLabel = label;
+        return Rules.decide(n, svc());
+    }
+
+    static void servizi() {
+        sec("0.12.2 · SMS con codici e app di servizio");
+        String sms = "com.google.android.apps.messaging";
+        eq("SMS «482913 è il tuo codice» passa", svcLvl(sms, "Messaggi", "PosteInfo", "482913 è la password temporanea per accedere"), Rules.PASS);
+        eq("SMS «Usa 5521 per confermare» passa", svcLvl(sms, "Messaggi", "Intesa SP", "Usa 5521 per completare l'operazione"), Rules.PASS);
+        eq("SMS senza testo (nascosto da Android) passa", svcLvl(sms, "Messaggi", "INPS", ""), Rules.PASS);
+        eq("SMS normale: mai in Altro, in Notifiche", svcLvl(sms, "Messaggi", "Marco Rossi", "Ci vediamo dopo"), Rules.WAITING);
+        eq("SMS con un orario non è un codice", svcLvl(sms, "Messaggi", "Marco Rossi", "Ci vediamo alle 16:30"), Rules.WAITING);
+        eq("SMS con un numero di telefono non è un codice", svcLvl(sms, "Messaggi", "Marco Rossi", "Chiamami al +39 333 1234567"), Rules.WAITING);
+        eq("SMS con un importo non è un codice", svcLvl(sms, "Messaggi", "Negozio", "Totale 1250,00 euro"), Rules.WAITING);
+        eq("App IO: avviso di accesso passa", svcLvl("it.pagopa.io.app", "IO", "IO", "Nuovo accesso alla tua identità"), Rules.PASS);
+        eq("App IO: messaggio qualsiasi in Notifiche, non in Altro", svcLvl("it.pagopa.io.app", "IO", "IO", "Hai un nuovo messaggio dal Comune"), Rules.WAITING);
+        eq("Banca: «Bonifico ricevuto» passa", svcLvl("it.bancaxyz.mobile", "Banca XYZ", "Banca XYZ", "Bonifico ricevuto da Mario"), Rules.PASS);
+        eq("Banca: notifica senza parole di accesso in Notifiche", svcLvl("com.mybank.app", "MyBank", "MyBank", "Scopri le novità"), Rules.WAITING);
+        eq("PosteID: richiesta di autorizzazione passa", svcLvl("posteitaliane.posteapp.appposteid", "PosteID", "PosteID", "Autorizza l'accesso"), Rules.PASS);
+        eq("Un'app qualsiasi resta in Altro", svcLvl("com.instagram.android", "Instagram", "Instagram", "Nuovo follower"), Rules.OTHER);
+        check("«IO» vale solo come nome esatto, non dentro altri nomi", !Rules.isService("x.y", "Ricordi", svc().services), null);
+        check("Codice: 6 cifre sì, data no", Rules.looksLikeCode("codice 123456") && !Rules.looksLikeCode("il 12/10/2026") && !Rules.looksLikeCode("alle 16:30"), null);
     }
 }

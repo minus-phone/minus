@@ -23,6 +23,31 @@ public final class Rules {
             "conferma (il |l'|un )?(pagamento|acquisto|accesso|operazione)|3d ?secure|securecode|" +
             "pagamento (riuscito|effettuato|confermato)|sei in arrivo|il tuo autista)");
 
+    /** 0.12.2: un codice di 4–8 cifre (non un orario, un importo, una data o un numero di telefono). */
+    static final Pattern CODE = Pattern.compile("(?<![\\d+.,:/€$\\-])\\d{4,8}(?![\\d.,:/%€\\-])");
+    static final Pattern PHONE = Pattern.compile("\\+?\\d[\\d ]{8,}\\d");
+    /** Parole di accesso e sicurezza: nelle app di servizio fanno passare la notifica. */
+    static final Pattern ACCESS = Pattern.compile(
+            "(?i)(accesso|accedi|login|\\bpin\\b|password|chiave|token|sicurezza|temporane|scade|identit|\\bspid\\b|bonifico|addebit|accredit|pagamento|transazion)");
+
+    public static boolean looksLikeCode(String s) {
+        if (s == null) return false;
+        return CODE.matcher(PHONE.matcher(s).replaceAll(" ")).find();
+    }
+
+    /** App di servizio (banca, pagamenti, identità digitale, IO): voci «pkg:frammento» o nomi di app. */
+    public static boolean isService(String pkg, String label, List<String> services) {
+        if (services == null) return false;
+        String l = label == null ? "" : label.toLowerCase(Locale.ITALY).trim();
+        for (String s0 : services) {
+            String s = s0.toLowerCase(Locale.ITALY).trim();
+            if (s.length() == 0) continue;
+            if (s.startsWith("pkg:")) { if (pkg != null && pkg.contains(s.substring(4).trim())) return true; }
+            else if (s.length() <= 3 ? l.equals(s) : (l.equals(s) || l.contains(s))) return true;
+        }
+        return false;
+    }
+
     public static final String[] DIALERS = {
             "com.google.android.dialer", "com.android.dialer", "com.android.server.telecom", "com.android.phone",
             "com.samsung.android.dialer", "com.samsung.android.incallui"};
@@ -208,6 +233,8 @@ public final class Rules {
         public long now;
         /** 0.6: dove vanno i gruppi in silenzio, per app: codice (WA, TG) -> "notifiche" | "altro" */
         public Map<String, String> groupDest;
+        /** 0.12.2: app di servizio (banca, pagamenti, identità digitale) */
+        public List<String> services = new ArrayList<String>();
     }
 
     public static final String DEST_NOTIF = "notifiche", DEST_OTHER = "altro";
@@ -262,6 +289,16 @@ public final class Rules {
         // 1. Ciò che ho provocato io: codici, autorizzazioni, conferme
         if (URGENT.matcher(all).find()) return PASS;
 
+        // 0.12.2: SMS e app di servizio (banca, pagamenti, SPID, IO). Un codice passa subito anche senza
+        // parole chiave («482913 è il tuo…»); se Android nasconde il testo (codici, da Android 15) passa lo stesso
+        boolean sms = !n.group && pkgMatches("SMS", pkg), service = isService(pkg, n.appLabel, cfg.services);
+        if (sms || service) {
+            String body = n.text == null ? "" : n.text.trim();
+            if (looksLikeCode(all)) return PASS;
+            if (body.length() == 0) return PASS;
+            if (service && ACCESS.matcher(all).find()) return PASS;
+        }
+
         // 1. Persone del gruppo "Sempre", solo nei messaggi diretti e solo dalle app scelte per loro
         if (!n.group) {
             String t = title.toLowerCase(Locale.ITALY);
@@ -286,6 +323,8 @@ public final class Rules {
 
         // Chiamate perse
         for (String d : DIALERS) if (d.equals(pkg)) return WAITING;
+        // 0.12.2: SMS e app di servizio non finiscono mai in Altro
+        if (sms || service) return WAITING;
 
         String label = n.appLabel == null ? "" : n.appLabel.toLowerCase(Locale.ITALY);
         boolean waitingApp = false;
