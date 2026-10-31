@@ -335,6 +335,7 @@ public class FilterService extends NotificationListenerService implements Store.
 
     /** 0.10: allo sblocco la sessione, il controllo delle app con pausa e, di notte, la schermata ridotta. */
     private void unlocked() {
+        Sblocco.unlocked(this); // 0.12: sblocchi senza scopo (spento di default)
         startSession();
         Scope.startGuard(this);
         if (Night.onUnlock(this)) {

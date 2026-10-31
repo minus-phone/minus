@@ -62,6 +62,7 @@ public class NrtTest {
         rowsCompat();
         recurrence();
         voice();
+        cosa();
         System.out.println("\nTotale: " + pass + " superati, " + fail + " falliti");
         FileWriter w = new FileWriter(a.length > 0 ? a[0] : "nrt-report.md");
         w.write("# Essenziale 0.6 · NRT automatico\n\nSuperati: " + pass + " · Falliti: " + fail + "\n");
@@ -88,9 +89,9 @@ public class NrtTest {
         String[] cats = {null, "msg", "call", "alarm", "email", "promo", "navigation", "transport", "sys", "social", "event", "progress", "service"};
         int[] flags = {0, 0x2, 0x20, 0x40, 0x200, 0x10, 0x8};
         String[] titles = {"Mamma", "mamma", "Partner", "Marco Rossi", "Gruppo famiglia", "Condominio", "", "Mamma (2 messaggi)", "Ciao Sorella", "BNL"};
-        String[] texts = {"Ciao", "Il tuo codice è 123456", "@giulia guarda qui", "Mario ti ha menzionato", "Conferma il pagamento",
+        String[] texts = {"Ciao", "Il tuo codice è 123456", "@cristina guarda qui", "Mario ti ha menzionato", "Conferma il pagamento",
                 "Offerta speciale -50%", "", "Il tuo autista è arrivato", "Promemoria: Pediatra alle 16:30"};
-        String[] myNames = {"Giulia", ""};
+        String[] myNames = {"Cristina", ""};
         // Config v0.3 equivalente: le persone senza app riconosciute valgono per qualsiasi app, come nella v0.2
         Rules.Config cfg = new Rules.Config();
         cfg.people = Rules.people(DEF_CONTACTS.replace("| WA |", "| * |").replace("| TG |", "| * |").replace("| MAIL |", "| * |"));
@@ -115,7 +116,7 @@ public class NrtTest {
         check(n + " combinazioni di notifica: livello identico alla v0.2", diff == 0, diff + " differenze, prima: " + firstDiff);
 
         // Casi chiave della v0.2, scritti per esteso
-        Rules.Config def = v03Default("Giulia");
+        Rules.Config def = v03Default("Cristina");
         eq("Codice OTP da app qualsiasi passa subito", lvl(def, "it.bnl.apps.banking", "Il tuo codice è 123456", "BNL", false), Rules.PASS);
         eq("Mamma su WhatsApp passa subito", lvl(def, "com.whatsapp", "Ciao", "Mamma", false), Rules.PASS);
         eq("Chiamata persa: In attesa", lvl(def, "com.google.android.dialer", "Chiamata persa", "Marco Rossi", false), Rules.WAITING);
@@ -150,7 +151,7 @@ public class NrtTest {
 
     static void notificationsNew() {
         sec("B. Filtro notifiche: comportamenti nuovi della 0.3 (cambi voluti)");
-        Rules.Config cfg = v03Default("Giulia");
+        Rules.Config cfg = v03Default("Cristina");
         cfg.people = Rules.people("Sempre | Mamma | WA,TEL | +39 333 1234567\nSempre | Partner | TG | @partner\n");
         eq("Mamma su WhatsApp (scelto): passa", lvl(cfg, "com.whatsapp", "Ciao", "Mamma", false), Rules.PASS);
         eq("Mamma su Instagram (non scelto): non passa più subito", lvl(cfg, "com.instagram.android", "Ciao", "Mamma", false), Rules.OTHER);
@@ -171,7 +172,7 @@ public class NrtTest {
 
     static void notificationsV04() {
         sec("B2. Filtro notifiche: comportamenti nuovi della 0.4 (cambi voluti)");
-        Rules.Config cfg = v03Default("Giulia");
+        Rules.Config cfg = v03Default("Cristina");
         eq("Promemoria di Google Calendar: passa sempre", lvl(cfg, "com.google.android.calendar", "Pediatra alle 16:30", "Pediatra", false), Rules.PASS);
         eq("Promemoria di Samsung Calendar: passa sempre", lvl(cfg, "com.samsung.android.calendar", "Riunione", "Riunione", false), Rules.PASS);
         eq("Notifica fissa del calendario: resta ignorata", lvlF(cfg, "com.google.android.calendar", 0x2), Rules.IGNORE);
@@ -190,7 +191,7 @@ public class NrtTest {
         Rules.touch(cs, "WA", "Capo", false, now - 60000L, true);
         Rules.touch(cs, "WA", "Genitori nido", true, now - 60000L, true);
         cfg.open = Rules.openMap(cs, now);
-        eq("Senza conversazioni aperte: come la 0.3", lvl(v03Default("Giulia"), "com.whatsapp", "Ciao", "Luca", false), Rules.WAITING);
+        eq("Senza conversazioni aperte: come la 0.3", lvl(v03Default("Cristina"), "com.whatsapp", "Ciao", "Luca", false), Rules.WAITING);
         eq("Conversazione aperta: passa", lvl(cfg, "com.whatsapp", "Ciao", "Luca", false), Rules.PASS);
         eq("Conversazione aperta col contatore nel titolo: passa", lvl(cfg, "com.whatsapp", "Ciao", "Luca (2 messaggi)", false), Rules.PASS);
         eq("Conversazione aperta su WhatsApp Business: passa", lvl(cfg, "com.whatsapp.w4b", "Ciao", "Luca", false), Rules.PASS);
@@ -228,7 +229,7 @@ public class NrtTest {
         eq("Nome con spazio non separabile", Rules.groupName("Genitori\u00a0nido"), "Genitori nido");
         eq("Contatore in inglese", Rules.groupName("Football: 4 new messages"), "Football");
         Map<String, String> g2 = new HashMap<String, String>(); g2.put("calcetto", "sempre");
-        Rules.Config c2 = v03Default("Giulia"); c2.groups = g2;
+        Rules.Config c2 = v03Default("Cristina"); c2.groups = g2;
         eq("Gruppo «Sempre» con segni invisibili nel titolo: passa", lvl(c2, "com.whatsapp", "Foto", "\u200eCalcetto", true), Rules.PASS);
         List<Rules.Conv> c3 = new ArrayList<Rules.Conv>();
         Rules.touch(c3, "WA", "Calcetto", true, now, true);
@@ -250,13 +251,13 @@ public class NrtTest {
 
     static void groupsV06() {
         sec("B3. Gruppi della 0.6: app per app, senza menzioni (cambi voluti)");
-        Rules.Config cfg = v03Default("Giulia");
+        Rules.Config cfg = v03Default("Cristina");
         Map<String, String> g = new HashMap<String, String>();
         g.put("gruppo famiglia", "sempre"); g.put("genitori nido", "silenzio");
         cfg.groups = g;
         eq("Gruppo «Passa sempre»: passa", lvl(cfg, "com.whatsapp", "Foto", "Gruppo famiglia", true), Rules.PASS);
         eq("Gruppo nuovo: in silenzio, in Altro", lvl(cfg, "com.whatsapp", "Chi porta la torta?", "Condominio", true), Rules.OTHER);
-        eq("Menzione col nome: non conta più", lvl(cfg, "com.whatsapp", "@Giulia ci sei?", "Condominio", true), Rules.OTHER);
+        eq("Menzione col nome: non conta più", lvl(cfg, "com.whatsapp", "@Cristina ci sei?", "Condominio", true), Rules.OTHER);
         eq("«Ti ha menzionato»: non conta più", lvl(cfg, "com.whatsapp", "Mario ti ha menzionato", "Genitori nido", true), Rules.OTHER);
         Map<String, String> d = new HashMap<String, String>();
         d.put("WA", Rules.DEST_NOTIF); d.put("TG", Rules.DEST_OTHER);
@@ -537,5 +538,29 @@ public class NrtTest {
         eq("Cosa posso dire", v("cosa posso dire").type, VoiceParser.HELP);
         eq("Somiglianza titoli", VoiceParser.score("il pediatra", "Pediatra"), 100);
         check("Somiglianza parziale", VoiceParser.score("cena da mamma", "Cena da mamma e papà") >= 70, null);
+    }
+
+    static void cosa() {
+        sec("0.12 · Una cosa adesso e sblocchi senza scopo");
+        java.util.List<String> ids = java.util.Arrays.asList("a", "b", "c");
+        java.util.List<String> none = new java.util.ArrayList<String>();
+        eq("Propone la prima attività di oggi", Cosa.pick(ids, none, 0), 0);
+        eq("Dopo un «Più tardi» propone la successiva", Cosa.pick(ids, java.util.Arrays.asList("a"), 1), 1);
+        eq("Due «Più tardi» di fila: per oggi niente", Cosa.pick(ids, java.util.Arrays.asList("a", "b"), 2), -1);
+        check("Due «Più tardi» spengono la giornata", Cosa.offToday(2) && !Cosa.offToday(1), null);
+        eq("Senza attività: nessuna proposta (resta l'alternativa)", Cosa.pick(none, none, 0), -1);
+        eq("Tutte rimandate una volta: si riparte dalla prima", Cosa.pick(java.util.Arrays.asList("a"), java.util.Arrays.asList("a"), 1), 0);
+        long now = 1_000_000_000L;
+        java.util.List<Long> two = java.util.Arrays.asList(now - 5 * 60000L, now - 2 * 60000L);
+        check("Terzo sblocco in 10 minuti senza aprire niente: chiede", Cosa.ask(two, now, 0, false, false), null);
+        check("Solo due sblocchi a vuoto: non chiede", !Cosa.ask(java.util.Arrays.asList(now - 60000L), now, 0, false, false), null);
+        check("Sblocchi più vecchi di 10 minuti non contano", !Cosa.ask(java.util.Arrays.asList(now - 15 * 60000L, now - 2 * 60000L), now, 0, false, false), null);
+        check("Al massimo 3 volte al giorno", !Cosa.ask(two, now, 3, false, false), null);
+        check("Mai di notte", !Cosa.ask(two, now, 0, true, false), null);
+        check("Mai in chiamata o con la navigazione", !Cosa.ask(two, now, 0, false, true), null);
+        check("Solo «Mi annoiavo» porta la proposta", Cosa.proposeAfter("Mi annoiavo") && !Cosa.proposeAfter("Aspettavo") && !Cosa.proposeAfter("Per staccare"), null);
+        eq("Pausa: 8 secondi di default", Cosa.pauseSeconds(0), 8);
+        eq("Pausa: 4 secondi se scelti", Cosa.pauseSeconds(4), 4);
+        eq("Pausa: valori strani tornano a 8", Cosa.pauseSeconds(5), 8);
     }
 }

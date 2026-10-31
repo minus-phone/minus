@@ -86,7 +86,7 @@ public class BugActivity extends BaseActivity {
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 64));
         LinearLayout tx = U.col(this);
-        tx.addView(U.text(this, "Allega «Cosa vede Essenziale»", 15, U.INK, false));
+        tx.addView(U.text(this, "Allega «Cosa vede minus»", 15, U.INK, false));
         tx.addView(U.text(this, "Ultimi 2 giorni: app, nomi e livello. Mai il testo dei messaggi", 12, U.MUTED, false));
         r.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         r.addView(U.toggle(this, attach), new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 26)));
@@ -107,7 +107,7 @@ public class BugActivity extends BaseActivity {
         if (attach) {
             String log = U.prefs(this).getString("seen_log", "");
             long since = System.currentTimeMillis() - 2L * 24 * 3600000L;
-            b.append("\n--- Cosa vede Essenziale (ultimi 2 giorni) ---\n");
+            b.append("\n--- Cosa vede minus (ultimi 2 giorni) ---\n");
             for (String line : log.split("\n")) {
                 int bar = line.indexOf('|');
                 try { if (bar > 0 && Long.parseLong(line.substring(0, bar).trim()) < since) continue; } catch (Exception ignored) {}
@@ -116,7 +116,7 @@ public class BugActivity extends BaseActivity {
         }
         Intent i = new Intent(Intent.ACTION_SEND);
         i.setType("text/plain");
-        i.putExtra(Intent.EXTRA_SUBJECT, "Essenziale · " + kind);
+        i.putExtra(Intent.EXTRA_SUBJECT, "minus · " + kind);
         i.putExtra(Intent.EXTRA_TEXT, b.toString());
         startActivity(Intent.createChooser(i, "Invia la segnalazione con…"));
     }

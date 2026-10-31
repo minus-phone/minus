@@ -37,6 +37,8 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     private TextView dateView, notifBtn, notifCount, sessionView, filterOff;
     private android.widget.FrameLayout sessionWrap;
     private View notifBox, tomorrowLine, setupLine;
+    private LinearLayout askBox;
+    private boolean bored;
     private EditText query;
     private List<U.AppInfo> appsCache;
     private android.database.ContentObserver observer;
@@ -59,7 +61,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         sv.addView(content);
         root.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        // Intestazione: Oggi · data · Notifiche › · ⋯ (0.6: il + è sulla riga Settimana)
+        // Intestazione: Oggi · data (con ora e batteria a schermo intero) · Notifiche ›
         LinearLayout head = U.row(this);
         head.addView(U.text(this, "Oggi", 24, U.INK, true));
         dateView = U.text(this, "", 15, U.MUTED, false);
@@ -82,13 +84,13 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         });
         notifBox = nb;
         head.addView(nb);
-        TextView gear = U.text(this, "⋯", 22, U.MUTED, false);
-        gear.setContentDescription("Impostazioni");
-        gear.setGravity(Gravity.CENTER);
-        gear.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { startActivity(new Intent(MainActivity.this, SettingsActivity.class)); }
-        });
-        head.addView(gear, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
+        // 0.12: niente ⋯ in home. Le impostazioni stanno in alto a sinistra nella ricerca;
+        // per chi le cerca qui, tenere premuto su uno spazio vuoto della home le apre
+        View.OnLongClickListener settings = new View.OnLongClickListener() {
+            public boolean onLongClick(View v) { startActivity(new Intent(MainActivity.this, SettingsActivity.class)); return true; }
+        };
+        head.setOnLongClickListener(settings);
+        content.setOnLongClickListener(settings);
         content.addView(head);
         // 0.11: il tempo dall'ultimo sblocco ha l'aspetto della pillola, solo oltre la soglia
         sessionView.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
@@ -111,6 +113,10 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         // 0.6: dopo l'onboarding breve, una riga sola finché non completi o tocchi ✕
         setupLine = setupRow();
         content.addView(setupLine, U.full());
+
+        // 0.12 (173, 173b): la domanda allo sblocco senza scopo, e dopo «Mi annoiavo» una cosa da fare
+        askBox = U.col(this);
+        content.addView(askBox, U.full());
 
         today = U.col(this);
         today.setPadding(0, U.dp(this, 4), 0, U.dp(this, 10));
@@ -262,6 +268,78 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     }
 
     @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) renderAsk(); // lo sblocco può arrivare subito dopo il ritorno in home
+    }
+
+    private void renderAsk() {
+        askBox.removeAllViews();
+        if (bored) {
+            View card = Adesso.card(this, false, new Runnable() {
+                public void run() { bored = false; U.toast(MainActivity.this, "Buona pausa"); renderAsk(); }
+            }, new Runnable() { public void run() { refresh(); } });
+            if (card == null) { bored = false; return; }
+            LinearLayout.LayoutParams lp = U.full();
+            lp.topMargin = U.dp(this, 8);
+            askBox.addView(card, lp);
+            TextView ok = U.text(this, "Annoiarsi va bene. Questa è solo un'idea.", 13, U.MUTED, false);
+            ok.setPadding(0, U.dp(this, 8), 0, 0);
+            askBox.addView(ok);
+            TextView need = U.text(this, "Mi serve il telefono adesso ›", 15, U.INK, false);
+            need.setMinHeight(U.dp(this, 44));
+            need.setGravity(Gravity.CENTER_VERTICAL);
+            need.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { bored = false; renderAsk(); } });
+            askBox.addView(need);
+            return;
+        }
+        if (!Sblocco.pending(this)) return;
+        LinearLayout box = U.col(this);
+        box.setPadding(U.dp(this, 16), U.dp(this, 14), U.dp(this, 16), U.dp(this, 8));
+        box.setBackground(U.box(this, U.SURFACE, U.BORDER, 16));
+        box.addView(U.text(this, "Terza volta in 10 minuti", 13, U.MUTED, false));
+        TextView q = U.text(this, "Per cosa l'hai preso?", 18, U.INK, true);
+        q.setPadding(0, U.dp(this, 4), 0, U.dp(this, 4));
+        box.addView(q);
+        LinearLayout row = null;
+        int used = 0;
+        for (final String a : Cosa.ANSWERS) {
+            if (row == null || used + a.length() > 28) {
+                row = U.row(this);
+                LinearLayout.LayoutParams lp = U.full();
+                lp.topMargin = U.dp(this, 6);
+                box.addView(row, lp);
+                used = 0;
+            }
+            used += a.length();
+            TextView t = U.text(this, a, 14, U.INK, false);
+            t.setGravity(Gravity.CENTER);
+            t.setMinHeight(U.dp(this, 44));
+            t.setPadding(U.dp(this, 12), 0, U.dp(this, 12), 0);
+            t.setBackground(U.box(this, U.BG, U.BORDER, 20));
+            t.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    Sblocco.answer(MainActivity.this, a);
+                    bored = Cosa.proposeAfter(a);
+                    if (!bored) U.toast(MainActivity.this, "Grazie. Resta solo sul telefono");
+                    renderAsk();
+                }
+            });
+            LinearLayout.LayoutParams lp = U.wrap();
+            lp.rightMargin = U.dp(this, 6);
+            row.addView(t, lp);
+        }
+        TextView later = U.text(this, "Non chiedermelo adesso", 14, U.MUTED, false);
+        later.setMinHeight(U.dp(this, 44));
+        later.setGravity(Gravity.CENTER_VERTICAL);
+        later.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { Sblocco.snooze(MainActivity.this); renderAsk(); } });
+        box.addView(later);
+        LinearLayout.LayoutParams lp = U.full();
+        lp.topMargin = U.dp(this, 8);
+        askBox.addView(box, lp);
+    }
+
+    @Override
     protected void onPause() {
         try { unregisterReceiver(tick); } catch (Exception ignored) {}
         Store.removeListener(this);
@@ -296,7 +374,8 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     // ---------------------------------------------------------------------
 
     private void refresh() {
-        dateView.setText(new java.text.SimpleDateFormat("EEE d MMM", Locale.ITALY).format(new java.util.Date()));
+        refreshDate();
+        renderAsk();
         buildToday();
         buildTomorrow();
         refreshNotif();
@@ -304,8 +383,31 @@ public class MainActivity extends BaseActivity implements Store.Listener {
 
     /** Ogni minuto: toglie gli impegni appena finiti; alle 17 e alle 19 cambia cosa si vede. */
     private final android.content.BroadcastReceiver tick = new android.content.BroadcastReceiver() {
-        public void onReceive(android.content.Context c, Intent i) { buildToday(); buildTomorrow(); }
+        public void onReceive(android.content.Context c, Intent i) { refreshDate(); buildToday(); buildTomorrow(); }
     };
+
+    /** 0.12: a schermo intero la barra di stato non c'è, quindi ora e batteria (sotto il 20%) stanno qui. */
+    private void refreshDate() {
+        java.util.Date now = new java.util.Date();
+        String d = new java.text.SimpleDateFormat("EEE d MMM", Locale.ITALY).format(now);
+        if (U.fullscreen(this)) {
+            d += "  ·  " + new java.text.SimpleDateFormat("H:mm", Locale.ITALY).format(now);
+            int bat = battery();
+            if (bat >= 0 && bat < 20) d += "  ·  batteria " + bat + "%";
+        }
+        dateView.setText(d);
+    }
+
+    private int battery() {
+        try {
+            Intent b = registerReceiver(null, new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+            if (b == null) return -1;
+            int l = b.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1), sc = b.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100);
+            int st = b.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1);
+            if (st == android.os.BatteryManager.BATTERY_STATUS_CHARGING || st == android.os.BatteryManager.BATTERY_STATUS_FULL) return -1;
+            return l < 0 || sc <= 0 ? -1 : l * 100 / sc;
+        } catch (Exception e) { return -1; }
+    }
 
     private boolean todayEmpty;
 

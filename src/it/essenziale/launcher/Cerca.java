@@ -43,7 +43,11 @@ public final class Cerca {
             {"App", "applicazioni", "area:1"},
             {"A portata", "preferite app persone gruppi ordine conversazioni attive ricerca recenti", "portata"},
             {"Contenitori", "shop movimenti conti banca acquisti", "boxes"},
-            {"Pausa prima di aprire", "pausa attesa social 6 secondi scopo per cosa tempo", "pause"},
+            {"Pausa prima di aprire", "pausa attesa social secondi scopo per cosa tempo", "pause"},
+            {"Durata della pausa", "secondi pausa 4 6 8 durata timer", "area:2"},
+            {"Sblocchi senza scopo", "sblocco sblocchi noia annoiavo domanda una cosa adesso", "area:2"},
+            {"Apri subito la tastiera", "tastiera ricerca", "area:1"},
+            {"Schermo intero", "barre barra di stato navigazione nascondi fullscreen ora batteria", "aspetto"},
             {"Tempo e uso", "uso tempo", "area:2"},
             {"Tempo dall'ultimo sblocco", "sessione acceso sblocco", "session"},
             {"Benessere digitale", "tempo per app wellbeing timer", "wellbeing"},
@@ -59,7 +63,7 @@ public final class Cerca {
             {"Segnala un problema", "bug problema errore non funziona segnala aiuto", "bug"},
             {"Di notte", "notte sonno sveglia buio letto insonnia alternativa", "night"},
             {"Aspetto", "tema scuro chiaro testo grande dimensione caratteri colori", "aspetto"},
-            {"Cosa vede Essenziale", "registro notifiche diagnosi", "area:4"},
+            {"Cosa vede minus", "registro notifiche diagnosi", "area:4"},
     };
 
     /** Le voci di Impostazioni che corrispondono, le migliori prima (al massimo max). */

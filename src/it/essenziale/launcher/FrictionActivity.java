@@ -20,16 +20,17 @@ import java.util.Calendar;
 
 /**
  * La pausa prima di aprire un'app. Due livelli (0.10, wireframe 141 e 153):
- * - pausa: 6 secondi e «Ti serve davvero adesso?»;
+ * - pausa: 8 secondi (o 4, 6: Impostazioni › Tempo e uso) e «Ti serve davvero adesso?»;
  * - pausa e scopo: 4 secondi di respiro, «Per cosa ti serve?» e «Per quanto?».
  * «Non ora» pesa quanto «Apri»: è la parte che funziona di più (one sec, PNAS 2023).
  * Di notte le app con la pausa chiedono lo scopo, con tempi brevi e la tua alternativa.
  */
 public class FrictionActivity extends Activity {
 
-    static final int SECONDS = 6, SCOPE_SECONDS = 4;
+    static final int SCOPE_SECONDS = 4;
 
-    private int left = SECONDS;
+    private int seconds = 8, left = 8;
+    private LinearLayout cosaBox;
     private TextView count, openBtn;
     private U.AppInfo app;
     private boolean demo, scope, night, outside;
@@ -62,7 +63,8 @@ public class FrictionActivity extends Activity {
         scope = demo ? in.getBooleanExtra("scope", true) : Scope.level(this, app.pkg) == Scopo.SCOPE;
         int[] mins = night ? Scopo.NIGHT_MIN : Scopo.DAY_MIN;
         minutes = mins.length > 1 ? mins[night ? 0 : 1] : mins[0];
-        left = scope ? SCOPE_SECONDS : SECONDS;
+        seconds = U.pauseSeconds(this); // 0.12: 8 secondi, oppure 4 o 6
+        left = scope ? SCOPE_SECONDS : seconds;
 
         LinearLayout root = U.col(this);
         root.setBackgroundColor(U.DARK);
@@ -96,7 +98,14 @@ public class FrictionActivity extends Activity {
             body.addView(sub);
             LinearLayout left = U.col(this);
             body.addView(left, U.full());
-            TextView q = U.text(this, night ? "Sono le " + when + ". Per cosa apri " + app.label + "?" : "Per cosa ti serve?", 22, U.ON_DARK, true);
+            // 0.12 (172): prima dello scopo, una cosa che puoi fare adesso. Se la fai, l'app non serve
+            boolean cosa = false;
+            if (!night) {
+                cosaBox = U.col(this);
+                left.addView(cosaBox, U.full());
+                cosa = renderCosa();
+            }
+            TextView q = U.text(this, night ? "Sono le " + when + ". Per cosa apri " + app.label + "?" : cosa ? "Se apri, per cosa ti serve?" : "Per cosa ti serve?", cosa ? 18 : 22, U.ON_DARK, true);
             left.addView(q);
             purposeBox = U.col(this);
             left.addView(purposeBox, U.full());
@@ -179,6 +188,21 @@ public class FrictionActivity extends Activity {
         render();
     }
 
+    /** La scheda «una cosa adesso»; false se oggi non c'è niente da proporre. */
+    private boolean renderCosa() {
+        cosaBox.removeAllViews();
+        View card = Adesso.card(this, true, new Runnable() {
+            public void run() { notNow(); }
+        }, new Runnable() {
+            public void run() { renderCosa(); }
+        });
+        if (card == null) return false;
+        LinearLayout.LayoutParams lp = U.full();
+        lp.bottomMargin = U.dp(this, 18);
+        cosaBox.addView(card, lp);
+        return true;
+    }
+
     private boolean isPreset(String p) {
         for (String s : night ? Scopo.NIGHT_PURPOSES : Scopo.DAY_PURPOSES) if (s.equals(p)) return true;
         return false;
@@ -237,7 +261,7 @@ public class FrictionActivity extends Activity {
         Pill.resumed(this);
         // Ogni volta che torno qui la pausa riparte: è il senso dell'attrito
         h.removeCallbacks(tick);
-        left = scope ? SCOPE_SECONDS : SECONDS;
+        left = scope ? SCOPE_SECONDS : seconds;
         render();
         h.postDelayed(tick, 1000);
     }

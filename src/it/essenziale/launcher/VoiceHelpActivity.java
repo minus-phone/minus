@@ -22,9 +22,9 @@ public class VoiceHelpActivity extends BaseActivity {
         block(c, "Impegni", "“Aggiungi [cosa] [giorno] alle [ora]”\n“Sposta [impegno] a [giorno/ora]”\n“Cancella [impegno] di [giorno]”",
                 "Per gli impegni che si ripetono, a voce cambio solo quella volta.");
         block(c, "Task", "“Aggiungi task [cosa] entro [giorno]”\n“Ricordami di [cosa]”\n“Segna fatto [task]”", null);
-        block(c, "App", "“Apri [app]”", "La pausa di 6 secondi resta attiva.");
+        block(c, "App", "“Apri [app]”", "La pausa resta attiva.");
         block(c, "Mappe", "“Portami in [indirizzo]”\n“Cerca [luogo] su Maps”", null);
-        TextView rest = U.text(this, "Tutto il resto: “Chiedi a Gemini”. Si apre fuori da Essenziale.", 15, U.INK, false);
+        TextView rest = U.text(this, "Tutto il resto: “Chiedi a Gemini”. Si apre fuori da minus.", 15, U.INK, false);
         rest.setPadding(0, U.dp(this, 18), 0, U.dp(this, 6));
         c.addView(rest);
         TextView n = U.text(this, "Usa il riconoscimento vocale di Android. Puoi anche scrivere il comando nella barra in basso.", 13, U.MUTED, false);

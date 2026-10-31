@@ -62,7 +62,7 @@ public class SettingsActivity extends BaseActivity {
         int people = Onboarding.alwaysCount(this);
         open("Notifiche", "Persone e gruppi (" + people + (people == 1 ? " passa" : " passano") + " sempre), cosa aspetta in Notifiche", NOTIF);
         open("App", "A portata, pausa prima di aprire, contenitori", APPS);
-        open("Tempo e uso", "Tempo dall'ultimo sblocco, pillola, Di notte, Benessere digitale", TIME);
+        open("Tempo e uso", "Tempo dall'ultimo sblocco, pillola, durata della pausa, sblocchi senza scopo, Di notte", TIME);
         open("Home e giornata", "Aspetto, calendari, sveglia, comandi vocali, schermata di blocco", DAY);
         int todo = Onboarding.missingPermissions(this);
         open("Attivazione", todo == 0 ? "Permessi · tutto attivo" : "Permessi · " + todo + " da completare", SETUP);
@@ -117,6 +117,8 @@ public class SettingsActivity extends BaseActivity {
                 conv = U.rows(U.prefs(this).getString(U.K_RW_APPS, "")).size();
         nav("A portata", "Persone e gruppi, " + SearchActivity.portata(this).size() + " app · cosa vedi appena tocchi la ricerca", to(PortataActivity.class), "›");
         nav("Pausa prima di aprire", U.pausedPkgs(this).size() + " app · " + Scope.scopePkgs(this).size() + " con pausa e scopo", to(PauseActivity.class), "›");
+        prefToggle("Apri subito la tastiera", "Nella ricerca. Spento: vedi prima recenti, app a portata e persone", U.K_KEYBOARD, false,
+                "Tastiera aperta subito nella ricerca", "Tastiera chiusa all'apertura della ricerca");
         // 0.7: i contenitori non sono più in home; restano qui, in prova, per aprire e per modificare
         body.addView(U.label(this, "Contenitori · in prova"));
         Intent sh = to(ListActivity.class); sh.putExtra(ListActivity.EXTRA_MODE, ListActivity.MODE_SHOP);
@@ -135,7 +137,7 @@ public class SettingsActivity extends BaseActivity {
         // 0.9: la pillola sopra le altre app, spenta finché non la accendi
         final boolean pill = Pill.on(this);
         final boolean draw = Pill.canDraw(this), usage = Pill.usageGranted(this);
-        toggle("Sopra le altre app", pill && !draw ? "Manca il permesso qui sotto" : "La pillola «25 min», solo oltre la soglia · mai sopra Essenziale", pill, new Runnable() {
+        toggle("Sopra le altre app", pill && !draw ? "Manca il permesso qui sotto" : "La pillola «25 min», solo oltre la soglia · mai sopra minus", pill, new Runnable() {
             public void run() {
                 Changes.track(SettingsActivity.this, pill ? "Pillola del tempo spenta" : "Pillola del tempo accesa", new String[]{Pill.K_ON},
                         new Runnable() { public void run() { U.prefs(SettingsActivity.this).edit().putBoolean(Pill.K_ON, !pill).commit(); } },
@@ -148,12 +150,15 @@ public class SettingsActivity extends BaseActivity {
         row("Dati di utilizzo", usage ? "Attivo · la pillola dice quale app pesa di più" : "Facoltativo · per dire quale app pesa di più", usage ? "✓" : "Attiva ›", new Runnable() {
             public void run() { Pill.openUsageSettings(SettingsActivity.this); }
         });
+        pauseLength();
+        prefToggle("Sblocchi senza scopo", "Al terzo sblocco in 10 minuti senza aprire niente, la home ti chiede per cosa l'hai preso. Al massimo 3 volte al giorno, mai di notte",
+                Sblocco.K_ON, false, "Domanda sugli sblocchi senza scopo accesa", "Domanda sugli sblocchi senza scopo spenta");
         nav("Di notte", Night.on(this) ? (Night.active(this) ? "Attivo · adesso è notte" : "Attivo") + " · " + Night.alternative(this) : "Spento · se ti svegli, solo l'essenziale", to(NightSettingsActivity.class), "›");
         body.addView(U.label(this, "Benessere digitale"));
-        row("Hai un timer su Essenziale?", "Android conta anche la home: toglilo da lì", "↗", new Runnable() {
+        row("Hai un timer su minus?", "Android conta anche la home: toglilo da lì", "↗", new Runnable() {
             public void run() { Session.openWellbeing(SettingsActivity.this); }
         });
-        note("Essenziale vede quanto tempo passi in ogni app, mai cosa fai dentro. Nessun dato d'uso esce dal telefono.");
+        note("minus vede quanto tempo passi in ogni app, mai cosa fai dentro. Nessun dato d'uso esce dal telefono.");
     }
 
     // ---------- Home e giornata ----------
@@ -170,23 +175,23 @@ public class SettingsActivity extends BaseActivity {
         });
         nav("Comandi vocali", "Cosa puoi dire dalla home", to(VoiceHelpActivity.class), "›");
         final boolean lockOn = U.prefs(this).getBoolean(U.K_LOCK, true);
-        toggle("Schermata di blocco Essenziale", "Ora, prossimi impegni e da fare senza sbloccare", lockOn, new Runnable() {
+        toggle("Schermata di blocco minus", "Ora, prossimi impegni e da fare senza sbloccare", lockOn, new Runnable() {
             public void run() {
-                Changes.track(SettingsActivity.this, lockOn ? "Schermata di blocco Essenziale spenta" : "Schermata di blocco Essenziale attiva", new String[]{U.K_LOCK},
+                Changes.track(SettingsActivity.this, lockOn ? "Schermata di blocco minus spenta" : "Schermata di blocco minus attiva", new String[]{U.K_LOCK},
                         new Runnable() { public void run() { U.prefs(SettingsActivity.this).edit().putBoolean(U.K_LOCK, !lockOn).commit(); } },
                         new Runnable() { public void run() { render(); } });
             }
         });
-        row("App Home predefinita", Onboarding.isDefaultHome(this) ? "Essenziale" : "Non è Essenziale", "↗", new Runnable() {
+        row("App Home predefinita", Onboarding.isDefaultHome(this) ? "minus" : "Non è minus", "↗", new Runnable() {
             public void run() { Onboarding.openHomeSettings(SettingsActivity.this); }
         });
-        note("Cosa compare in home e quando (domani dalle 17, la sveglia dalle 19) non si imposta: è parte di Essenziale.");
+        note("Cosa compare in home e quando (domani dalle 17, la sveglia dalle 19) non si imposta: è parte di minus.");
     }
 
     // ---------- Attivazione ----------
 
     private void setup() {
-        intro("Cosa serve a Essenziale e a cosa. Ogni permesso si può togliere da Android.");
+        intro("Cosa serve a minus e a cosa. Ogni permesso si può togliere da Android.");
         perm("App Home predefinita", null, Onboarding.isDefaultHome(this), new Runnable() {
             public void run() { Onboarding.openHomeSettings(SettingsActivity.this); }
         });
@@ -213,7 +218,7 @@ public class SettingsActivity extends BaseActivity {
         });
         note("Con il silenzio attivo squillano solo le chiamate dei contatti preferiti (stella in rubrica) e le chiamate ripetute.");
 
-        row("Cosa vede Essenziale", "Le ultime notifiche di chat arrivate e dove sono finite", "›", new Runnable() {
+        row("Cosa vede minus", "Le ultime notifiche di chat arrivate e dove sono finite", "›", new Runnable() {
             public void run() { showLog(); }
         });
 
@@ -256,9 +261,9 @@ public class SettingsActivity extends BaseActivity {
             try { t = Long.parseLong(r[0]); } catch (Exception ignored) {}
             b.append(Changes.when(t)).append("  ·  ").append(r[1]).append("\n").append(r[2]).append(" (").append(r[3]).append(") → ").append(r[4]).append("\n\n");
         }
-        if (b.length() == 0) b.append(U.listenerEnabled(this) ? "Ancora nessuna notifica di chat da quando hai aggiornato." : "L'accesso alle notifiche è spento: Essenziale non vede niente.");
+        if (b.length() == 0) b.append(U.listenerEnabled(this) ? "Ancora nessuna notifica di chat da quando hai aggiornato." : "L'accesso alle notifiche è spento: minus non vede niente.");
         b.append("Se una chat non compare qui, la notifica non arriva proprio: è disattivata o silenziata in WhatsApp o Telegram, o nelle impostazioni di Android.");
-        new android.app.AlertDialog.Builder(this).setTitle("Cosa vede Essenziale").setMessage(b.toString()).setPositiveButton("Ok", null).show();
+        new android.app.AlertDialog.Builder(this).setTitle("Cosa vede minus").setMessage(b.toString()).setPositiveButton("Ok", null).show();
     }
 
     /** 0.7: la lista di persone e gruppi (era Conversazioni), aperta da Impostazioni o dalla ricerca. */
@@ -316,6 +321,52 @@ public class SettingsActivity extends BaseActivity {
             r.addView(rt);
         }
         r.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { action.run(); } });
+        body.addView(r, U.full());
+        body.addView(U.divider(this));
+    }
+
+    /** 0.12: interruttore legato a una preferenza, con «Annulla». */
+    private void prefToggle(String title, String sub, final String key, boolean def, final String onMsg, final String offMsg) {
+        final boolean on = U.prefs(this).getBoolean(key, def);
+        toggle(title, sub, on, new Runnable() {
+            public void run() {
+                Changes.track(SettingsActivity.this, on ? offMsg : onMsg, new String[]{key},
+                        new Runnable() { public void run() { U.prefs(SettingsActivity.this).edit().putBoolean(key, !on).commit(); } },
+                        new Runnable() { public void run() { render(); } });
+            }
+        });
+    }
+
+    /** 0.12: durata della pausa, 4, 6 o 8 secondi. */
+    private void pauseLength() {
+        LinearLayout r = U.col(this);
+        r.setPadding(0, U.dp(this, 10), 0, U.dp(this, 12));
+        r.addView(U.text(this, "Durata della pausa", 16, U.INK, false));
+        r.addView(U.text(this, "Prima di aprire un'app con la pausa. Pausa e scopo resta di 4 secondi", 13, U.MUTED, false));
+        final int cur = U.pauseSeconds(this);
+        LinearLayout seg = U.row(this);
+        seg.setBackground(U.box(this, U.SURFACE, U.BORDER, 10));
+        seg.setPadding(U.dp(this, 1), U.dp(this, 1), U.dp(this, 1), U.dp(this, 1));
+        for (final int sec : new int[]{4, 6, 8}) {
+            boolean sel = sec == cur;
+            TextView t = U.text(this, sec + " secondi", 13, sel ? U.BG : U.INK, false);
+            t.setGravity(Gravity.CENTER);
+            t.setMinHeight(U.dp(this, 44));
+            if (sel) t.setBackground(U.box(this, U.INK, 0, 9));
+            t.setContentDescription("Pausa di " + sec + " secondi" + (sel ? ", scelta" : ""));
+            t.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    if (sec == cur) return;
+                    Changes.track(SettingsActivity.this, "Pausa di " + sec + " secondi", new String[]{U.K_PAUSE_SEC},
+                            new Runnable() { public void run() { U.prefs(SettingsActivity.this).edit().putInt(U.K_PAUSE_SEC, sec).commit(); } },
+                            new Runnable() { public void run() { render(); } });
+                }
+            });
+            seg.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        }
+        LinearLayout.LayoutParams lp = U.full();
+        lp.topMargin = U.dp(this, 8);
+        r.addView(seg, lp);
         body.addView(r, U.full());
         body.addView(U.divider(this));
     }

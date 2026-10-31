@@ -106,7 +106,7 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
             list.addView(hint, U.full());
         }
         if (!U.listenerEnabled(this)) {
-            TextView w = U.text(this, "Il filtro notifiche non è attivo: aprilo da Impostazioni (⋯ in home).", 14, U.MUTED, false);
+            TextView w = U.text(this, "Il filtro notifiche non è attivo: aprilo da Impostazioni, in alto a sinistra nella ricerca.", 14, U.MUTED, false);
             w.setPadding(0, U.dp(this, 16), 0, 0);
             list.addView(w, U.full());
         }

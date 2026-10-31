@@ -210,7 +210,7 @@ public class PeopleActivity extends BaseActivity {
         for (Rules.Person p : book) if (!chosen.containsKey(key(p.name))) all.add(p);
         if (book.isEmpty()) {
             TextView t = U.text(this, checkSelfPermission(android.Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
-                    ? "La rubrica è vuota." : "Tocca qui per permettere a Essenziale di leggere la rubrica.", 15, U.INK, false);
+                    ? "La rubrica è vuota." : "Tocca qui per permettere a minus di leggere la rubrica.", 15, U.INK, false);
             t.setPadding(0, U.dp(this, 10), 0, U.dp(this, 10));
             t.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) { requestPermissions(new String[]{android.Manifest.permission.READ_CONTACTS}, REQ_CONTACTS); }

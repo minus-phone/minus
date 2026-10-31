@@ -34,6 +34,7 @@ import java.util.Set;
 /**
  * La ricerca (0.7): un solo accesso a persone, gruppi, app, impegni, azioni e impostazioni.
  * I risultati sono appoggiati in basso: il gruppo più importante sta vicino al campo e al pollice.
+ * 0.12: tastiera chiusa all'apertura, Impostazioni in alto a sinistra, ✕ in alto a destra.
  */
 public class SearchActivity extends BaseActivity {
 
@@ -60,11 +61,23 @@ public class SearchActivity extends BaseActivity {
         LinearLayout root = U.col(this);
         root.setBackgroundColor(U.BG);
         root.setPadding(U.dp(this, 20), U.dp(this, 12), U.dp(this, 20), U.dp(this, 10));
-        TextView back = U.text(this, "‹  Home", 16, U.INK, false);
-        back.setMinHeight(U.dp(this, 44));
-        back.setGravity(Gravity.CENTER_VERTICAL);
-        back.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { finish(); } });
-        root.addView(back);
+        // 0.12: in alto a sinistra le Impostazioni (tolte dalla home), a destra ✕ per tornare alla home
+        LinearLayout top = U.row(this);
+        TextView set = U.text(this, "Impostazioni", 15, U.INK, false);
+        set.setMinHeight(U.dp(this, 44));
+        set.setGravity(Gravity.CENTER_VERTICAL);
+        set.setPadding(0, 0, U.dp(this, 12), 0);
+        set.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { startActivity(new Intent(SearchActivity.this, SettingsActivity.class).putExtra("back", "Ricerca")); }
+        });
+        top.addView(set);
+        top.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
+        TextView close = U.text(this, "✕", 18, U.INK, false);
+        close.setGravity(Gravity.CENTER);
+        close.setContentDescription("Chiudi la ricerca");
+        close.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { finish(); } });
+        top.addView(close, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
+        root.addView(top, U.full());
 
         scroll = new ScrollView(this);
         scroll.setFillViewport(true);
@@ -78,7 +91,7 @@ public class SearchActivity extends BaseActivity {
         field.setBackground(U.box(this, U.SURFACE, U.INK, 26));
         field.setPadding(U.dp(this, 16), U.dp(this, 2), U.dp(this, 6), U.dp(this, 2));
         query = new EditText(this);
-        query.setHint("Cerca o chiedi");
+        query.setHint("Cerca persone, app o chiedi");
         query.setHintTextColor(U.MUTED);
         query.setTextColor(U.INK);
         query.setTextSize(16);
@@ -99,6 +112,10 @@ public class SearchActivity extends BaseActivity {
         LinearLayout.LayoutParams flp = U.full();
         flp.topMargin = U.dp(this, 8);
         root.addView(field, flp);
+        TextView hint = U.text(this, "Le altre app si aprono scrivendone il nome.", 12, U.MUTED, false);
+        hint.setGravity(Gravity.CENTER);
+        hint.setPadding(0, U.dp(this, 6), 0, 0);
+        root.addView(hint, U.full());
         setContentView(root);
 
         query.addTextChangedListener(new TextWatcher() {
@@ -109,7 +126,15 @@ public class SearchActivity extends BaseActivity {
         query.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             public boolean onEditorAction(TextView v, int id, KeyEvent e) { if (best != null) best.run(); return true; }
         });
-        query.requestFocus();
+        // 0.12: la tastiera resta chiusa (si vedono recenti, app e persone); si apre toccando il campo.
+        // Impostazioni › App › «Apri subito la tastiera» la riporta come prima
+        if (U.prefs(this).getBoolean(U.K_KEYBOARD, false)) {
+            query.requestFocus();
+            getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE | android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        } else {
+            root.setFocusableInTouchMode(true);
+            root.requestFocus();
+        }
         if (getIntent().getBooleanExtra("voice", false)) voice();
     }
 
@@ -143,14 +168,14 @@ public class SearchActivity extends BaseActivity {
                 if (r.length < 3 || ("app".equals(r[0]) && paused.contains(r[1]))) continue;
                 chips.addView(chip(r[2], new Runnable() { public void run() { openRecent(r); } }), chipLp());
             }
-            if (chips.getChildCount() > 0) { blocks.add(U.label(this, "Recenti")); blocks.add(scrollOf(chips)); }
+            if (chips.getChildCount() > 0) { blocks.add(U.label(this, "Cercate di recente")); blocks.add(scrollOf(chips)); }
         }
         LinearLayout appChips = hrow();
         for (final String[] a : portata(this)) {
             final boolean pz = paused.contains(a[0]);
-            appChips.addView(chip(a[1] + (pz ? " · pausa" : ""), new Runnable() { public void run() { openApp(a[0], a[1]); } }), chipLp());
+            appChips.addView(chip(a[1] + (pz ? " · pausa" : ""), new Runnable() { public void run() { tapped = true; openApp(a[0], a[1]); } }), chipLp());
         }
-        if (appChips.getChildCount() > 0) { blocks.add(U.label(this, "App")); blocks.add(scrollOf(appChips)); }
+        if (appChips.getChildCount() > 0) { blocks.add(U.label(this, "App a portata")); blocks.add(scrollOf(appChips)); }
 
         // Persone e gruppi: sopra le conversazioni attive (le 3 più recenti), sotto chi passa sempre, fisso
         final List<String[]> fixed = fixedPeople(this);
@@ -305,7 +330,7 @@ public class SearchActivity extends BaseActivity {
             Set<String> paused = U.pausedPkgs(this);
             for (int i = 0; i < appHits.size() && i < 4; i++) {
                 final U.AppInfo a = appHits.get(i);
-                g.add(row(a.label, paused.contains(a.pkg) ? "si apre dopo 6 secondi" : null, "›", "◻", new Runnable() { public void run() { openApp(a.pkg, a.label); } }));
+                g.add(row(a.label, paused.contains(a.pkg) ? "si apre dopo " + U.pauseSeconds(this) + " secondi" : null, "›", "◻", new Runnable() { public void run() { openApp(a.pkg, a.label); } }));
             }
             groups.add(g); titles.add("App");
             final U.AppInfo a0 = appHits.get(0);
@@ -339,12 +364,12 @@ public class SearchActivity extends BaseActivity {
             }
         }));
         if (anything) { groups.add(act); titles.add("Azioni"); }
-        // Impostazioni di Essenziale
+        // Impostazioni di minus
         List<String[]> st = Cerca.settings(q, 3);
         if (!st.isEmpty()) {
             List<View> g = new ArrayList<View>();
             for (final String[] e : st) g.add(row(e[0], "Impostazioni", "›", null, new Runnable() { public void run() { openSetting(e[2]); } }));
-            groups.add(g); titles.add("Impostazioni di Essenziale");
+            groups.add(g); titles.add("Impostazioni di minus");
             anything = true;
         }
         // Chiedi, sempre per ultimo (lontano dal campo)
@@ -560,7 +585,7 @@ public class SearchActivity extends BaseActivity {
         if (!ok && !h.group) ok = U.openChatFromContacts(this, h.name, h.code);
         if (!ok) {
             ok = U.launchPkg(this, U.chatPkg(this, h.code));
-            if (ok && h.group) U.toast(this, "Cerca «" + h.name + "» nell'app: Essenziale apre il gruppo direttamente dal prossimo messaggio");
+            if (ok && h.group) U.toast(this, "Cerca «" + h.name + "» nell'app: minus apre il gruppo direttamente dal prossimo messaggio");
         }
         if (ok) { Convs.open(this, h.code, h.name, h.group); remember("person", h.name, h.name); }
         else U.toast(this, "Non riesco ad aprire questa conversazione");
@@ -607,7 +632,17 @@ public class SearchActivity extends BaseActivity {
         if (apps == null) apps = U.sortedApps(this);
         for (U.AppInfo x : apps) if (x.pkg.equals(pkg)) { a = x; break; }
         if (a == null) { U.toast(this, label + " non è installata"); return; }
-        if (U.open(this, a)) remember("app", a.pkg, a.label);
+        if (U.open(this, a)) { remember("app", a.pkg, a.label); logOpen(tapped); }
+        tapped = false;
+    }
+
+    /** 0.12: registro locale, solo conteggi: app aperte con un tocco «a portata» o scrivendone il nome. */
+    static final String K_OPEN_TAP = "open_tap", K_OPEN_TYPED = "open_typed";
+    private boolean tapped;
+
+    private void logOpen(boolean tap) {
+        String k = tap ? K_OPEN_TAP : K_OPEN_TYPED;
+        U.prefs(this).edit().putInt(k, U.prefs(this).getInt(k, 0) + 1).apply();
     }
 
     private void openRecent(String[] r) {

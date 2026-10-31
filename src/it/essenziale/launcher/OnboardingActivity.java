@@ -285,7 +285,7 @@ public class OnboardingActivity extends BaseActivity {
         View top = new View(this);
         body.addView(top, new LinearLayout.LayoutParams(1, U.dp(this, 12)));
         title("Cosa ti interessa?");
-        sub("Essenziale diventa la tua home e fa passare solo chi conta. Scegli cosa vuoi in più: ti mostriamo solo i passi che servono.");
+        sub("minus diventa la tua home e fa passare solo chi conta. Scegli cosa vuoi in più: ti mostriamo solo i passi che servono.");
         for (int i = 0; i < INTERESTS.length; i++) {
             final int k = i;
             final boolean on = interested(i);
@@ -323,15 +323,15 @@ public class OnboardingActivity extends BaseActivity {
     // ---------- 3. Home ----------
 
     private void home() {
-        title("Essenziale come home");
+        title("minus come home");
         sub("In home trovi solo la giornata. Persone, app e impostazioni sono nella ricerca in basso.");
         boolean ok = Onboarding.isDefaultHome(this);
         box(new String[]{"Le app non vengono cancellate", "Torni indietro quando vuoi, da Impostazioni › App predefinite", "Nessun dato esce dal telefono"}, "✓");
         if (ok) {
-            body.addView(U.text(this, "✓ Essenziale è la tua home.", 15, U.INK, true));
+            body.addView(U.text(this, "✓ minus è la tua home.", 15, U.INK, true));
             primary("Avanti", new Runnable() { public void run() { next(); } });
         } else {
-            note("Dopo il tocco Android chiede quale app Home usare: scegli Essenziale e «Sempre».");
+            note("Dopo il tocco Android chiede quale app Home usare: scegli minus e «Sempre».");
             primary("Imposta come home", new Runnable() { public void run() { Onboarding.openHomeSettings(OnboardingActivity.this); } });
         }
     }
@@ -530,7 +530,7 @@ public class OnboardingActivity extends BaseActivity {
         if (restricted && !on) { restrictedGuide(); return; }
         if (askedNotif && !on) { notifDenied(); return; }
         title("Notifiche: passa solo chi conta");
-        sub("Essenziale legge le notifiche per decidere quali mostrarti subito. Non le invia a nessuno.");
+        sub("minus legge le notifiche per decidere quali mostrarti subito. Non le invia a nessuno.");
         LinearLayout c = U.col(this);
         c.setPadding(U.dp(this, 16), U.dp(this, 12), U.dp(this, 16), U.dp(this, 12));
         c.setBackground(U.box(this, U.SURFACE, U.LINE, 14));
@@ -553,7 +553,7 @@ public class OnboardingActivity extends BaseActivity {
             primary("Avanti", new Runnable() { public void run() { next(); } });
             return;
         }
-        note("Si apre Android: attiva Essenziale e torna con Indietro. Per far passare sempre un gruppo: tienilo premuto in Notifiche.");
+        note("Si apre Android: attiva minus e torna con Indietro. Per far passare sempre un gruppo: tienilo premuto in Notifiche.");
         primary("Consenti l'accesso alle notifiche", new Runnable() {
             public void run() { askedNotif = true; Onboarding.openListenerSettings(OnboardingActivity.this); }
         });
@@ -561,7 +561,7 @@ public class OnboardingActivity extends BaseActivity {
 
     private void notifDenied() {
         title("Va bene, senza filtro per ora");
-        sub("Essenziale funziona lo stesso: home, giornata, ricerca, pausa. Senza questo permesso manca:");
+        sub("minus funziona lo stesso: home, giornata, ricerca, pausa. Senza questo permesso manca:");
         box(new String[]{"Notifiche divise in Per te e Altro", "Persone e gruppi che passano con il silenzio", "Conversazioni aperte e attive nella ricerca"}, "–");
         if (Build.VERSION.SDK_INT >= 33) {
             TextView r = U.text(this, "Android dice «Impostazione con restrizioni»? ›", 15, U.INK, false);
@@ -628,7 +628,7 @@ public class OnboardingActivity extends BaseActivity {
                 }
             });
         } else {
-            note("Si apre Android: consenti l'accesso a «Non disturbare» per Essenziale e torna con Indietro.");
+            note("Si apre Android: consenti l'accesso a «Non disturbare» per minus e torna con Indietro.");
             primary("Consenti «Non disturbare»", new Runnable() { public void run() { Onboarding.openPolicySettings(OnboardingActivity.this); } });
         }
     }
@@ -637,7 +637,7 @@ public class OnboardingActivity extends BaseActivity {
 
     private void day() {
         title("La tua giornata in home");
-        sub("Essenziale mostra e modifica gli impegni del calendario di Android. La sincronizzazione resta al tuo account.");
+        sub("minus mostra e modifica gli impegni del calendario di Android. La sincronizzazione resta al tuo account.");
         if (!U.canWriteCalendar(this) && !askedCal) {
             askedCal = true;
             requestPermissions(new String[]{android.Manifest.permission.READ_CALENDAR, android.Manifest.permission.WRITE_CALENDAR}, 4);
@@ -841,12 +841,12 @@ public class OnboardingActivity extends BaseActivity {
         sub("Servono due permessi di Android. Il secondo è facoltativo.");
         boolean draw = Pill.canDraw(this), usage = Pill.usageGranted(this);
         box(new String[]{(draw ? "✓ " : "1  ") + "Mostra sopra altre app · per la pillola",
-                (usage ? "✓ " : "2  ") + "Dati di utilizzo · per dire quale app pesa di più. Essenziale vede quanto tempo, mai cosa fai dentro"}, "");
+                (usage ? "✓ " : "2  ") + "Dati di utilizzo · per dire quale app pesa di più. minus vede quanto tempo, mai cosa fai dentro"}, "");
         LinearLayout dw = U.col(this);
         dw.setPadding(U.dp(this, 16), U.dp(this, 12), U.dp(this, 16), U.dp(this, 12));
         dw.setBackground(U.box(this, U.SURFACE, U.LINE, 14));
         dw.addView(U.text(this, "Usi i timer di Benessere digitale?", 14, U.INK, true));
-        dw.addView(U.text(this, "Android conta anche Essenziale, perché è la home. Se ci hai messo un timer, toglilo.", 13, U.MUTED, false));
+        dw.addView(U.text(this, "Android conta anche minus, perché è la home. Se ci hai messo un timer, toglilo.", 13, U.MUTED, false));
         TextView open = U.text(this, "Apri Benessere digitale ›", 14, U.INK, false);
         open.setMinHeight(U.dp(this, 44));
         open.setGravity(Gravity.CENTER_VERTICAL);
@@ -854,7 +854,7 @@ public class OnboardingActivity extends BaseActivity {
         dw.addView(open);
         body.addView(dw, U.full());
         if (!draw) {
-            note("Si apre Android: attiva Essenziale e torna con Indietro. Senza: niente pillola, resta la riga in home.");
+            note("Si apre Android: attiva minus e torna con Indietro. Senza: niente pillola, resta la riga in home.");
             primary("Consenti «Mostra sopra altre app»", new Runnable() { public void run() { Pill.openOverlaySettings(OnboardingActivity.this); } });
         } else if (!usage) {
             TextView skip = U.text(this, "Va bene solo il totale ›", 15, U.INK, false);
@@ -862,7 +862,7 @@ public class OnboardingActivity extends BaseActivity {
             skip.setGravity(Gravity.CENTER_VERTICAL);
             skip.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { done("pausa"); } });
             body.addView(skip, U.full());
-            note("Si apre Android: trova Essenziale in «Accesso ai dati di utilizzo» e torna con Indietro.");
+            note("Si apre Android: trova minus in «Accesso ai dati di utilizzo» e torna con Indietro.");
             primary("Consenti dati di utilizzo · facoltativo", new Runnable() { public void run() { Pill.openUsageSettings(OnboardingActivity.this); } });
         } else {
             body.addView(U.text(this, "✓ Pronta: la vedrai sopra le app, oltre la soglia.", 15, U.INK, true));
@@ -874,7 +874,7 @@ public class OnboardingActivity extends BaseActivity {
 
     private void aspetto() {
         title("Com'è la tua home?");
-        sub("Essenziale sostituisce la home: falla tua. L'anteprima cambia mentre scegli.");
+        sub("minus sostituisce la home: falla tua. L'anteprima cambia mentre scegli.");
         body.addView(Aspetto.preview(this), U.full());
         Aspetto.controls(this, body, false, new Runnable() {
             public void run() {
@@ -895,7 +895,7 @@ public class OnboardingActivity extends BaseActivity {
 
     private void night() {
         title("Di notte");
-        sub("Se ti svegli e prendi il telefono, Essenziale ti mostra solo l'essenziale. Non misura il sonno.");
+        sub("Se ti svegli e prendi il telefono, minus ti mostra solo l'essenziale. Non misura il sonno.");
         caption("La tua alternativa");
         nightAlt = new EditText(this);
         nightAlt.setText(Night.alternative(this));
@@ -931,9 +931,9 @@ public class OnboardingActivity extends BaseActivity {
         View top = new View(this);
         body.addView(top, new LinearLayout.LayoutParams(1, U.dp(this, 12)));
         title("Pronto");
-        sub("Ecco com'è impostato Essenziale. Tutto si cambia da Impostazioni, o scrivendolo nella ricerca.");
+        sub("Ecco com'è impostato minus. Tutto si cambia da Impostazioni: le trovi in alto a sinistra nella ricerca, o tenendo premuto su uno spazio vuoto della home.");
         List<String> ok = new ArrayList<String>();
-        if (Onboarding.isDefaultHome(this)) ok.add("Home: Essenziale");
+        if (Onboarding.isDefaultHome(this)) ok.add("Home: minus");
         int p = Onboarding.alwaysCount(this);
         if (p > 0) ok.add(p + (p == 1 ? " persona passa sempre" : " persone passano sempre"));
         if (U.listenerEnabled(this)) ok.add("Filtro notifiche attivo");
@@ -947,7 +947,7 @@ public class OnboardingActivity extends BaseActivity {
         int sc = Scope.scopePkgs(this).size();
         if (sc > 0) ok.add("Pausa e scopo su " + sc + (sc == 1 ? " app" : " app"));
         if (Night.on(this)) ok.add("Di notte: prova di una settimana");
-        if (ok.isEmpty()) ok.add("Essenziale funziona già: home, giornata, ricerca");
+        if (ok.isEmpty()) ok.add("minus funziona già: home, giornata, ricerca");
         box(ok.toArray(new String[0]), "✓");
         List<String> todo = new ArrayList<String>();
         if (!Onboarding.isDefaultHome(this)) todo.add("App Home predefinita");

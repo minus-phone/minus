@@ -85,7 +85,7 @@ public class ContainerActivity extends BaseActivity {
         }
         intro.setText(tab == TAB_WAITING
                 ? "Le notifiche di queste app vanno In attesa e vengono contate. Quelle di tutte le altre finiscono in Altro."
-                : "Scegli dalle app installate. Con la pausa, l'app si apre dopo 6 secondi.");
+                : "Scegli dalle app installate. Con la pausa, l'app si apre dopo " + U.pauseSeconds(this) + " secondi.");
         renderList();
     }
 
@@ -197,7 +197,7 @@ public class ContainerActivity extends BaseActivity {
                 pz.setGravity(Gravity.CENTER);
                 pz.setPadding(U.dp(this, 10), 0, U.dp(this, 10), 0);
                 pz.setMinHeight(U.dp(this, 44));
-                pz.setContentDescription(p ? "Pausa attiva, tocca per toglierla" : "Aggiungi la pausa di 6 secondi");
+                pz.setContentDescription(p ? "Pausa attiva, tocca per toglierla" : "Aggiungi la pausa");
                 pz.setBackground(p ? U.box(this, U.INK, 0, 17) : U.box(this, U.BG, U.LINE, 17));
                 pz.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {

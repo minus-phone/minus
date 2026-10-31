@@ -351,7 +351,9 @@ public final class U {
         i.addCategory(Intent.CATEGORY_LAUNCHER);
         i.setComponent(new ComponentName(a.pkg, a.cls));
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
-        return start(c, i);
+        boolean ok = start(c, i);
+        if (ok) launched(c, a.pkg);
+        return ok;
     }
 
     public static final String[] SOCIAL_PKGS = {"com.instagram.android", "com.zhiliaoapp.musically", "com.ss.android.ugc.trill",
@@ -386,7 +388,7 @@ public final class U {
         if (on) s.add(pkg); else s.remove(pkg);
         List<String> l = new ArrayList<String>(s);
         java.util.Collections.sort(l);
-        prefs(c).edit().putString(K_PAUSE, "# pacchetti con la pausa di 6 secondi\n" + lines(l)).apply();
+        prefs(c).edit().putString(K_PAUSE, "# pacchetti con la pausa\n" + lines(l)).apply();
     }
 
     public static boolean isPaused(Context c, String pkg) { return pausedPkgs(c).contains(pkg); }
@@ -494,7 +496,9 @@ public final class U {
         Intent i = c.getPackageManager().getLaunchIntentForPackage(pkg);
         if (i == null) return false;
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        return start(c, i);
+        boolean ok = start(c, i);
+        if (ok) launched(c, pkg);
+        return ok;
     }
 
     public static boolean installed(Context c, String pkg) {
@@ -569,11 +573,63 @@ public final class U {
 
     /** Nasconde la barra di navigazione di Android (riappare scorrendo dal bordo). */
     public static void immersive(Activity a) {
+        // le schermate con campi di testo (adjustResize) tengono la barra di stato: con lo schermo
+        // intero Android non ridimensiona la pagina e la tastiera coprirebbe il campo
+        int adj = a.getWindow().getAttributes().softInputMode & android.view.WindowManager.LayoutParams.SOFT_INPUT_MASK_ADJUST;
+        boolean full = fullscreen(a) && adj != android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
         a.getWindow().getDecorView().setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                        | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | (full ? View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_IMMERSIVE : View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
+                        | (full ? 0 : View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
                         | (dark ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR));
+    }
+
+    // ---------- 0.12: schermo intero, pausa, aperture ----------
+
+    public static final String K_FULL = "fullscreen", K_PAUSE_SEC = "pause_seconds", K_LAST_LAUNCH = "last_launch",
+            K_LAST_LAUNCH_PKG = "last_launch_pkg", K_KEYBOARD = "search_keyboard";
+
+    /**
+     * Schermo intero: barre nascoste; uno scorrimento dal bordo le fa tornare e fanno spazio
+     * (modalità IMMERSIVE, non STICKY), poi si rinascondono dopo 3 secondi e al ritorno in home.
+     * Chi aggiorna dalla 0.11 lo trova acceso; al primo avvio è spento.
+     */
+    public static boolean fullscreen(Context c) {
+        SharedPreferences p = prefs(c);
+        if (!p.contains(K_FULL)) p.edit().putBoolean(K_FULL, !Onboarding.firstRun(c)).apply();
+        return p.getBoolean(K_FULL, false);
+    }
+
+    /** Le barre tornate con lo scorrimento si rinascondono dopo 3 secondi. */
+    public static void autoHideBars(final Activity a) {
+        final View d = a.getWindow().getDecorView();
+        d.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
+            public void onSystemUiVisibilityChange(int vis) {
+                if (!fullscreen(a)) return;
+                if ((vis & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
+                    d.removeCallbacks(rehide(a));
+                    d.postDelayed(rehide(a), 3000);
+                }
+            }
+        });
+    }
+
+    private static final java.util.WeakHashMap<Activity, Runnable> REHIDE = new java.util.WeakHashMap<Activity, Runnable>();
+
+    private static Runnable rehide(final Activity a) {
+        Runnable r = REHIDE.get(a);
+        if (r == null) {
+            r = new Runnable() { public void run() { if (!a.isFinishing()) immersive(a); } };
+            REHIDE.put(a, r);
+        }
+        return r;
+    }
+
+    public static int pauseSeconds(Context c) { return Cosa.pauseSeconds(prefs(c).getInt(K_PAUSE_SEC, 8)); }
+
+    /** Un'app aperta da minus: serve a capire gli sblocchi «senza aprire niente». */
+    public static void launched(Context c, String pkg) {
+        prefs(c).edit().putLong(K_LAST_LAUNCH, System.currentTimeMillis()).putString(K_LAST_LAUNCH_PKG, pkg).apply();
     }
 
     /** Casella del task, disegnata a mano: vuota o piena con spunta. */

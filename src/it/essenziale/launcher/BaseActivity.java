@@ -20,12 +20,13 @@ public class BaseActivity extends Activity {
         getWindow().setStatusBarColor(U.BG);
         getWindow().setNavigationBarColor(U.BG);
         U.immersive(this);
+        U.autoHideBars(this); // 0.12: con lo schermo intero le barre tornano solo per 3 secondi
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        Pill.resumed(this); // 0.9: mai sopra Essenziale
+        Pill.resumed(this); // 0.9: mai sopra minus
         U.applyTheme(this);
         if (stamp != U.themeStamp) { recreate(); return; } // il tema è cambiato altrove
         U.immersive(this);

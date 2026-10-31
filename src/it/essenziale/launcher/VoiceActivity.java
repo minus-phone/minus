@@ -230,7 +230,7 @@ public class VoiceActivity extends BaseActivity {
         boolean paused = U.isPaused(this, a.pkg);
         head("APP", "Apri app");
         line("App", a.label);
-        line("Pausa", paused ? "6 secondi prima di aprire" : "nessuna");
+        line("Pausa", paused ? U.pauseSeconds(this) + " secondi prima di aprire" : "nessuna");
         if (paused) hint("La pausa vale anche per i comandi vocali.");
         cta("Apri", new Runnable() { public void run() { U.open(VoiceActivity.this, a); finish(); } });
     }
@@ -403,9 +403,9 @@ public class VoiceActivity extends BaseActivity {
 
     private void ask() {
         final String q = cmd.text == null ? cmd.raw : cmd.text;
-        head("?", "Non è un comando di Essenziale");
+        head("?", "Non è un comando di minus");
         line("Puoi", "Chiederlo a Gemini");
-        hint("Si apre fuori da Essenziale.");
+        hint("Si apre fuori da minus.");
         cta("Chiedi a Gemini", new Runnable() { public void run() { gemini(VoiceActivity.this, q); finish(); } });
     }
 

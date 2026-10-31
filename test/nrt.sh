@@ -19,7 +19,7 @@ check "Stessa firma della v0.2 (si installa sopra senza disinstallare)" \
   "[ \"\$(apksigner verify --print-certs build/Essenziale.apk | grep SHA-256)\" = \"\$(apksigner verify --print-certs $OLD_APK | grep SHA-256)\" ]"
 B=$(aapt dump badging build/Essenziale.apk 2>/dev/null)
 check "Stesso pacchetto it.essenziale.launcher" "echo \"\$B\" | grep -q \"package: name='it.essenziale.launcher'\""
-check "versionCode 19 > 18 (aggiornamento accettato da Android)" "echo \"\$B\" | grep -q \"versionCode='19'\""
+check "versionCode 20 > 19 (aggiornamento accettato da Android)" "echo \"\$B\" | grep -q \"versionCode='20'\""
 check "minSdk 23 invariato" "echo \"\$B\" | grep -q \"sdkVersion:'23'\""
 
 echo -e "\n## F. Manifest: nulla di v0.2 è sparito" >> "$REPORT"
@@ -119,8 +119,18 @@ check "0.11: A portata in una schermata con ricerca, anche nelle impostazioni" "
 check "0.11: i social si possono scegliere, con nota e senza popup" "grep -q 'è un social' $S/PortataPicker.java && ! grep -q 'AlertDialog' $S/PortataPicker.java"
 check "0.11: tempo dall'ultimo sblocco in home come pillola, area di tocco 48 dp" "grep -q 'Pill.homeText' $H && grep -q 'setMinimumHeight(U.dp(this, 48))' $H"
 
+echo -e "\n## M. Novità della 0.12" >> "$REPORT"
+check "0.12: nome visibile «minus», pacchetto invariato" "grep -q 'android:label=\"minus\"' $M && grep -q 'package=\"it.essenziale.launcher\"' $M"
+check "0.12: niente ⋯ in home, impostazioni nella ricerca e con pressione lunga" "! grep -q '\"⋯\", 22' $H && grep -q 'SettingsActivity.class' $S/SearchActivity.java && grep -q 'setOnLongClickListener(settings)' $H"
+check "0.12: la ricerca si apre con la tastiera chiusa, salvo «Apri subito la tastiera»" "grep -q 'SearchActivity.*' $M && ! grep -A2 '\.SearchActivity' $M | grep -q stateVisible && grep -q 'U.K_KEYBOARD' $S/SearchActivity.java"
+check "0.12: pausa di 8 secondi regolabile 4/6/8" "grep -q 'U.pauseSeconds' $S/FrictionActivity.java && grep -q 'pauseLength' $S/SettingsActivity.java"
+check "0.12: una cosa adesso nella pausa e scopo, mai di notte" "grep -q 'Adesso.card' $S/FrictionActivity.java && grep -q 'if (!night)' $S/FrictionActivity.java"
+check "0.12: sblocchi senza scopo spenti di default" "grep -q 'getBoolean(K_ON, false)' $S/Sblocco.java && grep -q 'Sblocco.unlocked' $S/FilterService.java"
+check "0.12: schermo intero con barre che tornano e si rinascondono" "grep -q 'SYSTEM_UI_FLAG_FULLSCREEN' $S/U.java && grep -q 'autoHideBars' $S/BaseActivity.java && grep -q 'refreshDate' $H"
+check "0.12: nessun «6 secondi» rimasto nei testi" "! grep -n '\"[^\"]*6 secondi' $S/*.java | grep -v Changes.java"
+
 echo -e "\n## A–D. Test automatici della logica" >> "$REPORT"
-javac -nowarn --release 8 -encoding UTF-8 -d "$OUT/classes" src/it/essenziale/launcher/{Rules,Rec,VoiceParser,Quando,Cerca,Tempo,Scopo,Notte}.java test/it/essenziale/launcher/*.java 2>&1 | grep -v JAVA_TOOL
+javac -nowarn --release 8 -encoding UTF-8 -d "$OUT/classes" src/it/essenziale/launcher/{Rules,Rec,VoiceParser,Quando,Cerca,Tempo,Scopo,Notte,Cosa}.java test/it/essenziale/launcher/*.java 2>&1 | grep -v JAVA_TOOL
 if java -Dfile.encoding=UTF-8 -cp "$OUT/classes" it.essenziale.launcher.NrtTest "$OUT/nrt-logica.md" 2>&1 | grep -v JAVA_TOOL > "$OUT/logica.log"; then
   ok "Test della logica: $(tail -1 $OUT/logica.log)"
 else

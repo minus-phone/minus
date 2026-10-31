@@ -16,7 +16,7 @@ public class SessionActivity extends BaseActivity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         LinearLayout root = U.screen(this, "Tempo dall'ultimo sblocco");
-        TextView intro = U.text(this, "Quando il telefono resta acceso a lungo senza pause, Essenziale te lo fa notare. Non conta il tempo per app, ma la sessione intera.", 14, U.MUTED, false);
+        TextView intro = U.text(this, "Quando il telefono resta acceso a lungo senza pause, minus te lo fa notare. Non conta il tempo per app, ma la sessione intera.", 14, U.MUTED, false);
         intro.setPadding(0, U.dp(this, 4), 0, U.dp(this, 6));
         root.addView(intro);
         body = U.col(this);
@@ -77,7 +77,7 @@ public class SessionActivity extends BaseActivity {
             public void onClick(View v) { Session.openWellbeing(SessionActivity.this); }
         });
         body.addView(dw, U.full());
-        TextView dn = U.text(this, "Conta il tempo per app, anche la home come se fosse Essenziale. Essenziale non può spegnerla: si disattiva da Benessere digitale.", 13, U.MUTED, false);
+        TextView dn = U.text(this, "Conta il tempo per app, anche la home come se fosse minus. minus non può spegnerla: si disattiva da Benessere digitale.", 13, U.MUTED, false);
         body.addView(dn);
     }
 
