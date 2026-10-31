@@ -63,7 +63,7 @@ public final class Cerca {
             {"Segnala un problema", "bug problema errore non funziona segnala aiuto", "bug"},
             {"Di notte", "notte sonno sveglia buio letto insonnia alternativa", "night"},
             {"Aspetto", "tema scuro chiaro testo grande dimensione caratteri colori", "aspetto"},
-            {"Cosa vede minus", "registro notifiche diagnosi", "area:4"},
+            {"Cosa vede −minus", "registro notifiche diagnosi", "area:4"},
     };
 
     /** Le voci di Impostazioni che corrispondono, le migliori prima (al massimo max). */

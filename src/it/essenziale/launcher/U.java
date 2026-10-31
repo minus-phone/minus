@@ -95,7 +95,7 @@ public final class U {
 
     public static TextView text(Context c, String s, float sp, int color, boolean bold) {
         TextView t = new TextView(c);
-        t.setText(s);
+        t.setText(brand(s));
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp * textScale);
         t.setTextColor(color);
         if (bold) t.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
@@ -523,7 +523,21 @@ public final class U {
     }
 
     public static void toast(Context c, String s) {
-        Toast.makeText(c, s, Toast.LENGTH_SHORT).show();
+        Toast.makeText(c, brand(s), Toast.LENGTH_SHORT).show();
+    }
+
+    /** 0.12: il nome si scrive sempre «−minus», in corsivo. */
+    public static final String NAME = "\u2212minus";
+
+    public static CharSequence brand(String s) {
+        if (s == null || !s.contains(NAME)) return s;
+        android.text.SpannableString sp = new android.text.SpannableString(s);
+        int i = s.indexOf(NAME);
+        while (i >= 0) {
+            sp.setSpan(new android.text.style.StyleSpan(Typeface.ITALIC), i, i + NAME.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            i = s.indexOf(NAME, i + NAME.length());
+        }
+        return sp;
     }
 
     public static boolean listenerEnabled(Context c) {

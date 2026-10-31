@@ -137,7 +137,7 @@ public class SettingsActivity extends BaseActivity {
         // 0.9: la pillola sopra le altre app, spenta finché non la accendi
         final boolean pill = Pill.on(this);
         final boolean draw = Pill.canDraw(this), usage = Pill.usageGranted(this);
-        toggle("Sopra le altre app", pill && !draw ? "Manca il permesso qui sotto" : "La pillola «25 min», solo oltre la soglia · mai sopra minus", pill, new Runnable() {
+        toggle("Sopra le altre app", pill && !draw ? "Manca il permesso qui sotto" : "La pillola «25 min», solo oltre la soglia · mai sopra −minus", pill, new Runnable() {
             public void run() {
                 Changes.track(SettingsActivity.this, pill ? "Pillola del tempo spenta" : "Pillola del tempo accesa", new String[]{Pill.K_ON},
                         new Runnable() { public void run() { U.prefs(SettingsActivity.this).edit().putBoolean(Pill.K_ON, !pill).commit(); } },
@@ -155,10 +155,10 @@ public class SettingsActivity extends BaseActivity {
                 Sblocco.K_ON, false, "Domanda sugli sblocchi senza scopo accesa", "Domanda sugli sblocchi senza scopo spenta");
         nav("Di notte", Night.on(this) ? (Night.active(this) ? "Attivo · adesso è notte" : "Attivo") + " · " + Night.alternative(this) : "Spento · se ti svegli, solo l'essenziale", to(NightSettingsActivity.class), "›");
         body.addView(U.label(this, "Benessere digitale"));
-        row("Hai un timer su minus?", "Android conta anche la home: toglilo da lì", "↗", new Runnable() {
+        row("Hai un timer su −minus?", "Android conta anche la home: toglilo da lì", "↗", new Runnable() {
             public void run() { Session.openWellbeing(SettingsActivity.this); }
         });
-        note("minus vede quanto tempo passi in ogni app, mai cosa fai dentro. Nessun dato d'uso esce dal telefono.");
+        note("−minus vede quanto tempo passi in ogni app, mai cosa fai dentro. Nessun dato d'uso esce dal telefono.");
     }
 
     // ---------- Home e giornata ----------
@@ -175,23 +175,23 @@ public class SettingsActivity extends BaseActivity {
         });
         nav("Comandi vocali", "Cosa puoi dire dalla home", to(VoiceHelpActivity.class), "›");
         final boolean lockOn = U.prefs(this).getBoolean(U.K_LOCK, true);
-        toggle("Schermata di blocco minus", "Ora, prossimi impegni e da fare senza sbloccare", lockOn, new Runnable() {
+        toggle("Schermata di blocco −minus", "Ora, prossimi impegni e da fare senza sbloccare", lockOn, new Runnable() {
             public void run() {
-                Changes.track(SettingsActivity.this, lockOn ? "Schermata di blocco minus spenta" : "Schermata di blocco minus attiva", new String[]{U.K_LOCK},
+                Changes.track(SettingsActivity.this, lockOn ? "Schermata di blocco −minus spenta" : "Schermata di blocco −minus attiva", new String[]{U.K_LOCK},
                         new Runnable() { public void run() { U.prefs(SettingsActivity.this).edit().putBoolean(U.K_LOCK, !lockOn).commit(); } },
                         new Runnable() { public void run() { render(); } });
             }
         });
-        row("App Home predefinita", Onboarding.isDefaultHome(this) ? "minus" : "Non è minus", "↗", new Runnable() {
+        row("App Home predefinita", Onboarding.isDefaultHome(this) ? "−minus" : "Non è −minus", "↗", new Runnable() {
             public void run() { Onboarding.openHomeSettings(SettingsActivity.this); }
         });
-        note("Cosa compare in home e quando (domani dalle 17, la sveglia dalle 19) non si imposta: è parte di minus.");
+        note("Cosa compare in home e quando (domani dalle 17, la sveglia dalle 19) non si imposta: è parte di −minus.");
     }
 
     // ---------- Attivazione ----------
 
     private void setup() {
-        intro("Cosa serve a minus e a cosa. Ogni permesso si può togliere da Android.");
+        intro("Cosa serve a −minus e a cosa. Ogni permesso si può togliere da Android.");
         perm("App Home predefinita", null, Onboarding.isDefaultHome(this), new Runnable() {
             public void run() { Onboarding.openHomeSettings(SettingsActivity.this); }
         });
@@ -218,7 +218,7 @@ public class SettingsActivity extends BaseActivity {
         });
         note("Con il silenzio attivo squillano solo le chiamate dei contatti preferiti (stella in rubrica) e le chiamate ripetute.");
 
-        row("Cosa vede minus", "Le ultime notifiche di chat arrivate e dove sono finite", "›", new Runnable() {
+        row("Cosa vede −minus", "Le ultime notifiche di chat arrivate e dove sono finite", "›", new Runnable() {
             public void run() { showLog(); }
         });
 
@@ -261,9 +261,9 @@ public class SettingsActivity extends BaseActivity {
             try { t = Long.parseLong(r[0]); } catch (Exception ignored) {}
             b.append(Changes.when(t)).append("  ·  ").append(r[1]).append("\n").append(r[2]).append(" (").append(r[3]).append(") → ").append(r[4]).append("\n\n");
         }
-        if (b.length() == 0) b.append(U.listenerEnabled(this) ? "Ancora nessuna notifica di chat da quando hai aggiornato." : "L'accesso alle notifiche è spento: minus non vede niente.");
+        if (b.length() == 0) b.append(U.listenerEnabled(this) ? "Ancora nessuna notifica di chat da quando hai aggiornato." : "L'accesso alle notifiche è spento: −minus non vede niente.");
         b.append("Se una chat non compare qui, la notifica non arriva proprio: è disattivata o silenziata in WhatsApp o Telegram, o nelle impostazioni di Android.");
-        new android.app.AlertDialog.Builder(this).setTitle("Cosa vede minus").setMessage(b.toString()).setPositiveButton("Ok", null).show();
+        new android.app.AlertDialog.Builder(this).setTitle(U.brand("Cosa vede −minus")).setMessage(b.toString()).setPositiveButton("Ok", null).show();
     }
 
     /** 0.7: la lista di persone e gruppi (era Conversazioni), aperta da Impostazioni o dalla ricerca. */

@@ -66,7 +66,7 @@ public class PauseActivity extends BaseActivity {
     private void render() {
         list.removeAllViews();
         if (!Pill.usageGranted(this)) {
-            TextView u = U.text(this, "Vale quando apri le app da minus. Per fermarle anche da notifiche e app recenti: Dati di utilizzo ›", 13, U.INK, false);
+            TextView u = U.text(this, "Vale quando apri le app da −minus. Per fermarle anche da notifiche e app recenti: Dati di utilizzo ›", 13, U.INK, false);
             u.setPadding(U.dp(this, 14), U.dp(this, 10), U.dp(this, 14), U.dp(this, 10));
             u.setBackground(U.box(this, U.SURFACE, U.LINE, 12));
             u.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { Pill.openUsageSettings(PauseActivity.this); } });

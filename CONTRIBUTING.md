@@ -1,6 +1,6 @@
-# Contribuire a minus
+# Contribuire a *−minus*
 
-Grazie di voler aiutare. minus è un progetto piccolo: ogni segnalazione viene letta.
+Grazie di voler aiutare. *−minus* è un progetto piccolo: ogni segnalazione viene letta.
 
 ## Segnalare un problema o proporre un'idea
 
@@ -12,7 +12,7 @@ Le segnalazioni sono pubbliche: non scrivere nomi, numeri o messaggi di altre pe
 
 ## Il principio che guida le scelte
 
-minus toglie più che aggiungere. Una proposta viene valutata con tre domande:
+*−minus* toglie più che aggiungere. Una proposta viene valutata con tre domande:
 
 1. Aiuta a prendere il telefono per un motivo, invece che per abitudine?
 2. Tiene a portata ciò che serve davvero (persone, giornata, app indispensabili)?

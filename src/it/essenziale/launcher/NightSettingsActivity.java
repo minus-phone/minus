@@ -31,7 +31,7 @@ public class NightSettingsActivity extends BaseActivity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         LinearLayout root = U.screen(this, "Di notte");
-        TextView intro = U.text(this, "Se ti svegli e prendi il telefono, minus ti mostra solo l'essenziale. Non misura il sonno.", 14, U.MUTED, false);
+        TextView intro = U.text(this, "Se ti svegli e prendi il telefono, −minus ti mostra solo l'essenziale. Non misura il sonno.", 14, U.MUTED, false);
         intro.setPadding(0, U.dp(this, 4), 0, U.dp(this, 6));
         root.addView(intro);
         ScrollView sv = new ScrollView(this);
@@ -163,7 +163,7 @@ public class NightSettingsActivity extends BaseActivity {
                 render();
             }
         });
-        TextView n = U.text(this, "La scala di grigi la fa Android: minus è già in bianco e nero. Di notte il tempo dall'ultimo sblocco scende a 5 minuti.", 13, U.MUTED, false);
+        TextView n = U.text(this, "La scala di grigi la fa Android: −minus è già in bianco e nero. Di notte il tempo dall'ultimo sblocco scende a 5 minuti.", 13, U.MUTED, false);
         n.setPadding(0, U.dp(this, 14), 0, U.dp(this, 30));
         list.addView(n);
     }

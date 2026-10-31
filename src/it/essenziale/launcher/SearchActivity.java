@@ -369,7 +369,7 @@ public class SearchActivity extends BaseActivity {
         if (!st.isEmpty()) {
             List<View> g = new ArrayList<View>();
             for (final String[] e : st) g.add(row(e[0], "Impostazioni", "›", null, new Runnable() { public void run() { openSetting(e[2]); } }));
-            groups.add(g); titles.add("Impostazioni di minus");
+            groups.add(g); titles.add("Impostazioni di −minus");
             anything = true;
         }
         // Chiedi, sempre per ultimo (lontano dal campo)
@@ -585,7 +585,7 @@ public class SearchActivity extends BaseActivity {
         if (!ok && !h.group) ok = U.openChatFromContacts(this, h.name, h.code);
         if (!ok) {
             ok = U.launchPkg(this, U.chatPkg(this, h.code));
-            if (ok && h.group) U.toast(this, "Cerca «" + h.name + "» nell'app: minus apre il gruppo direttamente dal prossimo messaggio");
+            if (ok && h.group) U.toast(this, "Cerca «" + h.name + "» nell'app: −minus apre il gruppo direttamente dal prossimo messaggio");
         }
         if (ok) { Convs.open(this, h.code, h.name, h.group); remember("person", h.name, h.name); }
         else U.toast(this, "Non riesco ad aprire questa conversazione");

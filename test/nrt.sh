@@ -19,7 +19,7 @@ check "Stessa firma della v0.2 (si installa sopra senza disinstallare)" \
   "[ \"\$(apksigner verify --print-certs build/Essenziale.apk | grep SHA-256)\" = \"\$(apksigner verify --print-certs $OLD_APK | grep SHA-256)\" ]"
 B=$(aapt dump badging build/Essenziale.apk 2>/dev/null)
 check "Stesso pacchetto it.essenziale.launcher" "echo \"\$B\" | grep -q \"package: name='it.essenziale.launcher'\""
-check "versionCode 20 > 19 (aggiornamento accettato da Android)" "echo \"\$B\" | grep -q \"versionCode='20'\""
+check "versionCode 21 > 20 (aggiornamento accettato da Android)" "echo \"\$B\" | grep -q \"versionCode='21'\""
 check "minSdk 23 invariato" "echo \"\$B\" | grep -q \"sdkVersion:'23'\""
 
 echo -e "\n## F. Manifest: nulla di v0.2 è sparito" >> "$REPORT"
@@ -120,7 +120,7 @@ check "0.11: i social si possono scegliere, con nota e senza popup" "grep -q 'è
 check "0.11: tempo dall'ultimo sblocco in home come pillola, area di tocco 48 dp" "grep -q 'Pill.homeText' $H && grep -q 'setMinimumHeight(U.dp(this, 48))' $H"
 
 echo -e "\n## M. Novità della 0.12" >> "$REPORT"
-check "0.12: nome visibile «minus», pacchetto invariato" "grep -q 'android:label=\"minus\"' $M && grep -q 'package=\"it.essenziale.launcher\"' $M"
+check "0.12: nome visibile «minus», pacchetto invariato" "grep -q 'android:label=\"−minus\"' $M && grep -q 'package=\"it.essenziale.launcher\"' $M"
 check "0.12: niente ⋯ in home, impostazioni nella ricerca e con pressione lunga" "! grep -q '\"⋯\", 22' $H && grep -q 'SettingsActivity.class' $S/SearchActivity.java && grep -q 'setOnLongClickListener(settings)' $H"
 check "0.12: la ricerca si apre con la tastiera chiusa, salvo «Apri subito la tastiera»" "grep -q 'SearchActivity.*' $M && ! grep -A2 '\.SearchActivity' $M | grep -q stateVisible && grep -q 'U.K_KEYBOARD' $S/SearchActivity.java"
 check "0.12: pausa di 8 secondi regolabile 4/6/8" "grep -q 'U.pauseSeconds' $S/FrictionActivity.java && grep -q 'pauseLength' $S/SettingsActivity.java"

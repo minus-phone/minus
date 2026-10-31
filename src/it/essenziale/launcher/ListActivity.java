@@ -338,7 +338,7 @@ public class ListActivity extends BaseActivity {
         if (!ok) {
             ok = U.launchPkg(this, pkgFor(e.code, e.name));
             if (!ok && e.code == null) for (String c : new String[]{"WA", "TG"}) if (!ok) ok = U.launchPkg(this, U.chatPkg(this, c));
-            if (ok && e.group) U.toast(this, "Cerca «" + e.name + "» nell'app. Dal prossimo messaggio del gruppo, minus lo apre direttamente");
+            if (ok && e.group) U.toast(this, "Cerca «" + e.name + "» nell'app. Dal prossimo messaggio del gruppo, −minus lo apre direttamente");
             else if (!ok) U.toast(this, "Non riesco ad aprire questa conversazione");
         }
         if (ok) Convs.open(this, e.code, e.name, e.group);

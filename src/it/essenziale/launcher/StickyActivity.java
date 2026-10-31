@@ -19,7 +19,7 @@ public class StickyActivity extends BaseActivity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         LinearLayout root = U.screen(this, "Icone fisse nella barra");
-        TextView intro = U.text(this, "Le notifiche che non passano minus le toglie già. Queste restano perché sono fisse: Android non permette di toglierle, ma puoi renderle silenziose e l'icona sparisce.", 14, U.MUTED, false);
+        TextView intro = U.text(this, "Le notifiche che non passano −minus le toglie già. Queste restano perché sono fisse: Android non permette di toglierle, ma puoi renderle silenziose e l'icona sparisce.", 14, U.MUTED, false);
         intro.setPadding(0, U.dp(this, 4), 0, U.dp(this, 6));
         root.addView(intro);
         ScrollView sv = new ScrollView(this);

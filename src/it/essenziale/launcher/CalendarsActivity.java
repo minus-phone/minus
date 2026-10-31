@@ -22,7 +22,7 @@ public class CalendarsActivity extends BaseActivity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         LinearLayout root = U.screen(this, "Calendari");
-        TextView intro = U.text(this, "Scegli quali calendari mostrare e sincronizzare. Gli altri restano negli account, ma non compaiono in minus.", 14, U.MUTED, false);
+        TextView intro = U.text(this, "Scegli quali calendari mostrare e sincronizzare. Gli altri restano negli account, ma non compaiono in −minus.", 14, U.MUTED, false);
         intro.setPadding(0, U.dp(this, 4), 0, U.dp(this, 6));
         root.addView(intro);
         ScrollView sv = new ScrollView(this);

@@ -403,9 +403,9 @@ public class VoiceActivity extends BaseActivity {
 
     private void ask() {
         final String q = cmd.text == null ? cmd.raw : cmd.text;
-        head("?", "Non è un comando di minus");
+        head("?", "Non è un comando di −minus");
         line("Puoi", "Chiederlo a Gemini");
-        hint("Si apre fuori da minus.");
+        hint("Si apre fuori da −minus.");
         cta("Chiedi a Gemini", new Runnable() { public void run() { gemini(VoiceActivity.this, q); finish(); } });
     }
 
