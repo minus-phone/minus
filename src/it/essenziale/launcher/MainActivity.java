@@ -50,7 +50,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
 
         root = U.col(this);
         root.setBackgroundColor(U.BG);
-        root.setPadding(U.dp(this, 20), 0, U.dp(this, 20), U.dp(this, 16));
+        root.setPadding(U.dp(this, 20), U.dp(this, 8), U.dp(this, 20), U.dp(this, 16)); // 0.13.2: la barra di stato non c'è, la home parte dall'alto
         // Il focus iniziale va alla pagina, non al campo di ricerca: niente tastiera automatica
         root.setFocusable(true);
         root.setFocusableInTouchMode(true);

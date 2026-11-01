@@ -19,7 +19,7 @@ check "Stessa firma della v0.2 (si installa sopra senza disinstallare)" \
   "[ \"\$(apksigner verify --print-certs build/Essenziale.apk | grep SHA-256)\" = \"\$(apksigner verify --print-certs $OLD_APK | grep SHA-256)\" ]"
 B=$(aapt dump badging build/Essenziale.apk 2>/dev/null)
 check "Stesso pacchetto it.essenziale.launcher" "echo \"\$B\" | grep -q \"package: name='it.essenziale.launcher'\""
-check "versionCode 26 > 25 (aggiornamento accettato da Android)" "echo \"\$B\" | grep -q \"versionCode='26'\""
+check "versionCode 27 > 26 (aggiornamento accettato da Android)" "echo \"\$B\" | grep -q \"versionCode='27'\""
 check "minSdk 23 invariato" "echo \"\$B\" | grep -q \"sdkVersion:'23'\""
 
 echo -e "\n## F. Manifest: nulla di v0.2 è sparito" >> "$REPORT"
@@ -126,7 +126,8 @@ check "0.12: la ricerca si apre con la tastiera chiusa, salvo «Apri subito la t
 check "0.12: pausa di 8 secondi regolabile 4/6/8" "grep -q 'U.pauseSeconds' $S/FrictionActivity.java && grep -q 'pauseLength' $S/SettingsActivity.java"
 check "0.12: una cosa adesso nella pausa e scopo, mai di notte" "grep -q 'Adesso.card' $S/FrictionActivity.java && grep -q 'if (!night)' $S/FrictionActivity.java"
 check "0.12: sblocchi senza scopo spenti di default" "grep -q 'getBoolean(K_ON, false)' $S/Sblocco.java && grep -q 'Sblocco.unlocked' $S/FilterService.java"
-check "0.13: niente schermo intero, barra di stato sempre" "! grep -q 'K_FULL\\|autoHideBars' $S/*.java && ! grep -q 'Schermo intero' $S/Cerca.java $S/AspettoActivity.java"
+check "0.13.2: in home la barra di stato lascia il posto alla home e torna col gesto" "grep -q 'a instanceof MainActivity' $S/U.java && grep -q 'SYSTEM_UI_FLAG_IMMERSIVE_STICKY' $S/U.java"
+check "0.13: niente opzione schermo intero" "! grep -q 'K_FULL\\|autoHideBars' $S/*.java && ! grep -q 'Schermo intero' $S/Cerca.java $S/AspettoActivity.java"
 check "0.12: nessun «6 secondi» rimasto nei testi" "! grep -n '\"[^\"]*6 secondi' $S/*.java | grep -v Changes.java"
 
 check "0.12.3: un recente (persona o gruppo) apre la conversazione, non riempie il campo" "grep -q 'for (Hit h : peopleHits(r\[1\]))' $S/SearchActivity.java"

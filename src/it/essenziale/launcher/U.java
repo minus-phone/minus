@@ -631,15 +631,17 @@ public final class U {
         a.startActivity(editIntent(a, e));
     }
 
-    /** Nasconde la barra di navigazione di Android (riappare scorrendo dal bordo). */
+    /**
+     * Nasconde la barra di navigazione di Android (riappare scorrendo dal bordo).
+     * 0.13.2: in home anche la barra di stato è nascosta e il suo spazio è della home; scorrendo dall'alto
+     * torna sopra la home per qualche secondo, senza spostare niente (IMMERSIVE_STICKY). Nelle altre
+     * schermate la barra di stato resta sempre, e non c'è più un'opzione «schermo intero».
+     */
     public static void immersive(Activity a) {
-        // le schermate con campi di testo (adjustResize) tengono la barra di stato: con lo schermo
-        // intero Android non ridimensiona la pagina e la tastiera coprirebbe il campo
-        boolean full = false; // 0.13: niente schermo intero, la barra di stato resta sempre
+        boolean home = a instanceof MainActivity;
         a.getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        | (full ? View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_IMMERSIVE : View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
-                        | (full ? 0 : View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | (home ? View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN : 0)
                         | (dark ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR));
     }
 
