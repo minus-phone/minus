@@ -112,7 +112,7 @@ public class WeekActivity extends BaseActivity {
                     public void onClick(View v) { U.openEvent(WeekActivity.this, e); }
                 });
                 TextView t = U.text(this, e.allDay ? "giorno" : U.hhmm(e.begin), 14, U.MUTED, false);
-                t.setTypeface(Typeface.MONOSPACE);
+                t.setTypeface(U.SERIF);
                 t.setMinWidth(U.dp(this, 64));
                 r.addView(t);
                 TextView ti = U.text(this, e.title, 15, U.INK, false);

@@ -34,7 +34,7 @@ import java.util.Set;
 /**
  * La ricerca (0.7): un solo accesso a persone, gruppi, app, impegni, azioni e impostazioni.
  * I risultati sono appoggiati in basso: il gruppo più importante sta vicino al campo e al pollice.
- * 0.12: tastiera chiusa all'apertura, Impostazioni in alto a sinistra, ✕ in alto a destra.
+ * 0.12: tastiera chiusa all'apertura, ✕ in alto a destra. 0.13: Impostazioni come prima voce, sopra i recenti.
  */
 public class SearchActivity extends BaseActivity {
 
@@ -61,16 +61,8 @@ public class SearchActivity extends BaseActivity {
         LinearLayout root = U.col(this);
         root.setBackgroundColor(U.BG);
         root.setPadding(U.dp(this, 20), U.dp(this, 12), U.dp(this, 20), U.dp(this, 10));
-        // 0.12: in alto a sinistra le Impostazioni (tolte dalla home), a destra ✕ per tornare alla home
+        // 0.13: in alto solo ✕ per tornare alla home; le Impostazioni sono una voce del menu, sopra i recenti
         LinearLayout top = U.row(this);
-        TextView set = U.text(this, "Impostazioni", 15, U.INK, false);
-        set.setMinHeight(U.dp(this, 44));
-        set.setGravity(Gravity.CENTER_VERTICAL);
-        set.setPadding(0, 0, U.dp(this, 12), 0);
-        set.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { startActivity(new Intent(SearchActivity.this, SettingsActivity.class).putExtra("back", "Ricerca")); }
-        });
-        top.addView(set);
         top.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
         TextView close = U.text(this, "✕", 18, U.INK, false);
         close.setGravity(Gravity.CENTER);
@@ -162,6 +154,9 @@ public class SearchActivity extends BaseActivity {
         List<View> blocks = new ArrayList<View>();
         Set<String> paused = U.pausedPkgs(this);
         // dall'alto: recenti, app, persone e gruppi (vicino al pollice). Ogni blocco su una riga che scorre di lato.
+        blocks.add(row("Impostazioni", null, "›", "⚙", new Runnable() {
+            public void run() { startActivity(new Intent(SearchActivity.this, SettingsActivity.class).putExtra("back", "Ricerca")); }
+        }));
         if (U.prefs(this).getBoolean(K_RECENT_ON, true)) {
             LinearLayout chips = hrow();
             for (final String[] r : recents(this)) {
@@ -536,13 +531,9 @@ public class SearchActivity extends BaseActivity {
         tx.addView(t);
         if (h.sub != null) tx.addView(U.text(this, h.sub, 12, U.MUTED, false));
         row.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        if (h.badges != null && h.badges.length() > 0) {
-            TextView bd = U.text(this, h.badges, 11, U.MUTED, false);
-            bd.setTypeface(Typeface.MONOSPACE);
-            bd.setPadding(U.dp(this, 6), U.dp(this, 2), U.dp(this, 6), U.dp(this, 2));
-            bd.setBackground(U.box(this, U.BG, U.LINE, 6));
-            row.addView(bd);
-        }
+        // 0.13 (178): al posto delle sigle, l'icona della barra di stato; il nome finché l'icona non c'è
+        if (h.badges != null && h.badges.length() > 0)
+            for (String code : h.badges.split(" ")) if (code.length() > 0) row.addView(AppIcons.badge(this, AppIcons.pkgOfCode(this, code), Rules.appName(code), U.MUTED));
         if (h.contactId < 0) {
             TextView more = U.text(this, "⋯", 20, U.INK, false);
             more.setGravity(Gravity.CENTER);
@@ -664,6 +655,7 @@ public class SearchActivity extends BaseActivity {
             i.putExtra("back", "Ricerca");
         } else if ("people".equals(dest)) i = SettingsActivity.peopleIntent(this, "Ricerca");
         else if ("groups".equals(dest)) i = new Intent(this, GroupsActivity.class);
+        else if ("servizi".equals(dest)) i = new Intent(this, ServiziActivity.class);
         else if ("waiting".equals(dest)) { i = new Intent(this, ContainerActivity.class); i.putExtra("tab", ContainerActivity.TAB_WAITING); }
         else if ("portata".equals(dest)) i = new Intent(this, PortataActivity.class);
         else if ("boxes".equals(dest)) i = new Intent(this, ContainerActivity.class);

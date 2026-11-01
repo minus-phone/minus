@@ -108,7 +108,7 @@ public class VoiceActivity extends BaseActivity {
         card.removeAllViews();
         card.addView(U.label(this, "Hai detto"));
         TextView q = U.text(this, "“" + cmd.raw + "”", 18, U.INK, false);
-        q.setTypeface(Typeface.create(Typeface.SERIF, Typeface.ITALIC));
+        q.setTypeface(Typeface.create(U.SERIF, Typeface.ITALIC));
         card.addView(q);
         String t = cmd.type;
         if (VoiceParser.HELP.equals(t)) { startActivity(new Intent(this, VoiceHelpActivity.class)); finish(); return; }
@@ -131,7 +131,7 @@ public class VoiceActivity extends BaseActivity {
         LinearLayout r = U.row(this);
         r.setPadding(0, U.dp(this, 20), 0, U.dp(this, 6));
         TextView tg = U.text(this, tag, 11, U.INK, true);
-        tg.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        tg.setTypeface(U.SERIF_M);
         tg.setPadding(U.dp(this, 8), U.dp(this, 3), U.dp(this, 8), U.dp(this, 3));
         tg.setBackground(U.box(this, U.BG, U.INK, 6));
         r.addView(tg);

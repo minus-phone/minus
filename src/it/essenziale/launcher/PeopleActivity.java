@@ -184,6 +184,7 @@ public class PeopleActivity extends BaseActivity {
                     t.setMinHeight(U.dp(this, 44));
                     t.setPadding(U.dp(this, 12), 0, U.dp(this, 12), 0);
                     t.setBackground(on ? U.box(this, U.INK, 0, 20) : U.box(this, U.BG, U.LINE, 20));
+                    AppIcons.beside(t, AppIcons.pkgOfCode(this, code), on ? U.BG : U.INK); // 0.13: dove si sceglie, icona e nome
                     t.setOnClickListener(new View.OnClickListener() {
                         public void onClick(View v) {
                             if (on) { if (p.apps.size() > 1) p.apps.remove(code); else U.toast(PeopleActivity.this, "Almeno un'app"); }

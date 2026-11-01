@@ -386,7 +386,7 @@ public class NrtTest {
         check("Ma una corrispondenza migliore vince sulla preferenza", Cerca.rank("Mamma", "mam", false) > Cerca.rank("Tommaso", "mam", true) || Cerca.rank("Tommaso", "mam", true) == 0, null);
         eq("Impostazioni: «pausa» trova la pausa", Cerca.settings("pausa", 3).get(0)[0], "Pausa prima di aprire");
         eq("Impostazioni: «gruppi» trova i gruppi", Cerca.settings("grup", 3).get(0)[0], "Gruppi");
-        check("Impostazioni: «banca» trova i contenitori dalle parole chiave", Cerca.settings("banca", 3).size() > 0 && "Contenitori".equals(Cerca.settings("banca", 3).get(0)[0]), null);
+        check("Impostazioni: «banca» trova Servizi e contenitori dalle parole chiave", hasSetting(Cerca.settings("banca", 3), "Servizi") && hasSetting(Cerca.settings("banca", 3), "Contenitori"), null);
         eq("Impostazioni: una lettera sola non basta", Cerca.settings("p", 3).size(), 0);
         List<String> r = new ArrayList<String>();
         r = Cerca.pushRecent(r, "a"); r = Cerca.pushRecent(r, "b"); r = Cerca.pushRecent(r, "c"); r = Cerca.pushRecent(r, "d");
@@ -578,6 +578,11 @@ public class NrtTest {
         return Rules.decide(n, svc());
     }
 
+    static boolean hasSetting(java.util.List<String[]> l, String t) {
+        for (String[] x : l) if (t.equals(x[0])) return true;
+        return false;
+    }
+
     static void servizi() {
         sec("0.12.2 · SMS con codici e app di servizio");
         String sms = "com.google.android.apps.messaging";
@@ -595,6 +600,11 @@ public class NrtTest {
         eq("PosteID: richiesta di autorizzazione passa", svcLvl("posteitaliane.posteapp.appposteid", "PosteID", "PosteID", "Autorizza l'accesso"), Rules.PASS);
         eq("Un'app qualsiasi resta in Altro", svcLvl("com.instagram.android", "Instagram", "Instagram", "Nuovo follower"), Rules.OTHER);
         check("«IO» vale solo come nome esatto, non dentro altri nomi", !Rules.isService("x.y", "Ricordi", svc().services), null);
+        java.util.List<String> sv = new java.util.ArrayList<String>(svc().services);
+        sv.add("!pkg:com.mybank.app");
+        check("0.13: un servizio tolto a mano («!pkg:») non è più un servizio", !Rules.isService("com.mybank.app", "MyBank", sv) && Rules.isService("it.bancaxyz.mobile", "Banca XYZ", sv), null);
+        sv.add("pkg:com.miapp.casa");
+        check("0.13: un'app aggiunta a mano è un servizio", Rules.isService("com.miapp.casa", "Casa", sv), null);
         check("Codice: 6 cifre sì, data no", Rules.looksLikeCode("codice 123456") && !Rules.looksLikeCode("il 12/10/2026") && !Rules.looksLikeCode("alle 16:30"), null);
     }
 }

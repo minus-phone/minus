@@ -90,6 +90,9 @@ public class SettingsActivity extends BaseActivity {
         nav("Persone e gruppi", "Chi passa sempre, chi aspetta, chi ti ha scritto · tocca per scrivere", peopleIntent(this, "Notifiche"), "›");
         nav("Scegli dalla rubrica chi passa sempre", "Anche con il silenzio · " + people + (people == 1 ? " persona" : " persone"), to(PeopleActivity.class), "›");
         nav("Gruppi", "App per app: quali passano sempre", to(GroupsActivity.class), "›");
+        // 0.13: i Servizi (banca, SPID, IO): codici e accessi passano sempre, il resto mai in Altro
+        int sv = ServiziActivity.installed(this).size();
+        nav("Servizi", "Banca, SPID, app IO: codici e accessi passano sempre · " + sv + (sv == 1 ? " app" : " app"), to(ServiziActivity.class), "›");
         final boolean open = U.prefs(this).getBoolean(U.K_OPEN_ON, true);
         toggle("Conversazioni aperte", "Passano per 12 ore dopo la tua risposta", open, new Runnable() {
             public void run() {
@@ -254,7 +257,34 @@ public class SettingsActivity extends BaseActivity {
 
     /** 0.6.2: per capire se una chat arriva a Essenziale (se non c'è qui, Android o l'app non la notificano). */
     private void showLog() {
-        StringBuilder b = new StringBuilder();
+        // 0.13: il telefono ha un barometro? Serve a capire se si può dire «la pressione scende» senza internet
+        final android.hardware.SensorManager sm = (android.hardware.SensorManager) getSystemService(SENSOR_SERVICE);
+        final android.hardware.Sensor baro = sm == null ? null : sm.getDefaultSensor(android.hardware.Sensor.TYPE_PRESSURE);
+        if (baro == null) { showLog("Barometro: non c'è su questo telefono.\n\n"); return; }
+        final boolean[] done = {false};
+        final android.os.Handler h = new android.os.Handler();
+        final android.hardware.SensorEventListener l = new android.hardware.SensorEventListener() {
+            public void onSensorChanged(android.hardware.SensorEvent e) {
+                if (done[0]) return;
+                done[0] = true;
+                sm.unregisterListener(this);
+                showLog("Barometro: sì (" + baro.getName() + "), ora " + Math.round(e.values[0]) + " hPa.\n\n");
+            }
+            public void onAccuracyChanged(android.hardware.Sensor s, int a) {}
+        };
+        sm.registerListener(l, baro, android.hardware.SensorManager.SENSOR_DELAY_NORMAL);
+        h.postDelayed(new Runnable() {
+            public void run() {
+                if (done[0]) return;
+                done[0] = true;
+                sm.unregisterListener(l);
+                showLog("Barometro: sì (" + baro.getName() + "), ma non ha ancora dato un valore.\n\n");
+            }
+        }, 1500);
+    }
+
+    private void showLog(String head) {
+        StringBuilder b = new StringBuilder(head);
         for (String[] r : U.rows(U.prefs(this).getString(FilterService.K_LOG, ""))) {
             if (r.length < 5) continue;
             long t = 0;

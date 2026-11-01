@@ -16,6 +16,7 @@ public final class Tasks {
 
     public static class Task {
         public String id, title;
+        public String app;    // 0.13: pacchetto dell'app che si apre toccando il task («Fare la spesa» → Keep), o null
         public long due;      // inizio del giorno di scadenza, 0 se nessuna
         public boolean done;
         public long doneAt;
@@ -33,6 +34,8 @@ public final class Tasks {
                 t.due = o.optLong("due");
                 t.done = o.optBoolean("done");
                 t.doneAt = o.optLong("doneAt");
+                t.app = o.optString("app", "");
+                if (t.app.length() == 0) t.app = null;
                 // i completati restano visibili fino a fine giornata, poi spariscono
                 if (t.done && t.doneAt < U.startOfDay(0)) continue;
                 out.add(t);
@@ -48,15 +51,19 @@ public final class Tasks {
                 JSONObject o = new JSONObject();
                 o.put("id", t.id); o.put("title", t.title); o.put("due", t.due);
                 o.put("done", t.done); o.put("doneAt", t.doneAt);
+                if (t.app != null) o.put("app", t.app);
                 a.put(o);
             }
         } catch (Exception ignored) {}
         U.prefs(c).edit().putString("tasks", a.toString()).apply();
     }
 
-    public static synchronized void add(Context c, String title, long due) {
+    public static synchronized void add(Context c, String title, long due) { add(c, title, due, null); }
+
+    public static synchronized void add(Context c, String title, long due, String app) {
         List<Task> list = all(c);
         Task t = new Task();
+        t.app = app;
         t.id = String.valueOf(System.currentTimeMillis());
         t.title = title;
         t.due = due;

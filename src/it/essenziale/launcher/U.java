@@ -34,14 +34,14 @@ public final class U {
     private U() {}
 
     // Palette dei wireframe. 0.10: non più costanti, cambiano con il tema (Aspetto)
-    public static int BG = Color.parseColor("#F6F6F3");
-    public static int INK = Color.parseColor("#1A1A1A");
-    public static int MUTED = Color.parseColor("#5F5F5A");
-    public static int LINE = Color.parseColor("#E0E0DA");
-    public static int CHIP = Color.parseColor("#E6E6E0");
-    public static int SURFACE = Color.WHITE;                   // schede e campi
-    public static int BORDER = Color.parseColor("#8D8D87");    // bordi di chip e campi
-    public static int TRACK_OFF = Color.parseColor("#8D8D87"); // interruttore spento
+    public static int BG = Color.parseColor("#F3F1EB");
+    public static int INK = Color.parseColor("#171716");
+    public static int MUTED = Color.parseColor("#5C5A55");
+    public static int LINE = Color.parseColor("#D8D5CC");
+    public static int CHIP = Color.parseColor("#E7E4DB");
+    public static int SURFACE = Color.parseColor("#FBFAF6");                   // schede e campi
+    public static int BORDER = Color.parseColor("#8A877F");    // bordi di chip e campi
+    public static int TRACK_OFF = Color.parseColor("#8A877F"); // interruttore spento
     public static boolean dark = false;
     public static float textScale = 1f;
     public static int themeStamp = 0;
@@ -51,6 +51,7 @@ public final class U {
 
     /** Applica tema e dimensione del testo scelti in Aspetto. Restituisce true se è cambiato qualcosa. */
     public static boolean applyTheme(Context c) {
+        fonts(c);
         String t = prefs(c).getString(K_THEME, THEME_LIGHT);
         boolean d = THEME_DARK.equals(t);
         if (THEME_AUTO.equals(t)) {
@@ -61,22 +62,22 @@ public final class U {
         boolean changed = d != dark || sc != textScale;
         dark = d;
         textScale = sc;
-        BG = Color.parseColor(d ? "#161615" : "#F6F6F3");
-        INK = Color.parseColor(d ? "#ECECE6" : "#1A1A1A");
-        MUTED = Color.parseColor(d ? "#9A9A93" : "#5F5F5A");
-        LINE = Color.parseColor(d ? "#2C2C2A" : "#E0E0DA");
-        CHIP = Color.parseColor(d ? "#2A2A28" : "#E6E6E0");
-        SURFACE = Color.parseColor(d ? "#1F1F1E" : "#FFFFFF");
-        BORDER = Color.parseColor(d ? "#6B6B65" : "#8D8D87"); // 0.11: almeno 3:1 su fondo e campi (WCAG 1.4.11)
-        TRACK_OFF = Color.parseColor(d ? "#6B6B65" : "#8D8D87");
+        BG = Color.parseColor(d ? "#121211" : "#F3F1EB");
+        INK = Color.parseColor(d ? "#E9E7E1" : "#171716");
+        MUTED = Color.parseColor(d ? "#A19F98" : "#5C5A55");
+        LINE = Color.parseColor(d ? "#33322F" : "#D8D5CC");
+        CHIP = Color.parseColor(d ? "#2A2927" : "#E7E4DB");
+        SURFACE = Color.parseColor(d ? "#1C1C1A" : "#FBFAF6");
+        BORDER = Color.parseColor(d ? "#6E6D68" : "#8A877F"); // 0.11: almeno 3:1 su fondo e campi (WCAG 1.4.11)
+        TRACK_OFF = Color.parseColor(d ? "#6E6D68" : "#8A877F");
         ALERT = Color.parseColor(d ? "#E39A72" : "#A4461C");
         if (changed) themeStamp++;
         return changed;
     }
     public static int ALERT = Color.parseColor("#A4461C"); // scaduto, contrasto AA su BG (chiaro e scuro)
-    public static final int DARK = Color.parseColor("#121212");
-    public static final int ON_DARK = Color.parseColor("#ECECE7");
-    public static final int ON_DARK_MUTED = Color.parseColor("#A3A39D");
+    public static final int DARK = Color.parseColor("#121211");
+    public static final int ON_DARK = Color.parseColor("#E9E7E1");
+    public static final int ON_DARK_MUTED = Color.parseColor("#A19F98");
 
     // ---------- Layout ----------
     /** Nome dell'app come appare sul telefono (0.9). */
@@ -93,12 +94,38 @@ public final class U {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, c.getResources().getDisplayMetrics());
     }
 
+    // ---------- 0.13: carta e inchiostro. Atkinson Hyperlegible per leggere, Literata per titoli e ore ----------
+    public static Typeface SANS = Typeface.SANS_SERIF, SANS_B = Typeface.DEFAULT_BOLD, SERIF = Typeface.SERIF, SERIF_M = Typeface.SERIF, SERIF_I = Typeface.SERIF;
+    private static boolean fontsLoaded;
+
+    public static void fonts(Context c) {
+        if (fontsLoaded) return;
+        try {
+            android.content.res.AssetManager am = c.getApplicationContext().getAssets();
+            SANS = Typeface.createFromAsset(am, "fonts/atkinson-regular.ttf");
+            SANS_B = Typeface.createFromAsset(am, "fonts/atkinson-bold.ttf");
+            SERIF = Typeface.createFromAsset(am, "fonts/literata-regular.ttf");
+            SERIF_M = Typeface.createFromAsset(am, "fonts/literata-medium.ttf");
+            SERIF_I = Typeface.createFromAsset(am, "fonts/literata-italic-medium.ttf");
+        } catch (Exception ignored) {}
+        fontsLoaded = true;
+    }
+
+    /** Titolo in Literata (Oggi, titoli delle schermate). */
+    public static TextView title(Context c, String s, float sp, int color) {
+        TextView t = text(c, s, sp, color, false);
+        t.setTypeface(SERIF_M);
+        t.setLetterSpacing(-0.01f);
+        return t;
+    }
+
     public static TextView text(Context c, String s, float sp, int color, boolean bold) {
+        fonts(c);
         TextView t = new TextView(c);
+        t.setTypeface(bold ? SANS_B : SANS);
         t.setText(brand(s));
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp * textScale);
         t.setTextColor(color);
-        if (bold) t.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         return t;
     }
 
@@ -159,8 +186,8 @@ public final class U {
             public void onClick(View v) { a.finish(); }
         });
         root.addView(back);
-        TextView t = text(a, title, 24, INK, true);
-        t.setPadding(0, dp(a, 4), 0, dp(a, 4));
+        TextView t = title(a, title, 28, INK);
+        t.setPadding(0, dp(a, 4), 0, dp(a, 6));
         root.addView(t);
         return root;
     }
@@ -538,12 +565,22 @@ public final class U {
     /** 0.12: il nome si scrive sempre «−minus», in corsivo. */
     public static final String NAME = "\u2212minus";
 
+    /** 0.13: il nome in Literata corsivo, come nel logotipo (prima: corsivo sintetico del carattere di testo). */
+    static final class BrandSpan extends android.text.style.MetricAffectingSpan {
+        private void apply(android.text.TextPaint p) {
+            if (SERIF_I == Typeface.SERIF) { p.setTextSkewX(-0.2f); return; }
+            p.setTypeface(SERIF_I);
+        }
+        @Override public void updateMeasureState(android.text.TextPaint p) { apply(p); }
+        @Override public void updateDrawState(android.text.TextPaint p) { apply(p); }
+    }
+
     public static CharSequence brand(String s) {
         if (s == null || !s.contains(NAME)) return s;
         android.text.SpannableString sp = new android.text.SpannableString(s);
         int i = s.indexOf(NAME);
         while (i >= 0) {
-            sp.setSpan(new android.text.style.StyleSpan(Typeface.ITALIC), i, i + NAME.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            sp.setSpan(new BrandSpan(), i, i + NAME.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             i = s.indexOf(NAME, i + NAME.length());
         }
         return sp;
@@ -598,8 +635,7 @@ public final class U {
     public static void immersive(Activity a) {
         // le schermate con campi di testo (adjustResize) tengono la barra di stato: con lo schermo
         // intero Android non ridimensiona la pagina e la tastiera coprirebbe il campo
-        int adj = a.getWindow().getAttributes().softInputMode & android.view.WindowManager.LayoutParams.SOFT_INPUT_MASK_ADJUST;
-        boolean full = fullscreen(a) && adj != android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
+        boolean full = false; // 0.13: niente schermo intero, la barra di stato resta sempre
         a.getWindow().getDecorView().setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                         | (full ? View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_IMMERSIVE : View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
@@ -607,46 +643,10 @@ public final class U {
                         | (dark ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR));
     }
 
-    // ---------- 0.12: schermo intero, pausa, aperture ----------
+    // ---------- 0.12: pausa, aperture (0.13: schermo intero tolto, barra di stato sempre visibile) ----------
 
-    public static final String K_FULL = "fullscreen", K_PAUSE_SEC = "pause_seconds", K_LAST_LAUNCH = "last_launch",
+    public static final String K_PAUSE_SEC = "pause_seconds", K_LAST_LAUNCH = "last_launch",
             K_LAST_LAUNCH_PKG = "last_launch_pkg", K_KEYBOARD = "search_keyboard";
-
-    /**
-     * Schermo intero: barre nascoste; uno scorrimento dal bordo le fa tornare e fanno spazio
-     * (modalità IMMERSIVE, non STICKY), poi si rinascondono dopo 3 secondi e al ritorno in home.
-     * Chi aggiorna dalla 0.11 lo trova acceso; al primo avvio è spento.
-     */
-    public static boolean fullscreen(Context c) {
-        SharedPreferences p = prefs(c);
-        if (!p.contains(K_FULL)) p.edit().putBoolean(K_FULL, !Onboarding.firstRun(c)).apply();
-        return p.getBoolean(K_FULL, false);
-    }
-
-    /** Le barre tornate con lo scorrimento si rinascondono dopo 3 secondi. */
-    public static void autoHideBars(final Activity a) {
-        final View d = a.getWindow().getDecorView();
-        d.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
-            public void onSystemUiVisibilityChange(int vis) {
-                if (!fullscreen(a)) return;
-                if ((vis & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
-                    d.removeCallbacks(rehide(a));
-                    d.postDelayed(rehide(a), 3000);
-                }
-            }
-        });
-    }
-
-    private static final java.util.WeakHashMap<Activity, Runnable> REHIDE = new java.util.WeakHashMap<Activity, Runnable>();
-
-    private static Runnable rehide(final Activity a) {
-        Runnable r = REHIDE.get(a);
-        if (r == null) {
-            r = new Runnable() { public void run() { if (!a.isFinishing()) immersive(a); } };
-            REHIDE.put(a, r);
-        }
-        return r;
-    }
 
     public static int pauseSeconds(Context c) { return Cosa.pauseSeconds(prefs(c).getInt(K_PAUSE_SEC, 8)); }
 

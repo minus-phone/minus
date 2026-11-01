@@ -98,7 +98,9 @@ public class BugActivity extends BaseActivity {
     private String info() {
         String v = "?";
         try { v = getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (Exception ignored) {}
-        return "versione " + v + " · Android " + Build.VERSION.RELEASE + " · " + Build.MANUFACTURER + " " + Build.MODEL;
+        android.hardware.SensorManager sm = (android.hardware.SensorManager) getSystemService(SENSOR_SERVICE);
+        boolean baro = sm != null && sm.getDefaultSensor(android.hardware.Sensor.TYPE_PRESSURE) != null;
+        return "versione " + v + " · Android " + Build.VERSION.RELEASE + " · " + Build.MANUFACTURER + " " + Build.MODEL + " · barometro " + (baro ? "sì" : "no");
     }
 
     private void send() {

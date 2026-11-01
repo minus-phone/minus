@@ -2,6 +2,7 @@ package it.essenziale.launcher;
 
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.database.Cursor;
 import android.os.Build;
 import android.os.Bundle;
@@ -202,7 +203,7 @@ public class OnboardingActivity extends BaseActivity {
     }
 
     private void title(String s) {
-        TextView t = U.text(this, s, 24, U.INK, true);
+        TextView t = U.title(this, s, 28, U.INK);
         t.setPadding(0, U.dp(this, 4), 0, U.dp(this, 8));
         body.addView(t);
     }
@@ -281,9 +282,22 @@ public class OnboardingActivity extends BaseActivity {
 
     // ---------- 1. Cosa ti interessa (0.9: benvenuto e perché in una schermata) ----------
 
+    private LogoView logo; // 0.13: una sola istanza, così l'animazione non riparte a ogni scelta
+
     private void welcome() {
         View top = new View(this);
         body.addView(top, new LinearLayout.LayoutParams(1, U.dp(this, 12)));
+        if (logo == null) logo = new LogoView(this, U.INK, U.BG);
+        if (logo.getParent() != null) ((ViewGroup) logo.getParent()).removeView(logo);
+        LinearLayout brand = U.row(this);
+        brand.addView(logo, new LinearLayout.LayoutParams(U.dp(this, 64), U.dp(this, 64)));
+        TextView name = U.title(this, U.NAME, 40, U.INK);
+        name.setTypeface(U.SERIF_I);
+        name.setPadding(U.dp(this, 16), 0, 0, 0);
+        brand.addView(name);
+        LinearLayout.LayoutParams blp = U.full();
+        blp.bottomMargin = U.dp(this, 20);
+        body.addView(brand, blp);
         title("Cosa ti interessa?");
         sub("−minus diventa la tua home e fa passare solo chi conta. Scegli cosa vuoi in più: ti mostriamo solo i passi che servono.");
         for (int i = 0; i < INTERESTS.length; i++) {
@@ -534,7 +548,7 @@ public class OnboardingActivity extends BaseActivity {
         LinearLayout c = U.col(this);
         c.setPadding(U.dp(this, 16), U.dp(this, 12), U.dp(this, 16), U.dp(this, 12));
         c.setBackground(U.box(this, U.SURFACE, U.LINE, 14));
-        String[][] rows = {{"Per te", "chi hai scelto, codici e chi ti risponde"}, {"Aperte", "quando rispondi o tocchi la notifica, passa per 12 ore"},
+        String[][] rows = {{"Per te", "chi hai scelto, chi ti risponde, codici e OTP"}, {"Servizi", "banca, SPID, app IO: accessi e codici passano, il resto aspetta"}, {"Aperte", "quando rispondi o tocchi la notifica, passa per 12 ore"},
                 {"Gruppi", "in silenzio; quelli che vuoi li fai passare sempre"}, {"Altro", "il resto, in Notifiche, senza suoni"}};
         for (String[] r : rows) {
             LinearLayout l = U.row(this);
@@ -550,6 +564,15 @@ public class OnboardingActivity extends BaseActivity {
             TextView ok = U.text(this, "✓ Accesso alle notifiche attivo.", 15, U.INK, true);
             ok.setPadding(0, U.dp(this, 14), 0, 0);
             body.addView(ok);
+            // 0.13: i Servizi riconosciuti, da confermare o cambiare
+            String sv = ServiziActivity.names(this, 4);
+            TextView s = U.text(this, sv.length() > 0 ? "Servizi riconosciuti: " + sv + "  ·  Modifica ›" : "Nessun servizio riconosciuto. Aggiungi la tua banca o l'app IO ›", 14, U.INK, false);
+            s.setMinHeight(U.dp(this, 48));
+            s.setGravity(Gravity.CENTER_VERTICAL);
+            s.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) { startActivity(new Intent(OnboardingActivity.this, ServiziActivity.class).putExtra("back", "Configurazione")); }
+            });
+            body.addView(s, U.full());
             primary("Avanti", new Runnable() { public void run() { next(); } });
             return;
         }
@@ -613,7 +636,8 @@ public class OnboardingActivity extends BaseActivity {
     private void silence() {
         title("Silenzio, tranne chi conta");
         sub("Con il silenzio attivo il telefono non suona per tutto il resto.");
-        box(new String[]{"Squillano le chiamate dei preferiti (stella in rubrica)", "Squillano le chiamate ripetute", "Le sveglie suonano sempre"}, "✓");
+        box(new String[]{"Squillano le chiamate dei preferiti (stella in rubrica)", "Squillano le chiamate ripetute", "Le sveglie suonano sempre",
+                "Codici e OTP, e gli accessi dei Servizi (banca, SPID, app IO), passano sempre"}, "✓");
         boolean policy = Onboarding.policy(this);
         boolean on = U.prefs(this).getBoolean(U.K_SILENCE, false) && policy;
         if (on) {
@@ -931,12 +955,14 @@ public class OnboardingActivity extends BaseActivity {
         View top = new View(this);
         body.addView(top, new LinearLayout.LayoutParams(1, U.dp(this, 12)));
         title("Pronto");
-        sub("Ecco com'è impostato −minus. Tutto si cambia da Impostazioni: le trovi in alto a sinistra nella ricerca, o tenendo premuto su uno spazio vuoto della home.");
+        sub("Ecco com'è impostato −minus. Tutto si cambia da Impostazioni: sono la prima voce della ricerca, o tieni premuto su uno spazio vuoto della home.");
         List<String> ok = new ArrayList<String>();
         if (Onboarding.isDefaultHome(this)) ok.add("Home: −minus");
         int p = Onboarding.alwaysCount(this);
         if (p > 0) ok.add(p + (p == 1 ? " persona passa sempre" : " persone passano sempre"));
         if (U.listenerEnabled(this)) ok.add("Filtro notifiche attivo");
+        int sv = ServiziActivity.installed(this).size();
+        if (sv > 0) ok.add("Servizi: " + sv + " app, i loro codici passano sempre");
         if (U.hasCalendar(this)) {
             String def = U.prefs(this).getString("last_cal_name", null);
             ok.add("Giornata: " + U.shownCalendars(this).size() + " calendari" + (def != null ? ", nuovi in " + def : ""));

@@ -60,7 +60,7 @@ public class LockActivity extends Activity {
         root.setPadding(U.dp(this, 28), U.dp(this, 36), U.dp(this, 28), U.dp(this, 20));
 
         clock = U.text(this, "", 56, U.ON_DARK, false);
-        clock.setTypeface(Typeface.MONOSPACE);
+        clock.setTypeface(U.SERIF);
         root.addView(clock);
         date = U.text(this, "", 16, U.ON_DARK_MUTED, false);
         root.addView(date);
@@ -166,6 +166,9 @@ public class LockActivity extends Activity {
         date.setText(d.substring(0, 1).toUpperCase(Locale.ITALY) + d.substring(1));
         // 0.6: sveglia di oggi nelle 2 ore prima; dalle 19 quella di domani, o «Nessuna sveglia per domani»
         String al = Quando.lockAlarm(U.hourNow(), System.currentTimeMillis(), U.nextAlarmTime(this), U.startOfDay(1), U.startOfDay(2));
+        // 0.13: la sveglia di domani (o la sua assenza) sta sulla riga di Domani, come in home
+        String alTomorrow = null;
+        if (al != null && !al.startsWith("Sveglia oggi")) { alTomorrow = al.replace("Sveglia domani", "Sveglia"); al = null; }
         alarm.setText(al == null ? "" : al);
         alarm.setVisibility(al == null ? View.GONE : View.VISIBLE);
         U.alarmIcon(alarm, al != null, U.ON_DARK);
@@ -197,7 +200,7 @@ public class LockActivity extends Activity {
         if (Quando.showTomorrow(U.hourNow(), todayEmpty)) {
             List<U.Event> tom = U.events(this, U.startOfDay(1), U.startOfDay(2));
             int room = Math.max(2, MAX_ROWS - shown);
-            next.addView(darkLabel("Domani"));
+            next.addView(MainActivity.dayRow(this, "Domani · " + U.dayLabel(U.startOfDay(1)), alTomorrow, U.ON_DARK_MUTED, U.ON_DARK), U.full());
             if (tom.isEmpty()) next.addView(U.text(this, "Niente in programma", 16, U.ON_DARK_MUTED, false));
             for (int i = 0; i < tom.size() && i < room; i++) next.addView(eventRow(tom.get(i), false));
             if (tom.size() > room) next.addView(more(tom.size() - room));
@@ -244,7 +247,7 @@ public class LockActivity extends Activity {
         r.setPadding(0, U.dp(this, 3), 0, U.dp(this, 3));
         r.setMinimumHeight(U.dp(this, 36));
         TextView l = U.text(this, left, 15, U.ON_DARK, strong);
-        l.setTypeface(Typeface.MONOSPACE, strong ? Typeface.BOLD : Typeface.NORMAL);
+        l.setTypeface(strong ? U.SERIF_M : U.SERIF);
         l.setMinWidth(U.dp(this, 64));
         r.addView(l);
         TextView t = U.text(this, title, 16, strong ? U.ON_DARK : 0xFFD0D0CA, strong);

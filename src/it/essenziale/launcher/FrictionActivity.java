@@ -76,7 +76,7 @@ public class FrictionActivity extends Activity {
         root.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         count = U.text(this, "", scope ? 24 : 40, U.ON_DARK, false);
-        count.setTypeface(Typeface.MONOSPACE);
+        count.setTypeface(U.SERIF);
         count.setGravity(Gravity.CENTER);
         count.setBackground(U.box(this, U.DARK, 0xFF62625C, 60));
         int size = U.dp(this, scope ? 64 : 120);

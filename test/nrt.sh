@@ -19,7 +19,7 @@ check "Stessa firma della v0.2 (si installa sopra senza disinstallare)" \
   "[ \"\$(apksigner verify --print-certs build/Essenziale.apk | grep SHA-256)\" = \"\$(apksigner verify --print-certs $OLD_APK | grep SHA-256)\" ]"
 B=$(aapt dump badging build/Essenziale.apk 2>/dev/null)
 check "Stesso pacchetto it.essenziale.launcher" "echo \"\$B\" | grep -q \"package: name='it.essenziale.launcher'\""
-check "versionCode 24 > 23 (aggiornamento accettato da Android)" "echo \"\$B\" | grep -q \"versionCode='24'\""
+check "versionCode 25 > 24 (aggiornamento accettato da Android)" "echo \"\$B\" | grep -q \"versionCode='25'\""
 check "minSdk 23 invariato" "echo \"\$B\" | grep -q \"sdkVersion:'23'\""
 
 echo -e "\n## F. Manifest: nulla di v0.2 è sparito" >> "$REPORT"
@@ -48,7 +48,7 @@ check "Task salvati sotto \"tasks\" come prima" "grep -q 'getString(\"tasks\"' s
 check "Conversazioni salvate sotto una chiave nuova, \"conversations\" (0.4)" "grep -q 'KEY = \"conversations\"' src/it/essenziale/launcher/Convs.java"
 check "Notifiche trattenute sotto \"items\" come prima" "grep -q 'getString(\"items\"' src/it/essenziale/launcher/Store.java"
 check "Ultimo calendario usato sotto \"last_cal\"" "grep -q '\"last_cal\"' src/it/essenziale/launcher/AddActivity.java"
-check "Tasks.java identico alla v0.2" "diff -q $OLD_SRC/it/essenziale/launcher/Tasks.java src/it/essenziale/launcher/Tasks.java"
+check "Tasks.java legge ancora i task della v0.2 (0.13: in più l'app collegata, facoltativa)" "grep -q 'optString(\"title\")' src/it/essenziale/launcher/Tasks.java && grep -q 'optLong(\"due\")' src/it/essenziale/launcher/Tasks.java && grep -q 'optString(\"app\", \"\")' src/it/essenziale/launcher/Tasks.java"
 check "Store.java identico alla v0.2" "diff -q $OLD_SRC/it/essenziale/launcher/Store.java src/it/essenziale/launcher/Store.java"
 check "Notifiche: apertura e «visto» come nella v0.2" "grep -q 'Store.intent(it.id)' src/it/essenziale/launcher/InboxActivity.java && grep -q 'Store.remove(InboxActivity.this, it.id)' src/it/essenziale/launcher/InboxActivity.java && grep -q 'Segna tutto come visto' src/it/essenziale/launcher/InboxActivity.java"
 check "Notifiche 0.6.1: tieni premuto per far passare sempre" "grep -q 'Pass.sheet' src/it/essenziale/launcher/InboxActivity.java"
@@ -96,7 +96,7 @@ for t in 'toggleTorch' 'camera()' 'emergency()' 'unlockThen' 'FLAG_SHOW_WHEN_LOC
 done
 echo -e "\n## I. Novità della 0.6" >> "$REPORT"
 S=src/it/essenziale/launcher
-check "Home: «+ Aggiungi» sulla riga Settimana, niente + nell'intestazione" "grep -q '\"+ Aggiungi\"' $H && ! grep -q 'TextView plus' $H"
+check "Home: «+ Aggiungi al calendario» in basso, niente + nell'intestazione" "grep -q '\"+ Aggiungi al calendario\"' $H && ! grep -q 'TextView plus' $H"
 check "Home: Domani secondo le regole «quando serve»" "grep -q 'Quando.showTomorrow' $H && grep -q 'Quando.homeAlarm' $H"
 check "Home: «+ Aggiungi» propone domani dopo le 19" "grep -q 'Quando.addDayOffset' $H"
 check "Blocco: sveglia secondo le regole «quando serve»" "grep -q 'Quando.lockAlarm' $L"
@@ -126,12 +126,21 @@ check "0.12: la ricerca si apre con la tastiera chiusa, salvo «Apri subito la t
 check "0.12: pausa di 8 secondi regolabile 4/6/8" "grep -q 'U.pauseSeconds' $S/FrictionActivity.java && grep -q 'pauseLength' $S/SettingsActivity.java"
 check "0.12: una cosa adesso nella pausa e scopo, mai di notte" "grep -q 'Adesso.card' $S/FrictionActivity.java && grep -q 'if (!night)' $S/FrictionActivity.java"
 check "0.12: sblocchi senza scopo spenti di default" "grep -q 'getBoolean(K_ON, false)' $S/Sblocco.java && grep -q 'Sblocco.unlocked' $S/FilterService.java"
-check "0.12: schermo intero con barre che tornano e si rinascondono" "grep -q 'SYSTEM_UI_FLAG_FULLSCREEN' $S/U.java && grep -q 'autoHideBars' $S/BaseActivity.java && grep -q 'refreshDate' $H"
+check "0.13: niente schermo intero, barra di stato sempre" "! grep -q 'K_FULL\\|autoHideBars' $S/*.java && ! grep -q 'Schermo intero' $S/Cerca.java $S/AspettoActivity.java"
 check "0.12: nessun «6 secondi» rimasto nei testi" "! grep -n '\"[^\"]*6 secondi' $S/*.java | grep -v Changes.java"
 
 check "0.12.3: un recente (persona o gruppo) apre la conversazione, non riempie il campo" "grep -q 'for (Hit h : peopleHits(r\[1\]))' $S/SearchActivity.java"
 
 check "0.12.4: Domani sulla schermata di blocco con la stessa regola della home" "grep -q 'Quando.showTomorrow(U.hourNow(), todayEmpty)' $L"
+check "0.13: stile carta e inchiostro (Literata e Atkinson nell'APK, palette del sito)" "unzip -l build/Essenziale.apk | grep 'assets/fonts/literata-medium.ttf' >/dev/null && grep -q '#F3F1EB' $S/U.java && grep -q 'BrandSpan' $S/U.java"
+check "0.13: logo animato al primo avvio" "grep -q 'new LogoView' $S/OnboardingActivity.java"
+check "0.13: home con pillola in alto, Oggi / Settimana, Aggiungi al calendario in basso" "grep -q 'pillRow' $H && grep -q 'Aggiungi al calendario' $H && grep -q '\"Settimana\"' $H"
+check "0.13: sveglia sulla riga del giorno, in home e nel blocco" "grep -q 'dayRow(this, \"Domani' $H && grep -q 'MainActivity.dayRow' $L"
+check "0.13: Impostazioni come voce della ricerca" "grep -q 'row(\"Impostazioni\", null' $S/SearchActivity.java"
+check "0.13: Servizi in Impostazioni e onboarding" "grep -q 'ServiziActivity' $S/SettingsActivity.java && grep -q 'ServiziActivity' $S/OnboardingActivity.java && grep -q '.ServiziActivity' AndroidManifest.xml"
+check "0.13: icone delle app dalla barra di stato" "grep -q 'AppIcons.save' $S/FilterService.java && grep -q 'AppIcons.badge' $S/SearchActivity.java"
+check "0.13: un task apre la sua app" "grep -q 't.app' $H && grep -q 'pickApp' $S/AddActivity.java"
+check "0.13: barometro in Cosa vede" "grep -q 'TYPE_PRESSURE' $S/SettingsActivity.java"
 
 echo -e "\n## A–D. Test automatici della logica" >> "$REPORT"
 javac -nowarn --release 8 -encoding UTF-8 -d "$OUT/classes" src/it/essenziale/launcher/{Rules,Rec,VoiceParser,Quando,Cerca,Tempo,Scopo,Notte,Cosa}.java test/it/essenziale/launcher/*.java 2>&1 | grep -v JAVA_TOOL

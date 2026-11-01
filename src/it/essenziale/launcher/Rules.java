@@ -39,9 +39,11 @@ public final class Rules {
     public static boolean isService(String pkg, String label, List<String> services) {
         if (services == null) return false;
         String l = label == null ? "" : label.toLowerCase(Locale.ITALY).trim();
+        // 0.13: «!pkg:pacchetto» = tolta a mano da Impostazioni › Notifiche › Servizi
+        if (pkg != null) for (String s0 : services) if (s0.trim().equalsIgnoreCase("!pkg:" + pkg)) return false;
         for (String s0 : services) {
             String s = s0.toLowerCase(Locale.ITALY).trim();
-            if (s.length() == 0) continue;
+            if (s.length() == 0 || s.startsWith("!")) continue;
             if (s.startsWith("pkg:")) { if (pkg != null && pkg.contains(s.substring(4).trim())) return true; }
             else if (s.length() <= 3 ? l.equals(s) : (l.equals(s) || l.contains(s))) return true;
         }

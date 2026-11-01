@@ -29,7 +29,7 @@ public class NightActivity extends BaseActivity {
         root.setPadding(U.dp(this, 22), U.dp(this, 40), U.dp(this, 22), U.dp(this, 20));
         Calendar k = Calendar.getInstance();
         TextView clock = U.text(this, String.format(java.util.Locale.ITALY, "%d:%02d", k.get(Calendar.HOUR_OF_DAY), k.get(Calendar.MINUTE)), 48, U.INK, false);
-        clock.setTypeface(android.graphics.Typeface.MONOSPACE);
+        clock.setTypeface(U.SERIF);
         clock.setGravity(Gravity.CENTER);
         root.addView(clock, U.full());
         String al = U.nextAlarm(this);

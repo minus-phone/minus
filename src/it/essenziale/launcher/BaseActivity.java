@@ -20,7 +20,6 @@ public class BaseActivity extends Activity {
         getWindow().setStatusBarColor(U.BG);
         getWindow().setNavigationBarColor(U.BG);
         U.immersive(this);
-        U.autoHideBars(this); // 0.12: con lo schermo intero le barre tornano solo per 3 secondi
     }
 
     @Override

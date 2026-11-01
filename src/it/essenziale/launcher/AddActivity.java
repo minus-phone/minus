@@ -48,7 +48,11 @@ public class AddActivity extends BaseActivity {
 
     private EditText title, note;
     private TextView tabEvent, tabTask, whenLabel, fromBtn, toBtn, calBtn, repeatBtn, allDayBox;
-    private LinearLayout chips, eventOnly, times, tabs, calBlock;
+    private LinearLayout chips, eventOnly, times, tabs, calBlock, taskOnly;
+    private TextView appBtn;
+    private String taskApp;
+    private boolean appChosen;
+    private static final String KEEP = "com.google.android.keep";
 
     private boolean editing() { return orig != null; }
 
@@ -202,6 +206,30 @@ public class AddActivity extends BaseActivity {
         eventOnly.addView(note, U.full());
         c.addView(eventOnly, U.full());
 
+        // 0.13: un task può aprire un'app («Fare la spesa» → Keep, per le liste condivise)
+        taskOnly = U.col(this);
+        taskOnly.addView(U.label(this, "Si apre con"));
+        appBtn = U.text(this, "", 15, U.INK, false);
+        appBtn.setMinHeight(U.dp(this, 48));
+        appBtn.setGravity(Gravity.CENTER_VERTICAL);
+        appBtn.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
+        appBtn.setBackground(U.box(this, U.SURFACE, U.BORDER, 12));
+        appBtn.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pickApp(); } });
+        taskOnly.addView(appBtn, U.full());
+        TextView an = U.text(this, "Toccando il task si apre l'app; la casella lo segna come fatto.", 13, U.MUTED, false);
+        an.setPadding(0, U.dp(this, 6), 0, 0);
+        taskOnly.addView(an);
+        c.addView(taskOnly, U.full());
+        title.addTextChangedListener(new android.text.TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int a, int b, int d) {}
+            public void onTextChanged(CharSequence s, int a, int b, int d) {}
+            public void afterTextChanged(android.text.Editable e) {
+                // la spesa propone Keep, se c'è e non hai scelto altro
+                if (taskApp == null && !appChosen && e.toString().toLowerCase(java.util.Locale.ITALY).matches(".*\\b(spesa|lista)\\b.*")
+                        && U.installed(AddActivity.this, KEEP)) { taskApp = KEEP; render(); }
+            }
+        });
+
         fromBtn.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pickTime(true); } });
         toBtn.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pickTime(false); } });
         calBtn.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pickCalendar(); } });
@@ -309,6 +337,11 @@ public class AddActivity extends BaseActivity {
         title.setHint(isEvent ? "Es. Pediatra" : "Es. Prenotare vaccino");
         whenLabel.setText(isEvent ? "GIORNO" : "SCADENZA");
         eventOnly.setVisibility(isEvent ? View.VISIBLE : View.GONE);
+        if (taskOnly != null) {
+            taskOnly.setVisibility(isEvent ? View.GONE : View.VISIBLE);
+            appBtn.setText((taskApp == null ? "Nessuna app" : U.appLabel(this, taskApp)) + "   ▾");
+            appBtn.setContentDescription("Si apre con: " + (taskApp == null ? "nessuna app" : U.appLabel(this, taskApp)));
+        }
         times.setVisibility(allDay ? View.GONE : View.VISIBLE);
         allDayBox.setText(allDay ? "✓" : "");
         allDayBox.setTextColor(U.BG);
@@ -323,8 +356,8 @@ public class AddActivity extends BaseActivity {
 
         fromBtn.setText(fmt(fromMin));
         toBtn.setText(fmt(toMin));
-        fromBtn.setTypeface(Typeface.MONOSPACE);
-        toBtn.setTypeface(Typeface.MONOSPACE);
+        fromBtn.setTypeface(U.SERIF);
+        toBtn.setTypeface(U.SERIF);
         calBtn.setText((calName != null ? calName : "Scegli il calendario") + "   ▾");
         U.Cal info = U.calInfo(this, calId);
         calNote.setText(info == null ? "" : U.calNote(info));
@@ -415,13 +448,29 @@ public class AddActivity extends BaseActivity {
                 }).show();
     }
 
+    private void pickApp() {
+        final List<U.AppInfo> apps = U.sortedApps(this);
+        List<CharSequence> names = new ArrayList<CharSequence>();
+        names.add("Nessuna app");
+        for (U.AppInfo a : apps) names.add(a.label);
+        new AlertDialog.Builder(this)
+                .setTitle("Si apre con")
+                .setItems(names.toArray(new CharSequence[0]), new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        appChosen = true;
+                        taskApp = w == 0 ? null : apps.get(w - 1).pkg;
+                        render();
+                    }
+                }).show();
+    }
+
     // ---------- Salva ----------
 
     private void save() {
         final String t = title.getText().toString().trim();
         if (t.length() == 0) { U.toast(this, "Scrivi un titolo"); return; }
         if (!isEvent) {
-            Tasks.add(this, t, day);
+            Tasks.add(this, t, day, taskApp);
             U.toast(this, "Task aggiunto");
             finish();
             return;

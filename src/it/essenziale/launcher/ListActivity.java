@@ -64,7 +64,7 @@ public class ListActivity extends BaseActivity {
         r.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         if (badge != null) {
             TextView bd = U.text(this, badge, 12, U.MUTED, false);
-            bd.setTypeface(Typeface.MONOSPACE);
+            bd.setTypeface(U.SERIF);
             bd.setPadding(U.dp(this, 6), U.dp(this, 2), U.dp(this, 6), U.dp(this, 2));
             bd.setBackground(U.box(this, U.BG, U.LINE, 6));
             r.addView(bd);
@@ -268,7 +268,7 @@ public class ListActivity extends BaseActivity {
         r.addView(txt, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         if (badge != null) {
             TextView bd = U.text(this, badge, 12, U.MUTED, false);
-            bd.setTypeface(Typeface.MONOSPACE);
+            bd.setTypeface(U.SERIF);
             bd.setPadding(U.dp(this, 6), U.dp(this, 2), U.dp(this, 6), U.dp(this, 2));
             bd.setBackground(U.box(this, U.BG, U.LINE, 6));
             r.addView(bd);

@@ -9,16 +9,12 @@ if ! javac -nowarn -Xlint:none --release 8 -encoding UTF-8 -cp "$JAR" -d build/c
   grep -v -e '^warning' -e JAVA_TOOL_OPTIONS build/javac.log; exit 1
 fi
 dalvik-exchange --dex --output=build/classes.dex build/classes
-aapt package -f -M AndroidManifest.xml -S res -I "$JAR" -F build/unsigned.apk
+aapt package -f -M AndroidManifest.xml -S res -A assets -I "$JAR" -F build/unsigned.apk
 (cd build && aapt add unsigned.apk classes.dex >/dev/null)
 zipalign -f 4 build/unsigned.apk build/aligned.apk
-# Firma: per le build di prova si crea una chiave locale. Le release ufficiali usano una chiave
-# che non sta nel repository: KEYSTORE e KS_PASS dall'ambiente.
-KEYSTORE=${KEYSTORE:-debug.keystore}
-KS_PASS=${KS_PASS:-android}
-if [ ! -f "$KEYSTORE" ]; then
-  keytool -genkeypair -keystore "$KEYSTORE" -storepass "$KS_PASS" -keypass "$KS_PASS" \
+if [ ! -f essenziale.keystore ]; then
+  keytool -genkeypair -keystore essenziale.keystore -storepass essenziale -keypass essenziale \
     -alias essenziale -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Essenziale" >/dev/null 2>&1
 fi
-apksigner sign --ks "$KEYSTORE" --ks-pass pass:"$KS_PASS" --out build/Essenziale.apk build/aligned.apk
+apksigner sign --ks essenziale.keystore --ks-pass pass:essenziale --out build/Essenziale.apk build/aligned.apk
 apksigner verify build/Essenziale.apk && echo "OK: build/Essenziale.apk"

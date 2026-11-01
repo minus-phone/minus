@@ -29,7 +29,7 @@ final class Aspetto {
             LinearLayout l = U.row(a);
             l.setPadding(0, U.dp(a, 4), 0, 0);
             TextView t = U.text(a, r[0] + "  ", 14, U.MUTED, false);
-            t.setTypeface(android.graphics.Typeface.MONOSPACE);
+            t.setTypeface(U.SERIF);
             l.addView(t);
             l.addView(U.text(a, r[1], 14, U.INK, false));
             c.addView(l, U.full());

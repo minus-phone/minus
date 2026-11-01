@@ -130,6 +130,7 @@ public class FilterService extends NotificationListenerService implements Store.
         // 0.9: chi tiene un'icona fissa nella barra (Essenziale non può toglierla: la propone silenziosa)
         try {
             Notification sn = sbn.getNotification();
+            if (live && !getPackageName().equals(sbn.getPackageName())) AppIcons.save(this, sbn.getPackageName(), sn); // 0.13
             if (Sticky.isSticky(sn) && !getPackageName().equals(sbn.getPackageName())) {
                 CharSequence st = sn.extras == null ? null : sn.extras.getCharSequence(Notification.EXTRA_TITLE);
                 Sticky.seen(this, sbn.getPackageName(), Sticky.channel(sn), st == null ? "" : st.toString());

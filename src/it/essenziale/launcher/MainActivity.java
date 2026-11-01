@@ -50,7 +50,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
 
         root = U.col(this);
         root.setBackgroundColor(U.BG);
-        root.setPadding(U.dp(this, 20), U.dp(this, 12), U.dp(this, 20), U.dp(this, 12));
+        root.setPadding(U.dp(this, 24), U.dp(this, 4), U.dp(this, 24), U.dp(this, 16));
         // Il focus iniziale va alla pagina, non al campo di ricerca: niente tastiera automatica
         root.setFocusable(true);
         root.setFocusableInTouchMode(true);
@@ -61,23 +61,50 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         sv.addView(content);
         root.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        // Intestazione: Oggi · data (con ora e batteria a schermo intero) · Notifiche ›
+        // 0.13: la pillola sta in alto al centro, nello stesso punto in cui compare sopra le altre app.
+        // Lo spazio resta anche quando non c'è, così la home non salta
+        android.widget.FrameLayout pillRow = new android.widget.FrameLayout(this);
+        root.addView(pillRow, 0, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, U.dp(this, 48)));
+
+        // Intestazione (0.13): in alto decidi cosa vedere, «Oggi / Settimana»; sotto la data. A destra Notifiche
         LinearLayout head = U.row(this);
-        head.addView(U.text(this, "Oggi", 24, U.INK, true));
+        head.setGravity(Gravity.TOP);
+        LinearLayout headL = U.col(this);
+        LinearLayout nav = U.row(this);
+        nav.setGravity(Gravity.BOTTOM);
+        TextView oggi = U.title(this, "Oggi", 40, U.INK);
+        oggi.setIncludeFontPadding(false);
+        nav.addView(oggi);
+        TextView slash = U.title(this, "/", 28, U.MUTED);
+        slash.setTypeface(U.SERIF);
+        slash.setPadding(U.dp(this, 10), 0, U.dp(this, 10), U.dp(this, 2));
+        slash.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        nav.addView(slash);
+        TextView week = U.title(this, "Settimana", 20, U.MUTED);
+        week.setTypeface(U.SERIF);
+        week.setMinHeight(U.dp(this, 44));
+        week.setGravity(Gravity.BOTTOM);
+        week.setPadding(0, 0, U.dp(this, 6), U.dp(this, 4));
+        week.setContentDescription("Settimana, apri la vista della settimana");
+        week.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { startActivity(new Intent(MainActivity.this, WeekActivity.class)); }
+        });
+        nav.addView(week);
+        headL.addView(nav);
         dateView = U.text(this, "", 15, U.MUTED, false);
-        dateView.setPadding(U.dp(this, 10), 0, 0, 0);
-        head.addView(dateView, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        headL.addView(dateView);
+        head.addView(headL, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         sessionView = U.text(this, "", 13, U.MUTED, false); // tempo dall'ultimo sblocco, solo oltre la soglia
         // Notifiche ›: un accesso, senza contare; sotto, «N per te» solo se ce ne sono. Altro non si conta mai
         LinearLayout nb = U.col(this);
-        nb.setGravity(Gravity.CENTER);
-        nb.setMinimumHeight(U.dp(this, 44));
+        nb.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        nb.setMinimumHeight(U.dp(this, 56));
         nb.setPadding(U.dp(this, 6), 0, U.dp(this, 6), 0);
         notifBtn = U.text(this, "Notifiche ›", 15, U.INK, false);
-        notifBtn.setGravity(Gravity.CENTER);
+        notifBtn.setGravity(Gravity.END);
         nb.addView(notifBtn);
         notifCount = U.text(this, "", 12, U.MUTED, false);
-        notifCount.setGravity(Gravity.CENTER);
+        notifCount.setGravity(Gravity.END);
         nb.addView(notifCount);
         nb.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { startActivity(new Intent(MainActivity.this, InboxActivity.class)); }
@@ -107,8 +134,8 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         });
         sessionView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         sessionView.setVisibility(View.VISIBLE);
-        sessionWrap.addView(sessionView, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER_VERTICAL | Gravity.START));
-        content.addView(sessionWrap, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        sessionWrap.addView(sessionView, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+        pillRow.addView(sessionWrap, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, U.dp(this, 48), Gravity.CENTER_HORIZONTAL | Gravity.TOP));
 
         // 0.6: dopo l'onboarding breve, una riga sola finché non completi o tocchi ✕
         setupLine = setupRow();
@@ -119,44 +146,15 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         content.addView(askBox, U.full());
 
         today = U.col(this);
-        today.setPadding(0, U.dp(this, 4), 0, U.dp(this, 10));
+        today.setPadding(0, U.dp(this, 24), 0, U.dp(this, 10));
         content.addView(today);
 
         // 0.6: Domani compare dalle 17, o prima se oggi non resta niente
         tomorrowLine = U.divider(this);
-        content.addView(tomorrowLine);
+        // 0.13: niente riga sopra Domani: basta lo spazio
         tomorrow = U.col(this);
         tomorrow.setPadding(0, U.dp(this, 2), 0, U.dp(this, 8));
         content.addView(tomorrow);
-
-        content.addView(U.divider(this));
-        // Settimana › a sinistra, «+ Aggiungi» a destra: aggiungere sta tra oggi e i prossimi giorni
-        LinearLayout weekRow = U.row(this);
-        weekRow.setMinimumHeight(U.dp(this, 52));
-        LinearLayout weekLink = U.row(this);
-        weekLink.setMinimumHeight(U.dp(this, 48));
-        weekLink.addView(U.text(this, "Settimana", 16, U.INK, true));
-        weekLink.addView(U.text(this, "  ›", 18, U.MUTED, false));
-        weekLink.setContentDescription("Settimana");
-        weekLink.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { startActivity(new Intent(MainActivity.this, WeekActivity.class)); }
-        });
-        weekRow.addView(weekLink, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView add = U.text(this, "+ Aggiungi", 15, U.INK, false);
-        add.setGravity(Gravity.CENTER);
-        add.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
-        add.setBackground(U.box(this, U.BG, U.INK, 18));
-        add.setContentDescription("Aggiungi impegno o task");
-        add.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                Intent i = new Intent(MainActivity.this, AddActivity.class);
-                i.putExtra("day", U.startOfDay(Quando.addDayOffset(U.hourNow())));
-                startActivity(i);
-            }
-        });
-        weekRow.addView(add, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, U.dp(this, 36)));
-        content.addView(weekRow);
-        content.addView(U.divider(this));
 
         // Contenitori
         // 0.7: niente contenitori in home. Tutto il resto passa dalla ricerca in basso;
@@ -178,17 +176,35 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         results = U.col(this);
         root.addView(results, U.full());
 
+        // 0.13: in basso le azioni valide sempre: aggiungere, poi cercare o chiedere
+        TextView add = U.text(this, "+ Aggiungi al calendario", 15, U.INK, false);
+        add.setGravity(Gravity.CENTER);
+        add.setPadding(U.dp(this, 18), 0, U.dp(this, 18), 0);
+        add.setBackground(U.box(this, U.BG, U.INK, 22));
+        add.setContentDescription("Aggiungi al calendario un impegno o una cosa da fare");
+        add.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                Intent i = new Intent(MainActivity.this, AddActivity.class);
+                i.putExtra("day", U.startOfDay(Quando.addDayOffset(U.hourNow())));
+                startActivity(i);
+            }
+        });
+        LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, U.dp(this, 44));
+        alp.topMargin = U.dp(this, 8);
+        root.addView(add, alp);
+
         // Barra in basso
         LinearLayout bar = U.row(this);
-        bar.setPadding(0, U.dp(this, 10), 0, 0);
+        bar.setPadding(0, U.dp(this, 12), 0, 0);
         LinearLayout field = U.row(this);
         field.setBackground(U.box(this, U.BG, U.INK, 28));
-        field.setPadding(U.dp(this, 16), U.dp(this, 4), U.dp(this, 6), U.dp(this, 4));
+        field.setPadding(U.dp(this, 22), U.dp(this, 6), U.dp(this, 6), U.dp(this, 6));
         query = new EditText(this);
         query.setHint("Cerca, chiedi o di' un comando");
         query.setHintTextColor(U.MUTED);
         query.setTextColor(U.INK);
-        query.setTextSize(16);
+        query.setTextSize(17);
+        query.setTypeface(U.SANS);
         query.setBackground(null);
         query.setSingleLine(true);
         query.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
@@ -386,27 +402,8 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         public void onReceive(android.content.Context c, Intent i) { refreshDate(); buildToday(); buildTomorrow(); }
     };
 
-    /** 0.12: a schermo intero la barra di stato non c'è, quindi ora e batteria (sotto il 20%) stanno qui. */
     private void refreshDate() {
-        java.util.Date now = new java.util.Date();
-        String d = new java.text.SimpleDateFormat("EEE d MMM", Locale.ITALY).format(now);
-        if (U.fullscreen(this)) {
-            d += "  ·  " + new java.text.SimpleDateFormat("H:mm", Locale.ITALY).format(now);
-            int bat = battery();
-            if (bat >= 0 && bat < 20) d += "  ·  batteria " + bat + "%";
-        }
-        dateView.setText(d);
-    }
-
-    private int battery() {
-        try {
-            Intent b = registerReceiver(null, new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-            if (b == null) return -1;
-            int l = b.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1), sc = b.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100);
-            int st = b.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1);
-            if (st == android.os.BatteryManager.BATTERY_STATUS_CHARGING || st == android.os.BatteryManager.BATTERY_STATUS_FULL) return -1;
-            return l < 0 || sc <= 0 ? -1 : l * 100 / sc;
-        } catch (Exception e) { return -1; }
+        dateView.setText(new java.text.SimpleDateFormat("EEE d MMM", Locale.ITALY).format(new java.util.Date()));
     }
 
     private boolean todayEmpty;
@@ -418,7 +415,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         sessionView.setTextColor(U.BG);
         sessionView.setBackground(U.box(this, U.INK, 0, 16));
         sessionWrap.setContentDescription(sl == null ? null : "Al telefono: " + sl.replace("●", "").replace("◷", "").trim() + ". Tocca per le impostazioni del tempo.");
-        sessionWrap.setVisibility(sl == null ? View.GONE : View.VISIBLE);
+        sessionWrap.setVisibility(sl == null ? View.INVISIBLE : View.VISIBLE);
         today.removeAllViews();
         if (!U.hasCalendar(this)) {
             TextView t = U.text(this, "Tocca qui per permettere la lettura del calendario", 15, U.MUTED, false);
@@ -453,25 +450,38 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         tomorrowLine.setVisibility(show ? View.VISIBLE : View.GONE);
         if (!show) return;
         long d = U.startOfDay(1);
-        tomorrow.addView(U.label(this, "Domani · " + U.dayLabel(d)));
-        // Prima riga: la sveglia di domani; dalle 19, se non c'è, lo dice (anche nel weekend)
+        // 0.13: la sveglia sta sulla riga del giorno, a destra; dalle 19, se non c'è, lo dice
         String al = Quando.homeAlarm(hour, System.currentTimeMillis(), U.nextAlarmTime(this), d, U.startOfDay(2));
-        if (al != null) {
-            boolean none = al.startsWith("Nessuna");
-            TextView a = U.text(this, al + (none ? "  ›" : ""), 15, U.INK, false);
-            a.setMinHeight(U.dp(this, 44));
-            a.setGravity(Gravity.CENTER_VERTICAL);
-            U.alarmIcon(a, true, U.INK);
-            a.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View v) { if (!U.openAlarms(MainActivity.this)) U.toast(MainActivity.this, "Non trovo l'app Orologio"); }
-            });
-            tomorrow.addView(a, U.full());
-        }
+        tomorrow.addView(dayRow(this, "Domani · " + U.dayLabel(d), al, U.MUTED, U.INK), U.full());
         List<U.Event> ev = U.events(this, d, U.startOfDay(2));
         for (U.Event e : ev) tomorrow.addView(eventRow(e, false, false, 15));
         List<Tasks.Task> tasks = Tasks.forDay(this, d);
         for (Tasks.Task t : tasks) tomorrow.addView(taskRow(t, 15, false));
         if (ev.isEmpty() && tasks.isEmpty()) tomorrow.addView(U.text(this, "Niente in programma", 15, U.MUTED, false));
+    }
+
+    /** 0.13: «DOMANI · SAB 31» a sinistra e la sveglia a destra, sulla stessa riga (home e blocco). */
+    static View dayRow(final android.app.Activity a, String day, String alarm, int muted, int ink) {
+        LinearLayout r = U.row(a);
+        r.setMinimumHeight(U.dp(a, 48));
+        r.setPadding(0, U.dp(a, 10), 0, 0);
+        TextView l = U.label(a, day);
+        l.setTextColor(muted);
+        l.setPadding(0, 0, 0, 0);
+        r.addView(l, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        if (alarm != null) {
+            boolean none = alarm.startsWith("Nessuna");
+            TextView t = U.text(a, none ? "Nessuna sveglia ›" : alarm, 15, ink, false);
+            t.setMinHeight(U.dp(a, 44));
+            t.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+            t.setPadding(U.dp(a, 12), 0, 0, 0);
+            t.setContentDescription(none ? "Nessuna sveglia per domani. Apri le sveglie" : alarm + ". Apri le sveglie");
+            t.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) { if (!U.openAlarms(a)) U.toast(a, "Non trovo l'app Orologio"); }
+            });
+            r.addView(t);
+        }
+        return r;
     }
 
     private View eventRow(final U.Event e, boolean strong, boolean past, float sp) {
@@ -482,7 +492,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         });
         int color = past ? U.MUTED : U.INK;
         TextView time = U.text(this, e.allDay ? "giorno" : U.hhmm(e.begin), sp - 1, strong ? U.INK : U.MUTED, strong);
-        time.setTypeface(Typeface.MONOSPACE, strong ? Typeface.BOLD : Typeface.NORMAL);
+        time.setTypeface(strong ? U.SERIF_M : U.SERIF);
         time.setMinWidth(U.dp(this, 64));
         r.addView(time);
         TextView title = U.text(this, e.title, sp, color, strong);
@@ -509,9 +519,23 @@ public class MainActivity extends BaseActivity implements Store.Listener {
             String due = Tasks.dueLabel(t);
             if (due.length() > 0) r.addView(U.text(this, due, 12, Tasks.overdue(t) ? U.ALERT : U.MUTED, Tasks.overdue(t)));
         }
-        r.setOnClickListener(new View.OnClickListener() {
+        View.OnClickListener toggle = new View.OnClickListener() {
             public void onClick(View v) { Tasks.setDone(MainActivity.this, t.id, !t.done); refresh(); }
-        });
+        };
+        if (t.app != null && !t.done && U.installed(this, t.app)) {
+            // 0.13: il task apre la sua app; la casella resta per segnarlo fatto
+            final String label = U.appLabel(this, t.app);
+            TextView open = U.text(this, label + " ›", 13, U.MUTED, false);
+            open.setPadding(U.dp(this, 10), 0, 0, 0);
+            r.addView(open);
+            boxWrap.setMinimumHeight(U.dp(this, 44));
+            boxWrap.setOnClickListener(toggle);
+            boxWrap.setContentDescription("Segna fatto: " + t.title);
+            r.setContentDescription(t.title + ", apri " + label);
+            r.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) { if (!U.launchPkg(MainActivity.this, t.app)) U.toast(MainActivity.this, "Non riesco ad aprire " + label); }
+            });
+        } else r.setOnClickListener(toggle);
         r.setOnLongClickListener(new View.OnLongClickListener() {
             public boolean onLongClick(View v) { confirmDelete(t); return true; }
         });

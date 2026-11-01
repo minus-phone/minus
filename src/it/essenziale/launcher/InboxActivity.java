@@ -106,7 +106,7 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
             list.addView(hint, U.full());
         }
         if (!U.listenerEnabled(this)) {
-            TextView w = U.text(this, "Il filtro notifiche non è attivo: aprilo da Impostazioni, in alto a sinistra nella ricerca.", 14, U.MUTED, false);
+            TextView w = U.text(this, "Il filtro notifiche non è attivo: aprilo da Impostazioni, la prima voce della ricerca.", 14, U.MUTED, false);
             w.setPadding(0, U.dp(this, 16), 0, 0);
             list.addView(w, U.full());
         }
@@ -123,8 +123,16 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
         LinearLayout txt = U.col(this);
         String meta = it.app + " · " + U.hhmm(it.time);
         if (it.time < U.startOfDay(0)) meta = it.app + " · " + U.dayLabel(it.time) + " " + U.hhmm(it.time);
+        // 0.13 (178c): l'icona della barra di stato al posto del nome dell'app, se c'è
+        android.graphics.drawable.Drawable ic = AppIcons.drawable(this, it.pkg, U.MUTED, 14);
+        if (ic != null && it.app != null && meta.startsWith(it.app + " · ")) meta = meta.substring(it.app.length() + 3); else ic = null;
         TextView m = U.text(this, meta.toUpperCase(java.util.Locale.ITALY), 11, U.MUTED, false);
         m.setLetterSpacing(0.05f);
+        if (ic != null) {
+            m.setCompoundDrawablesRelative(ic, null, null, null);
+            m.setCompoundDrawablePadding(U.dp(this, 6));
+            m.setContentDescription(it.app + ", " + meta);
+        }
         txt.addView(m);
         TextView t = U.text(this, TextUtils.isEmpty(it.title) ? it.app : it.title, 16, U.INK, true);
         txt.addView(t);
