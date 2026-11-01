@@ -34,7 +34,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     private static final String MAPS_PKG = "com.google.android.apps.maps";
 
     private LinearLayout root, today, tomorrow, results;
-    private TextView dateView, notifBtn, notifCount, sessionView, filterOff;
+    private TextView todayAlarm, dateView, notifBtn, notifCount, sessionView, filterOff;
     private android.widget.FrameLayout sessionWrap;
     private View notifBox, tomorrowLine, setupLine;
     private LinearLayout askBox;
@@ -50,7 +50,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
 
         root = U.col(this);
         root.setBackgroundColor(U.BG);
-        root.setPadding(U.dp(this, 24), U.dp(this, 4), U.dp(this, 24), U.dp(this, 16));
+        root.setPadding(U.dp(this, 20), 0, U.dp(this, 20), U.dp(this, 16));
         // Il focus iniziale va alla pagina, non al campo di ricerca: niente tastiera automatica
         root.setFocusable(true);
         root.setFocusableInTouchMode(true);
@@ -64,7 +64,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         // 0.13: la pillola sta in alto al centro, nello stesso punto in cui compare sopra le altre app.
         // Lo spazio resta anche quando non c'è, così la home non salta
         android.widget.FrameLayout pillRow = new android.widget.FrameLayout(this);
-        root.addView(pillRow, 0, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, U.dp(this, 48)));
+        root.addView(pillRow, 0, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, U.dp(this, 36)));
 
         // Intestazione (0.13): in alto decidi cosa vedere, «Oggi / Settimana»; sotto la data. A destra Notifiche
         LinearLayout head = U.row(this);
@@ -72,35 +72,35 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         LinearLayout headL = U.col(this);
         LinearLayout nav = U.row(this);
         nav.setGravity(Gravity.BOTTOM);
-        TextView oggi = U.title(this, "Oggi", 40, U.INK);
-        oggi.setIncludeFontPadding(false);
+        TextView oggi = U.title(this, "Oggi", 32, U.INK);
+        oggi.setSingleLine(true);
         nav.addView(oggi);
-        TextView slash = U.title(this, "/", 28, U.MUTED);
+        TextView slash = U.title(this, "/", 22, U.MUTED);
         slash.setTypeface(U.SERIF);
-        slash.setPadding(U.dp(this, 10), 0, U.dp(this, 10), U.dp(this, 2));
+        slash.setPadding(U.dp(this, 8), 0, U.dp(this, 8), U.dp(this, 3));
         slash.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         nav.addView(slash);
-        TextView week = U.title(this, "Settimana", 20, U.MUTED);
+        TextView week = U.title(this, "Settimana", 17, U.MUTED);
         week.setTypeface(U.SERIF);
+        week.setSingleLine(true);
+        week.setEllipsize(android.text.TextUtils.TruncateAt.END);
         week.setMinHeight(U.dp(this, 44));
         week.setGravity(Gravity.BOTTOM);
-        week.setPadding(0, 0, U.dp(this, 6), U.dp(this, 4));
+        week.setPadding(0, 0, U.dp(this, 6), U.dp(this, 6));
         week.setContentDescription("Settimana, apri la vista della settimana");
         week.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { startActivity(new Intent(MainActivity.this, WeekActivity.class)); }
         });
-        nav.addView(week);
-        headL.addView(nav);
-        dateView = U.text(this, "", 15, U.MUTED, false);
-        headL.addView(dateView);
+        nav.addView(week, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        headL.addView(nav, U.full());
         head.addView(headL, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         sessionView = U.text(this, "", 13, U.MUTED, false); // tempo dall'ultimo sblocco, solo oltre la soglia
         // Notifiche ›: un accesso, senza contare; sotto, «N per te» solo se ce ne sono. Altro non si conta mai
         LinearLayout nb = U.col(this);
         nb.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         nb.setMinimumHeight(U.dp(this, 56));
-        nb.setPadding(U.dp(this, 6), 0, U.dp(this, 6), 0);
-        notifBtn = U.text(this, "Notifiche ›", 15, U.INK, false);
+        nb.setPadding(U.dp(this, 8), 0, 0, 0);
+        notifBtn = U.text(this, "Notifiche", 15, U.INK, false); // 0.13.1: senza ›, per stare accanto a «Oggi / Settimana»
         notifBtn.setGravity(Gravity.END);
         nb.addView(notifBtn);
         notifCount = U.text(this, "", 12, U.MUTED, false);
@@ -119,6 +119,18 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         head.setOnLongClickListener(settings);
         content.setOnLongClickListener(settings);
         content.addView(head);
+        // 0.13.1: sotto, la data e, a destra, la sveglia di oggi finché non ha suonato (anche dopo mezzanotte)
+        LinearLayout dateRow = U.row(this);
+        dateView = U.text(this, "", 15, U.MUTED, false);
+        dateRow.addView(dateView, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        todayAlarm = U.text(this, "", 15, U.INK, false);
+        todayAlarm.setMinHeight(U.dp(this, 44));
+        todayAlarm.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+        todayAlarm.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { if (!U.openAlarms(MainActivity.this)) U.toast(MainActivity.this, "Non trovo l'app Orologio"); }
+        });
+        dateRow.addView(todayAlarm);
+        content.addView(dateRow, U.full());
         // 0.11: il tempo dall'ultimo sblocco ha l'aspetto della pillola, solo oltre la soglia
         sessionView.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
         sessionView.setMinHeight(U.dp(this, 32));
@@ -146,7 +158,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         content.addView(askBox, U.full());
 
         today = U.col(this);
-        today.setPadding(0, U.dp(this, 24), 0, U.dp(this, 10));
+        today.setPadding(0, U.dp(this, 16), 0, U.dp(this, 10));
         content.addView(today);
 
         // 0.6: Domani compare dalle 17, o prima se oggi non resta niente
@@ -404,6 +416,10 @@ public class MainActivity extends BaseActivity implements Store.Listener {
 
     private void refreshDate() {
         dateView.setText(new java.text.SimpleDateFormat("EEE d MMM", Locale.ITALY).format(new java.util.Date()));
+        String al = Quando.todayAlarm(System.currentTimeMillis(), U.nextAlarmTime(this), U.startOfDay(1));
+        todayAlarm.setText(al == null ? "" : al);
+        todayAlarm.setVisibility(al == null ? View.GONE : View.VISIBLE);
+        todayAlarm.setContentDescription(al == null ? null : al + " oggi. Apri le sveglie");
     }
 
     private boolean todayEmpty;

@@ -25,6 +25,11 @@ public final class Quando {
         return null;
     }
 
+    /** 0.13.1: la sveglia di oggi sta sulla riga di oggi finché non ha suonato (dopo mezzanotte è quella della notte). */
+    public static String todayAlarm(long now, long alarmAt, long startTomorrow) {
+        return alarmAt >= now && alarmAt < startTomorrow ? "Sveglia " + hm(alarmAt) : null;
+    }
+
     /** Blocco: sveglia di oggi nelle 2 ore prima; quella di domani (o la sua assenza) dalle 19. */
     public static String lockAlarm(int hour, long now, long alarmAt, long startTomorrow, long startDayAfter) {
         if (alarmAt >= now && alarmAt < startTomorrow && alarmAt - now <= ALARM_TODAY_BEFORE) return "Sveglia oggi " + hm(alarmAt);

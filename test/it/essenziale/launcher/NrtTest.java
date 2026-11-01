@@ -306,6 +306,8 @@ public class NrtTest {
         eq("Home, senza sveglia alle 18: niente", Quando.homeAlarm(18, at(2026, 10, 23, 18, 0), -1, d1, d2), null);
         eq("Home, senza sveglia dalle 19: lo dice", Quando.homeAlarm(19, at(2026, 10, 23, 19, 0), -1, d1, d2), "Nessuna sveglia per domani");
         eq("Home, sveglia tra due giorni dalle 19: «Nessuna sveglia per domani»", Quando.homeAlarm(21, at(2026, 10, 23, 21, 0), at(2026, 10, 25, 9, 0), d1, d2), "Nessuna sveglia per domani");
+        eq("0.13.1: dopo mezzanotte la sveglia del mattino sta su Oggi", Quando.todayAlarm(at(2026, 10, 23, 0, 37), at(2026, 10, 23, 7, 0), d1), "Sveglia 7:00");
+        eq("0.13.1: sveglia di oggi già suonata: niente", Quando.todayAlarm(at(2026, 10, 23, 9, 0), at(2026, 10, 24, 7, 0), d1), null);
         eq("Blocco di giorno: niente sveglia", Quando.lockAlarm(15, at(2026, 10, 23, 15, 0), alarm, d1, d2), null);
         eq("Blocco dalle 19: sveglia di domani", Quando.lockAlarm(21, at(2026, 10, 23, 21, 34), alarm, d1, d2), "Sveglia domani 6:45");
         eq("Blocco dalle 19 senza sveglia: lo dice (anche il venerdì)", Quando.lockAlarm(21, at(2026, 10, 23, 21, 34), -1, d1, d2), "Nessuna sveglia per domani");

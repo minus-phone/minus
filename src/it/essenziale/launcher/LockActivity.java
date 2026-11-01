@@ -169,6 +169,8 @@ public class LockActivity extends Activity {
         // 0.13: la sveglia di domani (o la sua assenza) sta sulla riga di Domani, come in home
         String alTomorrow = null;
         if (al != null && !al.startsWith("Sveglia oggi")) { alTomorrow = al.replace("Sveglia domani", "Sveglia"); al = null; }
+        // 0.13.1: come in home, la sveglia di oggi resta visibile finché non suona, non solo nelle 2 ore prima
+        if (al == null) { String t = Quando.todayAlarm(System.currentTimeMillis(), U.nextAlarmTime(this), U.startOfDay(1)); if (t != null) al = t.replace("Sveglia", "Sveglia oggi"); }
         alarm.setText(al == null ? "" : al);
         alarm.setVisibility(al == null ? View.GONE : View.VISIBLE);
         U.alarmIcon(alarm, al != null, U.ON_DARK);
