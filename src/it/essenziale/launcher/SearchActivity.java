@@ -645,9 +645,14 @@ public class SearchActivity extends BaseActivity {
         U.prefs(this).edit().putInt(k, U.prefs(this).getInt(k, 0) + 1).apply();
     }
 
+    /** 0.12.3: un recente porta dritto alla destinazione (prima, per le persone, riempiva solo il campo). */
     private void openRecent(String[] r) {
-        if ("app".equals(r[0])) openApp(r[1], r[2]);
-        else query.setText(r[1]);
+        if ("app".equals(r[0])) { openApp(r[1], r[2]); return; }
+        if ("person".equals(r[0]))
+            for (Hit h : peopleHits(r[1]))
+                if (Cerca.norm(h.name).equals(Cerca.norm(r[1]))) { openHit(h); return; }
+        // non più tra persone, gruppi e rubrica: si cerca, come prima
+        query.setText(r[1]);
         query.setSelection(query.getText().length());
     }
 
