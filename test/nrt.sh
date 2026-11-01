@@ -19,7 +19,7 @@ check "Stessa firma della v0.2 (si installa sopra senza disinstallare)" \
   "[ \"\$(apksigner verify --print-certs build/Essenziale.apk | grep SHA-256)\" = \"\$(apksigner verify --print-certs $OLD_APK | grep SHA-256)\" ]"
 B=$(aapt dump badging build/Essenziale.apk 2>/dev/null)
 check "Stesso pacchetto it.essenziale.launcher" "echo \"\$B\" | grep -q \"package: name='it.essenziale.launcher'\""
-check "versionCode 23 > 22 (aggiornamento accettato da Android)" "echo \"\$B\" | grep -q \"versionCode='23'\""
+check "versionCode 24 > 23 (aggiornamento accettato da Android)" "echo \"\$B\" | grep -q \"versionCode='24'\""
 check "minSdk 23 invariato" "echo \"\$B\" | grep -q \"sdkVersion:'23'\""
 
 echo -e "\n## F. Manifest: nulla di v0.2 è sparito" >> "$REPORT"
@@ -130,6 +130,8 @@ check "0.12: schermo intero con barre che tornano e si rinascondono" "grep -q 'S
 check "0.12: nessun «6 secondi» rimasto nei testi" "! grep -n '\"[^\"]*6 secondi' $S/*.java | grep -v Changes.java"
 
 check "0.12.3: un recente (persona o gruppo) apre la conversazione, non riempie il campo" "grep -q 'for (Hit h : peopleHits(r\[1\]))' $S/SearchActivity.java"
+
+check "0.12.4: Domani sulla schermata di blocco con la stessa regola della home" "grep -q 'Quando.showTomorrow(U.hourNow(), todayEmpty)' $L"
 
 echo -e "\n## A–D. Test automatici della logica" >> "$REPORT"
 javac -nowarn --release 8 -encoding UTF-8 -d "$OUT/classes" src/it/essenziale/launcher/{Rules,Rec,VoiceParser,Quando,Cerca,Tempo,Scopo,Notte,Cosa}.java test/it/essenziale/launcher/*.java 2>&1 | grep -v JAVA_TOOL

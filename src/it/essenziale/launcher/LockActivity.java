@@ -172,28 +172,38 @@ public class LockActivity extends Activity {
         alarm.setTextColor(U.ON_DARK);
 
         next.removeAllViews();
-        List<U.Event> ev = U.remainingToday(this);
-        String header = "Prossimi";
-        if (ev.isEmpty()) {
-            List<U.Event> tom = U.events(this, U.startOfDay(1), U.startOfDay(2));
-            if (!tom.isEmpty()) { ev = tom; header = "Domani"; }
+        // 0.12.4: stessa regola della home. Oggi: impegni non finiti, anche quelli di tutto il giorno;
+        // Domani compare dalle 17, o prima se oggi non resta niente (né impegni né cose da fare)
+        long now = System.currentTimeMillis();
+        List<U.Event> ev = new java.util.ArrayList<U.Event>();
+        for (U.Event e : U.events(this, U.startOfDay(0), U.startOfDay(1))) if (e.allDay || e.end >= now) ev.add(e);
+        List<Tasks.Task> tasks = Tasks.forToday(this, false, false);
+        boolean todayEmpty = ev.isEmpty() && tasks.isEmpty();
+        if (!ev.isEmpty()) next.addView(darkLabel("Prossimi"));
+        else if (todayEmpty) {
+            next.addView(darkLabel("Oggi"));
+            next.addView(U.text(this, "Niente più in programma", 16, U.ON_DARK_MUTED, false));
         }
-        next.addView(darkLabel(header));
-        if (ev.isEmpty()) next.addView(U.text(this, "Niente in programma", 16, U.ON_DARK_MUTED, false));
+        boolean nextMarked = false;
+        int shown = 0;
         for (int i = 0; i < ev.size() && i < MAX_ROWS; i++) {
             final U.Event e = ev.get(i);
-            View r = row(e.allDay ? "giorno" : U.hhmm(e.begin), e.title, null, i == 0 && "Prossimi".equals(header));
-            if (e.editable() && e.eventId >= 0) {
-                r.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) { unlockThen(U.editIntent(LockActivity.this, e)); }
-                });
-            }
-            next.addView(r);
+            boolean strong = !nextMarked && !e.allDay;
+            if (strong) nextMarked = true;
+            next.addView(eventRow(e, strong));
+            shown++;
         }
         if (ev.size() > MAX_ROWS) next.addView(more(ev.size() - MAX_ROWS));
+        if (Quando.showTomorrow(U.hourNow(), todayEmpty)) {
+            List<U.Event> tom = U.events(this, U.startOfDay(1), U.startOfDay(2));
+            int room = Math.max(2, MAX_ROWS - shown);
+            next.addView(darkLabel("Domani"));
+            if (tom.isEmpty()) next.addView(U.text(this, "Niente in programma", 16, U.ON_DARK_MUTED, false));
+            for (int i = 0; i < tom.size() && i < room; i++) next.addView(eventRow(tom.get(i), false));
+            if (tom.size() > room) next.addView(more(tom.size() - room));
+        }
 
         todo.removeAllViews();
-        List<Tasks.Task> tasks = Tasks.forToday(this, false, false);
         if (!tasks.isEmpty()) {
             todo.addView(darkLabel("Da fare"));
             int max = MAX_ROWS - 1;
@@ -210,6 +220,16 @@ public class LockActivity extends Activity {
             notif.setText(n == 1 ? "1 notifica" : n + " notifiche");
             notif.setVisibility(n == 0 ? View.GONE : View.VISIBLE);
         } else notif.setVisibility(View.GONE);
+    }
+
+    private View eventRow(final U.Event e, boolean strong) {
+        View r = row(e.allDay ? "giorno" : U.hhmm(e.begin), e.title, null, strong);
+        if (e.editable() && e.eventId >= 0) {
+            r.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) { unlockThen(U.editIntent(LockActivity.this, e)); }
+            });
+        }
+        return r;
     }
 
     private TextView darkLabel(String s) {
