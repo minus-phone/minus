@@ -33,17 +33,12 @@ public final class Cerca {
         return s == 0 ? 0 : s * 10 + (preferred ? 5 : 0);
     }
 
-    /**
-     * 0.13.7: la stessa persona con nomi diversi tra rubrica e chat («Filippo» e «Filippo Ferro»):
-     * uguali, oppure uno è l'inizio dell'altro fino a uno spazio. Nomi già normalizzati.
-     */
-    public static boolean samePerson(java.util.Set<String> names, String n) {
-        if (n == null || n.length() == 0) return false;
-        for (String f : names) {
-            if (f.length() == 0) continue;
-            if (f.equals(n) || n.startsWith(f + " ") || f.startsWith(n + " ")) return true;
-        }
-        return false;
+    /** 0.13.8: le ultime 9 cifre di un numero (+39 333 1234567 = 3331234567); null se non è un numero. */
+    public static String digits(String s) {
+        if (s == null) return null;
+        String d = s.replaceAll("[^0-9]", "");
+        if (d.length() < 6) return null;
+        return d.length() > 9 ? d.substring(d.length() - 9) : d;
     }
 
     /** Pagine di Impostazioni cercabili: titolo | parole chiave | destinazione. */

@@ -587,11 +587,10 @@ public class NrtTest {
     }
 
     static void stessaPersona() {
-        sec("0.13.7 · la stessa persona tra rubrica e chat");
-        java.util.Set<String> f = new java.util.HashSet<String>(java.util.Arrays.asList("filippo", "mamma"));
-        check("«Filippo Ferro» in chat è «Filippo» in rubrica", Cerca.samePerson(f, "filippo ferro"), null);
-        check("«Filippa» non è «Filippo»", !Cerca.samePerson(f, "filippa"), null);
-        check("«Mammamia» non è «Mamma»", !Cerca.samePerson(f, "mammamia"), null);
+        sec("0.13.8 · la stessa persona si riconosce dal numero");
+        eq("+39 333 123 4567 e 3331234567 sono lo stesso numero", Cerca.digits("+39 333 123 4567"), Cerca.digits("3331234567"));
+        eq("0039 333-1234567 come sopra", Cerca.digits("0039 333-1234567"), "331234567");
+        check("Un nome non è un numero", Cerca.digits("Filippo") == null, null);
     }
 
     static void servizi() {

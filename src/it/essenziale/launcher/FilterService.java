@@ -195,6 +195,7 @@ public class FilterService extends NotificationListenerService implements Store.
             selfReply = lastIsMine(ex);
             long t = Math.min(sbn.getPostTime(), System.currentTimeMillis());
             Convs.remember(code, note.title, note.pkg, n.contentIntent);
+            if (!note.group) Nums.remember(this, note.title, n); // 0.13.8: per riconoscere la stessa persona dal numero
             // 0.6.1: se tra i messaggi della notifica ce n'è uno tuo (anche scritto dentro l'app),
             // la conversazione è aperta per 12 ore da quel messaggio
             long mine = lastMineTime(ex);

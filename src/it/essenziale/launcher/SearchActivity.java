@@ -188,11 +188,16 @@ public class SearchActivity extends BaseActivity {
         final List<String[]> fixed = fixedPeople(this);
         Set<String> fixedKeys = new java.util.HashSet<String>();
         for (String[] f : fixed) fixedKeys.add(Cerca.norm(f[0]));
+        // 0.13.8: la stessa persona si riconosce dal numero («Filippo» in rubrica, «Filippo Ferro» in chat)
+        Set<String> fixedNums = new java.util.HashSet<String>();
+        for (Rules.Person p : Rules.people(U.cfg(this, U.K_CONTACTS, U.DEF_CONTACTS)))
+            if (p.section.equalsIgnoreCase("Sempre")) fixedNums.addAll(Nums.forPerson(this, p));
         List<Rules.Conv> cs = new ArrayList<Rules.Conv>();
         if (U.prefs(this).getBoolean(K_ACTIVE_ON, true)) {
             long now = System.currentTimeMillis(), today = U.startOfDay(0);
             for (Rules.Conv c : Convs.load(this))
-                if ((c.isOpen(now) || c.last >= today) && !Cerca.samePerson(fixedKeys, Cerca.norm(Rules.groupName(c.name)))) cs.add(c);
+                if ((c.isOpen(now) || c.last >= today) && !fixedKeys.contains(Cerca.norm(Rules.groupName(c.name)))
+                        && (c.group || java.util.Collections.disjoint(fixedNums, Nums.forConv(this, c.name)))) cs.add(c);
             Collections.sort(cs, new Comparator<Rules.Conv>() {
                 public int compare(Rules.Conv a, Rules.Conv b) { return Long.compare(Math.max(b.last, b.until - Rules.OPEN_MS), Math.max(a.last, a.until - Rules.OPEN_MS)); }
             });
