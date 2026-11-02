@@ -634,14 +634,16 @@ public final class U {
     /**
      * 0.13.3: la barra di navigazione è nascosta in tutte le schermate e il suo spazio è della pagina
      * (niente più fascia grigia). In home è nascosta anche la barra di stato. Scorrendo dal bordo le barre
-     * tornano e la pagina si ridimensiona per far loro spazio (IMMERSIVE, senza «layout stabile»); dopo
-     * 3 secondi si rinascondono e la pagina si riprende lo spazio.
+     * tornano; dopo 3 secondi si rinascondono.
+     * 0.13.4: la pagina occupa sempre tutto lo schermo e lo spazio per le barre (e per la tastiera) lo fa
+     * lei, con un margine che cresce e cala in 220 ms: niente salto quando le barre compaiono o spariscono.
      */
     public static void immersive(final Activity a) {
         boolean home = a instanceof MainActivity;
         final View d = a.getWindow().getDecorView();
         d.setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                         | (home ? View.SYSTEM_UI_FLAG_FULLSCREEN : 0)
                         | (dark ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR));
         d.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
@@ -652,6 +654,55 @@ public final class U {
                 }
             }
         });
+        smoothInsets(a);
+    }
+
+    /** Il margine della pagina segue barre e tastiera con una transizione, invece di saltare. */
+    static void smoothInsets(Activity a) {
+        final View content = a.findViewById(android.R.id.content);
+        if (content == null || content.getTag(R.id_insets) != null) { if (content != null) content.requestApplyInsets(); return; }
+        content.setTag(R.id_insets, Boolean.TRUE);
+        content.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+            public android.view.WindowInsets onApplyWindowInsets(View v, android.view.WindowInsets in) {
+                if (!(v instanceof ViewGroup) || ((ViewGroup) v).getChildCount() == 0) return in;
+                final View page = ((ViewGroup) v).getChildAt(0);
+                int[] base = (int[]) page.getTag(R.id_base);
+                if (base == null) {
+                    base = new int[]{page.getPaddingLeft(), page.getPaddingTop(), page.getPaddingRight(), page.getPaddingBottom()};
+                    page.setTag(R.id_base, base);
+                }
+                final int[] b = base;
+                final int top = b[1] + in.getSystemWindowInsetTop(), bottom = b[3] + in.getSystemWindowInsetBottom();
+                final int left = b[0] + in.getSystemWindowInsetLeft(), right = b[2] + in.getSystemWindowInsetRight();
+                Object old = page.getTag(R.id_anim);
+                if (old instanceof android.animation.ValueAnimator) ((android.animation.ValueAnimator) old).cancel();
+                boolean first = page.getTag(R.id_shown) == null;
+                page.setTag(R.id_shown, Boolean.TRUE);
+                if (first || !page.isLaidOut()) {
+                    page.setPadding(left, top, right, bottom);
+                } else {
+                    final int t0 = page.getPaddingTop(), b0 = page.getPaddingBottom();
+                    android.animation.ValueAnimator an = android.animation.ValueAnimator.ofFloat(0f, 1f);
+                    an.setDuration(220);
+                    an.setInterpolator(new android.view.animation.DecelerateInterpolator());
+                    an.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+                        public void onAnimationUpdate(android.animation.ValueAnimator x) {
+                            float f = (Float) x.getAnimatedValue();
+                            page.setPadding(left, Math.round(t0 + (top - t0) * f), right, Math.round(b0 + (bottom - b0) * f));
+                        }
+                    });
+                    page.setTag(R.id_anim, an);
+                    an.start();
+                }
+                return in.consumeSystemWindowInsets();
+            }
+        });
+        content.requestApplyInsets();
+    }
+
+    /** Chiavi per i tag delle viste (id fissi, senza risorse). */
+    static final class R {
+        static final int id_insets = 0x7f0f0001, id_base = 0x7f0f0002, id_anim = 0x7f0f0003, id_shown = 0x7f0f0004;
     }
 
     private static final java.util.WeakHashMap<Activity, Runnable> REHIDE = new java.util.WeakHashMap<Activity, Runnable>();

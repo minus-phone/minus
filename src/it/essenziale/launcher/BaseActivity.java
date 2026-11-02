@@ -38,6 +38,12 @@ public class BaseActivity extends Activity {
     }
 
     @Override
+    public void onContentChanged() {
+        super.onContentChanged();
+        U.smoothInsets(this); // 0.13.4: anche dopo un nuovo setContentView
+    }
+
+    @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) U.immersive(this);
