@@ -158,28 +158,23 @@ public class SearchActivity extends BaseActivity {
         // 0.13.6: l'aspetto della proposta UI (canvas «Ricerca»): voci a riga, griglia per le app, persone come avatar
         blocks.add(settingsRow());
         if (U.prefs(this).getBoolean(K_RECENT_ON, true)) {
-            List<View> rec = new ArrayList<View>();
+            // 0.13.7: di nuovo una riga che scorre di lato
+            LinearLayout chips = hrow();
             for (final String[] r : recents(this)) {
                 if (r.length < 3 || ("app".equals(r[0]) && paused.contains(r[1]))) continue;
-                if (rec.size() >= 3) break;
-                TextView t = U.text(this, r[2], 16, U.MUTED, false);
-                t.setSingleLine(true);
-                t.setEllipsize(TextUtils.TruncateAt.END);
-                t.setMinHeight(U.dp(this, 44));
-                t.setGravity(Gravity.CENTER_VERTICAL);
-                t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { openRecent(r); } });
-                rec.add(t);
+                chips.addView(chip(r[2], new Runnable() { public void run() { openRecent(r); } }), chipLp());
             }
-            if (!rec.isEmpty()) { blocks.add(sectionLabel("Cercate di recente")); blocks.addAll(rec); }
+            if (chips.getChildCount() > 0) { blocks.add(sectionLabel("Cercate di recente")); blocks.add(scrollOf(chips)); }
         }
         List<String[]> pt = portata(this);
         if (!pt.isEmpty()) {
             blocks.add(sectionLabel("App a portata"));
-            for (int i = 0; i < pt.size(); i += 2) {
+            // 0.13.7: tre colonne, al massimo tre righe
+            for (int i = 0; i < pt.size() && i < 9; i += 3) {
                 LinearLayout line = U.row(this);
-                for (int k = i; k < i + 2; k++) {
+                for (int k = i; k < i + 3; k++) {
                     LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-                    if (k == i) lp.rightMargin = U.dp(this, 20);
+                    if (k < i + 2) lp.rightMargin = U.dp(this, 14);
                     if (k >= pt.size()) { line.addView(new View(this), lp); continue; }
                     final String[] a = pt.get(k);
                     final boolean pz = paused.contains(a[0]);
@@ -197,7 +192,7 @@ public class SearchActivity extends BaseActivity {
         if (U.prefs(this).getBoolean(K_ACTIVE_ON, true)) {
             long now = System.currentTimeMillis(), today = U.startOfDay(0);
             for (Rules.Conv c : Convs.load(this))
-                if ((c.isOpen(now) || c.last >= today) && !fixedKeys.contains(Cerca.norm(Rules.groupName(c.name)))) cs.add(c);
+                if ((c.isOpen(now) || c.last >= today) && !Cerca.samePerson(fixedKeys, Cerca.norm(Rules.groupName(c.name)))) cs.add(c);
             Collections.sort(cs, new Comparator<Rules.Conv>() {
                 public int compare(Rules.Conv a, Rules.Conv b) { return Long.compare(Math.max(b.last, b.until - Rules.OPEN_MS), Math.max(a.last, a.until - Rules.OPEN_MS)); }
             });
@@ -321,10 +316,10 @@ public class SearchActivity extends BaseActivity {
 
     private View gridCell(String s, final Runnable r) {
         LinearLayout wrap = U.col(this);
-        TextView t = U.text(this, s, 17, U.INK, false);
+        TextView t = U.text(this, s, 15, U.INK, false);
         t.setSingleLine(true);
         t.setEllipsize(TextUtils.TruncateAt.END);
-        t.setMinHeight(U.dp(this, 52));
+        t.setMinHeight(U.dp(this, 46));
         t.setGravity(Gravity.CENTER_VERTICAL);
         t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
         wrap.addView(t, U.full());

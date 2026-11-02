@@ -64,6 +64,7 @@ public class NrtTest {
         voice();
         cosa();
         servizi();
+        stessaPersona();
         System.out.println("\nTotale: " + pass + " superati, " + fail + " falliti");
         FileWriter w = new FileWriter(a.length > 0 ? a[0] : "nrt-report.md");
         w.write("# Essenziale 0.6 · NRT automatico\n\nSuperati: " + pass + " · Falliti: " + fail + "\n");
@@ -583,6 +584,14 @@ public class NrtTest {
     static boolean hasSetting(java.util.List<String[]> l, String t) {
         for (String[] x : l) if (t.equals(x[0])) return true;
         return false;
+    }
+
+    static void stessaPersona() {
+        sec("0.13.7 · la stessa persona tra rubrica e chat");
+        java.util.Set<String> f = new java.util.HashSet<String>(java.util.Arrays.asList("filippo", "mamma"));
+        check("«Filippo Ferro» in chat è «Filippo» in rubrica", Cerca.samePerson(f, "filippo ferro"), null);
+        check("«Filippa» non è «Filippo»", !Cerca.samePerson(f, "filippa"), null);
+        check("«Mammamia» non è «Mamma»", !Cerca.samePerson(f, "mammamia"), null);
     }
 
     static void servizi() {
