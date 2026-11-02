@@ -632,17 +632,37 @@ public final class U {
     }
 
     /**
-     * Nasconde la barra di navigazione di Android (riappare scorrendo dal bordo).
-     * 0.13.2: in home anche la barra di stato è nascosta e il suo spazio è della home; scorrendo dall'alto
-     * torna sopra la home per qualche secondo, senza spostare niente (IMMERSIVE_STICKY). Nelle altre
-     * schermate la barra di stato resta sempre, e non c'è più un'opzione «schermo intero».
+     * 0.13.3: la barra di navigazione è nascosta in tutte le schermate e il suo spazio è della pagina
+     * (niente più fascia grigia). In home è nascosta anche la barra di stato. Scorrendo dal bordo le barre
+     * tornano e la pagina si ridimensiona per far loro spazio (IMMERSIVE, senza «layout stabile»); dopo
+     * 3 secondi si rinascondono e la pagina si riprende lo spazio.
      */
-    public static void immersive(Activity a) {
+    public static void immersive(final Activity a) {
         boolean home = a instanceof MainActivity;
-        a.getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                        | (home ? View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN : 0)
+        final View d = a.getWindow().getDecorView();
+        d.setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE
+                        | (home ? View.SYSTEM_UI_FLAG_FULLSCREEN : 0)
                         | (dark ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR));
+        d.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
+            public void onSystemUiVisibilityChange(int vis) {
+                if ((vis & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0) {
+                    d.removeCallbacks(rehide(a));
+                    d.postDelayed(rehide(a), 3000);
+                }
+            }
+        });
+    }
+
+    private static final java.util.WeakHashMap<Activity, Runnable> REHIDE = new java.util.WeakHashMap<Activity, Runnable>();
+
+    private static Runnable rehide(final Activity a) {
+        Runnable r = REHIDE.get(a);
+        if (r == null) {
+            r = new Runnable() { public void run() { if (!a.isFinishing() && a.hasWindowFocus()) immersive(a); } };
+            REHIDE.put(a, r);
+        }
+        return r;
     }
 
     // ---------- 0.12: pausa, aperture (0.13: schermo intero tolto, barra di stato sempre visibile) ----------
