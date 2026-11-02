@@ -256,7 +256,8 @@ public class OnboardingActivity extends BaseActivity {
         skip.setGravity(Gravity.CENTER);
         skip.setMinHeight(U.dp(this, 44));
         skip.setPadding(U.dp(this, 12), 0, 0, 0);
-        skip.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { next(); } });
+        // 0.13.6: «Salta» tiene quello che il passo ha già compilato (i preferiti), come promette il benvenuto
+        skip.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { if (step() == PEOPLE && peopleLoaded) savePeople(); next(); } });
         h.addView(skip);
         body.addView(h, U.full());
         LinearLayout bar = U.row(this);

@@ -104,7 +104,8 @@ public class SearchActivity extends BaseActivity {
         LinearLayout.LayoutParams flp = U.full();
         flp.topMargin = U.dp(this, 8);
         root.addView(field, flp);
-        TextView hint = U.text(this, "Le altre app si aprono scrivendone il nome.", 12, U.MUTED, false);
+        TextView hint = U.text(this, "Le altre app si aprono scrivendone il nome.", 14, U.MUTED, false);
+        hint.setTypeface(android.graphics.Typeface.create(U.SERIF, android.graphics.Typeface.ITALIC)); // 0.13.6: come nella UI
         hint.setGravity(Gravity.CENTER);
         hint.setPadding(0, U.dp(this, 6), 0, 0);
         root.addView(hint, U.full());
@@ -154,25 +155,41 @@ public class SearchActivity extends BaseActivity {
         List<View> blocks = new ArrayList<View>();
         Set<String> paused = U.pausedPkgs(this);
         // dall'alto: recenti, app, persone e gruppi (vicino al pollice). Ogni blocco su una riga che scorre di lato.
-        blocks.add(row("Impostazioni", null, "›", "⚙", new Runnable() {
-            public void run() { startActivity(new Intent(SearchActivity.this, SettingsActivity.class).putExtra("back", "Ricerca")); }
-        }));
+        // 0.13.6: l'aspetto della proposta UI (canvas «Ricerca»): voci a riga, griglia per le app, persone come avatar
+        blocks.add(settingsRow());
         if (U.prefs(this).getBoolean(K_RECENT_ON, true)) {
-            LinearLayout chips = hrow();
+            List<View> rec = new ArrayList<View>();
             for (final String[] r : recents(this)) {
                 if (r.length < 3 || ("app".equals(r[0]) && paused.contains(r[1]))) continue;
-                chips.addView(chip(r[2], new Runnable() { public void run() { openRecent(r); } }), chipLp());
+                if (rec.size() >= 3) break;
+                TextView t = U.text(this, r[2], 16, U.MUTED, false);
+                t.setSingleLine(true);
+                t.setEllipsize(TextUtils.TruncateAt.END);
+                t.setMinHeight(U.dp(this, 44));
+                t.setGravity(Gravity.CENTER_VERTICAL);
+                t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { openRecent(r); } });
+                rec.add(t);
             }
-            if (chips.getChildCount() > 0) { blocks.add(U.label(this, "Cercate di recente")); blocks.add(scrollOf(chips)); }
+            if (!rec.isEmpty()) { blocks.add(sectionLabel("Cercate di recente")); blocks.addAll(rec); }
         }
-        LinearLayout appChips = hrow();
-        for (final String[] a : portata(this)) {
-            final boolean pz = paused.contains(a[0]);
-            appChips.addView(chip(a[1] + (pz ? " · pausa" : ""), new Runnable() { public void run() { tapped = true; openApp(a[0], a[1]); } }), chipLp());
+        List<String[]> pt = portata(this);
+        if (!pt.isEmpty()) {
+            blocks.add(sectionLabel("App a portata"));
+            for (int i = 0; i < pt.size(); i += 2) {
+                LinearLayout line = U.row(this);
+                for (int k = i; k < i + 2; k++) {
+                    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+                    if (k == i) lp.rightMargin = U.dp(this, 20);
+                    if (k >= pt.size()) { line.addView(new View(this), lp); continue; }
+                    final String[] a = pt.get(k);
+                    final boolean pz = paused.contains(a[0]);
+                    line.addView(gridCell(a[1] + (pz ? " · pausa" : ""), new Runnable() { public void run() { tapped = true; openApp(a[0], a[1]); } }), lp);
+                }
+                blocks.add(line);
+            }
         }
-        if (appChips.getChildCount() > 0) { blocks.add(U.label(this, "App a portata")); blocks.add(scrollOf(appChips)); }
 
-        // Persone e gruppi: sopra le conversazioni attive (le 3 più recenti), sotto chi passa sempre, fisso
+        // Persone e gruppi: chi passa sempre come avatar; sotto, le conversazioni attive (le 3 più recenti)
         final List<String[]> fixed = fixedPeople(this);
         Set<String> fixedKeys = new java.util.HashSet<String>();
         for (String[] f : fixed) fixedKeys.add(Cerca.norm(f[0]));
@@ -185,28 +202,16 @@ public class SearchActivity extends BaseActivity {
                 public int compare(Rules.Conv a, Rules.Conv b) { return Long.compare(Math.max(b.last, b.until - Rules.OPEN_MS), Math.max(a.last, a.until - Rules.OPEN_MS)); }
             });
         }
-        if (!cs.isEmpty() || !fixed.isEmpty()) blocks.add(U.label(this, "Persone e gruppi"));
+        blocks.add(sectionLabel("Persone e gruppi"));
+        LinearLayout av = hrow();
+        av.setGravity(Gravity.TOP);
+        for (final String[] f : fixed) av.addView(personChip(f));
+        // «Altri ›» porta all'elenco; senza nessuno che passa sempre, invita a sceglierlo
+        av.addView(avatar(fixed.isEmpty() ? "+" : "›", fixed.isEmpty() ? "Scegli chi passa sempre" : "Altri", false, true, new Runnable() {
+            public void run() { startActivity(SettingsActivity.peopleIntent(SearchActivity.this, "Ricerca")); }
+        }));
+        blocks.add(scrollOf(av));
         for (int i = 0; i < cs.size() && i < MAX_ACTIVE; i++) blocks.add(convRow(cs.get(i)));
-        if (cs.size() > MAX_ACTIVE) {
-            // senza numero: dice solo che ce ne sono altre
-            TextView more = U.text(this, "Altri ›", 15, U.INK, false);
-            more.setGravity(Gravity.CENTER_VERTICAL | Gravity.RIGHT);
-            more.setMinHeight(U.dp(this, 44));
-            more.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View v) { startActivity(SettingsActivity.peopleIntent(SearchActivity.this, "Ricerca")); }
-            });
-            blocks.add(more);
-        }
-        if (!fixed.isEmpty()) {
-            LinearLayout pc = hrow();
-            for (final String[] f : fixed) pc.addView(personChip(f), chipLp());
-            if (!cs.isEmpty()) {
-                View gap = new View(this);
-                blocks.add(gap);
-                gap.setMinimumHeight(U.dp(this, 6));
-            }
-            blocks.add(scrollOf(pc));
-        }
         if (blocks.isEmpty()) {
             TextView t = U.text(this, "Scrivi il nome di una persona, di un'app o di un impegno. Puoi anche chiedere o dire un comando.", 14, U.MUTED, false);
             t.setPadding(0, 0, 0, U.dp(this, 8));
@@ -238,24 +243,11 @@ public class SearchActivity extends BaseActivity {
         return h;
     }
 
-    /** Persona o gruppo che passa sempre: iniziale (tonda per le persone, quadrata per i gruppi) e nome. */
+    /** 0.13.6: persona o gruppo che passa sempre, come avatar: iniziale in un cerchio (quadrato per i gruppi) e nome sotto. */
     private View personChip(final String[] f) {
         final boolean group = "g".equals(f[2]);
-        LinearLayout c = hrow();
-        c.setMinimumHeight(U.dp(this, 44));
-        c.setPadding(U.dp(this, 6), 0, U.dp(this, 12), 0);
-        c.setBackground(U.box(this, U.SURFACE, U.BORDER, 14));
         String n0 = f[0].trim();
-        TextView ini = U.text(this, n0.length() > 0 ? n0.substring(0, 1).toUpperCase(Locale.ITALY) : "?", 13, U.INK, true);
-        ini.setGravity(Gravity.CENTER);
-        ini.setBackground(U.box(this, U.CHIP, 0, group ? 9 : 16));
-        c.addView(ini, new LinearLayout.LayoutParams(U.dp(this, 32), U.dp(this, 32)));
-        TextView t = U.text(this, f[0], 14, U.INK, false);
-        t.setSingleLine(true);
-        t.setEllipsize(TextUtils.TruncateAt.END);
-        t.setMaxWidth(U.dp(this, 150));
-        t.setPadding(U.dp(this, 8), 0, 0, 0);
-        c.addView(t);
+        View c = avatar(n0.length() > 0 ? n0.substring(0, 1).toUpperCase(Locale.ITALY) : "?", shortName(f[0]), group, false, null);
         c.setContentDescription((group ? "Gruppo " : "") + f[0]);
         c.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
@@ -267,6 +259,77 @@ public class SearchActivity extends BaseActivity {
             }
         });
         return c;
+    }
+
+    private static String shortName(String n) {
+        String t = n.trim();
+        int sp = t.indexOf(' ');
+        return sp > 0 && t.length() > 12 ? t.substring(0, sp) : t;
+    }
+
+    private View avatar(String ini, String name, boolean group, boolean more, final Runnable r) {
+        LinearLayout c = U.col(this);
+        c.setGravity(Gravity.CENTER_HORIZONTAL);
+        c.setPadding(0, U.dp(this, 2), U.dp(this, 18), U.dp(this, 4));
+        c.setMinimumWidth(U.dp(this, 64));
+        TextView i = U.title(this, ini, more ? 18 : 20, more ? U.MUTED : U.INK);
+        i.setTypeface(more ? U.SANS : U.SERIF);
+        i.setGravity(Gravity.CENTER);
+        android.graphics.drawable.GradientDrawable d = new android.graphics.drawable.GradientDrawable();
+        d.setCornerRadius(U.dp(this, group ? 14 : 28));
+        if (more) d.setStroke(U.dp(this, 1), U.MUTED, U.dp(this, 3), U.dp(this, 3));
+        else d.setStroke(Math.max(1, Math.round(U.dp(this, 1.5f))), U.INK);
+        i.setBackground(d);
+        c.addView(i, new LinearLayout.LayoutParams(U.dp(this, 56), U.dp(this, 56)));
+        TextView t = U.text(this, name, 14, more ? U.MUTED : U.INK, false);
+        t.setGravity(Gravity.CENTER);
+        t.setMaxWidth(U.dp(this, 84));
+        t.setMaxLines(2);
+        t.setPadding(0, U.dp(this, 8), 0, 0);
+        c.addView(t);
+        if (r != null) {
+            c.setContentDescription(name);
+            c.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
+        }
+        return c;
+    }
+
+    private TextView sectionLabel(String s) {
+        TextView t = U.label(this, s);
+        t.setLetterSpacing(0.12f);
+        t.setPadding(0, U.dp(this, 22), 0, U.dp(this, 6));
+        return t;
+    }
+
+    private View settingsRow() {
+        LinearLayout row = U.row(this);
+        row.setMinimumHeight(U.dp(this, 48));
+        TextView g = U.text(this, "⚙", 18, U.INK, false);
+        g.setPadding(0, 0, U.dp(this, 12), 0);
+        row.addView(g);
+        row.addView(U.text(this, "Impostazioni", 17, U.INK, false), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(U.text(this, "›", 17, U.MUTED, false));
+        row.setContentDescription("Impostazioni");
+        row.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { startActivity(new Intent(SearchActivity.this, SettingsActivity.class).putExtra("back", "Ricerca")); }
+        });
+        LinearLayout wrap = U.col(this);
+        wrap.addView(row, U.full());
+        wrap.addView(U.divider(this));
+        return wrap;
+    }
+
+    private View gridCell(String s, final Runnable r) {
+        LinearLayout wrap = U.col(this);
+        TextView t = U.text(this, s, 17, U.INK, false);
+        t.setSingleLine(true);
+        t.setEllipsize(TextUtils.TruncateAt.END);
+        t.setMinHeight(U.dp(this, 52));
+        t.setGravity(Gravity.CENTER_VERTICAL);
+        t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
+        wrap.addView(t, U.full());
+        wrap.addView(U.divider(this));
+        return wrap;
     }
 
     /** 0.8: chi passa sempre, persone e gruppi insieme, nell'ordine scelto in A portata: {nome, codice app, "g" se gruppo}. */

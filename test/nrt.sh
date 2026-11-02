@@ -19,7 +19,7 @@ check "Stessa firma della v0.2 (si installa sopra senza disinstallare)" \
   "[ \"\$(apksigner verify --print-certs build/Essenziale.apk | grep SHA-256)\" = \"\$(apksigner verify --print-certs $OLD_APK | grep SHA-256)\" ]"
 B=$(aapt dump badging build/Essenziale.apk 2>/dev/null)
 check "Stesso pacchetto it.essenziale.launcher" "echo \"\$B\" | grep -q \"package: name='it.essenziale.launcher'\""
-check "versionCode 30 > 29 (aggiornamento accettato da Android)" "echo \"\$B\" | grep -q \"versionCode='30'\""
+check "versionCode 31 > 30 (aggiornamento accettato da Android)" "echo \"\$B\" | grep -q \"versionCode='31'\""
 check "minSdk 23 invariato" "echo \"\$B\" | grep -q \"sdkVersion:'23'\""
 
 echo -e "\n## F. Manifest: nulla di v0.2 è sparito" >> "$REPORT"
@@ -64,7 +64,7 @@ check "0.7: ricerca con risultati appoggiati in basso" "grep -q 'setGravity(Grav
 check "0.7: le app con la pausa si aprono con la pausa anche dalla ricerca" "grep -q 'U.open(this, a)' src/it/essenziale/launcher/SearchActivity.java"
 check "0.8: a portata in due blocchi, persone e gruppi insieme" "grep -q 'fixedPeople' src/it/essenziale/launcher/SearchActivity.java && grep -q 'groupAlways' <(sed -n '/static List<String\\[\\]> fixedPeople/,/^    }/p' src/it/essenziale/launcher/SearchActivity.java)"
 check "0.8: righe che scorrono di lato" "grep -q 'HorizontalScrollView' src/it/essenziale/launcher/SearchActivity.java"
-check "0.8: al massimo 3 conversazioni attive e «Altri ›» senza numero" "grep -q 'MAX_ACTIVE = 3' src/it/essenziale/launcher/SearchActivity.java && grep -q '\"Altri ›\"' src/it/essenziale/launcher/SearchActivity.java"
+check "0.8: al massimo 3 conversazioni attive e «Altri» senza numero (0.13.6: avatar)" "grep -q 'MAX_ACTIVE = 3' src/it/essenziale/launcher/SearchActivity.java && grep -q '\"Altri\"' src/it/essenziale/launcher/SearchActivity.java"
 check "0.8: ordine di persone e gruppi annullabile" "grep -q 'K_ORDER}' src/it/essenziale/launcher/PortataActivity.java"
 check "0.9: pillola spenta finché non la accendi e mai sopra Essenziale" "grep -q 'getBoolean(K_ON, false)' src/it/essenziale/launcher/Pill.java && grep -q 'Pill.resumed' src/it/essenziale/launcher/BaseActivity.java && grep -q 'Pill.resumed' src/it/essenziale/launcher/LockActivity.java"
 check "0.9: un segnale alla volta (con la pillola niente avviso in tendina)" "grep -q 'if (Pill.active(this)) return' src/it/essenziale/launcher/FilterService.java"
@@ -137,7 +137,7 @@ check "0.13: stile carta e inchiostro (Literata e Atkinson nell'APK, palette del
 check "0.13: logo animato al primo avvio" "grep -q 'new LogoView' $S/OnboardingActivity.java"
 check "0.13: home con pillola in alto, Oggi / Settimana, Aggiungi al calendario in basso" "grep -q 'pillRow' $H && grep -q 'Aggiungi al calendario' $H && grep -q '\"Settimana\"' $H"
 check "0.13: sveglia sulla riga del giorno, in home e nel blocco" "grep -q 'dayRow(this, \"Domani' $H && grep -q 'MainActivity.dayRow' $L"
-check "0.13: Impostazioni come voce della ricerca" "grep -q 'row(\"Impostazioni\", null' $S/SearchActivity.java"
+check "0.13: Impostazioni come voce della ricerca" "grep -q 'blocks.add(settingsRow())' $S/SearchActivity.java"
 check "0.13: Servizi in Impostazioni e onboarding" "grep -q 'ServiziActivity' $S/SettingsActivity.java && grep -q 'ServiziActivity' $S/OnboardingActivity.java && grep -q '.ServiziActivity' AndroidManifest.xml"
 check "0.13: icone delle app dalla barra di stato" "grep -q 'AppIcons.save' $S/FilterService.java && grep -q 'AppIcons.badge' $S/SearchActivity.java"
 check "0.13: un task apre la sua app" "grep -q 't.app' $H && grep -q 'pickApp' $S/AddActivity.java"
@@ -145,6 +145,8 @@ check "0.13.1: sveglia di oggi sulla riga della data e nel blocco finché non su
 check "0.13.4: barre e tastiera fanno spazio con una transizione, senza salto" "grep -q 'smoothInsets' $S/U.java && grep -q 'smoothInsets' $S/BaseActivity.java && grep -q 'setDuration(220)' $S/U.java"
 check "0.13.5: dalla configurazione si torna da soli dopo ogni permesso; home con la finestra di Android" "grep -q 'openAndWatch' $S/OnboardingActivity.java && grep -q 'createRequestRoleIntent' $S/Onboarding.java && grep -q 'bringBack' $H"
 check "0.13.5: interruttore grigio delle notifiche spiegato subito a chi installa l'APK" "grep -q 'maybeRestricted' $S/OnboardingActivity.java"
+check "0.13.6: ricerca con l'aspetto della UI (righe, griglia, avatar) e invito se nessuno passa sempre" "grep -q 'settingsRow()' $S/SearchActivity.java && grep -q 'gridCell' $S/SearchActivity.java && grep -q 'Scegli chi passa sempre' $S/SearchActivity.java"
+check "0.13.6: Salta nel passo Persone tiene i preferiti" "grep -q 'step() == PEOPLE && peopleLoaded' $S/OnboardingActivity.java"
 check "0.13: barometro in Cosa vede" "grep -q 'TYPE_PRESSURE' $S/SettingsActivity.java"
 
 echo -e "\n## A–D. Test automatici della logica" >> "$REPORT"
