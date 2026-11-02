@@ -264,16 +264,34 @@ public final class U {
     }
 
     /** Configurazione del filtro, letta dalle preferenze. */
+    /**
+     * 0.13.10: le app dei gestori di identità SPID (MySielte ID non era riconosciuta).
+     * Frammenti del pacchetto e nomi delle app; chi aveva già modificato i Servizi le riceve una volta.
+     */
+    public static final String SPID_SERVICES =
+            "pkg:sielte\npkg:aruba\npkg:infocert\npkg:namirial\npkg:lepida\npkg:intesi\npkg:infocamere\npkg:teamsystem\npkg:spid\n" +
+            "MySielte\nSielte ID\nArubaID\nAruba ID\nInfoCert ID\nNamirial ID\nLepidaID\nTIM id\nSpidItalia\nIntesi Group\nTeamSystem ID\nID InfoCamere\nEHT\n";
+    static final String K_SVC_SPID = "services_spid_v1";
     public static final String K_SERVICES = "services";
     public static final String DEF_SERVICES =
             "# Servizi: banca, pagamenti, identità digitale. Mai in Altro; codici e accessi passano subito\n" +
             "pkg:bank\npkg:banca\npkg:banking\npkg:poste\npkg:pagopa\npkg:cieid\npkg:authenticator\npkg:paypal\npkg:satispay\n" +
             "pkg:revolut\npkg:fineco\npkg:intesa\npkg:unicredit\npkg:ingdirect\npkg:mediolanum\npkg:widiba\npkg:isybank\n" +
             "pkg:hype\npkg:number26\npkg:bnl\npkg:credem\npkg:bper\npkg:sella\npkg:webank\npkg:latuabanca\npkg:mps\n" +
-            "IO\nCieID\nPosteID\nBancoPosta\nSPID\nAuthenticator\nBanca\nBank\n";
+            "IO\nCieID\nPosteID\nBancoPosta\nSPID\nAuthenticator\nBanca\nBank\n" + SPID_SERVICES;
+
 
     public static Rules.Config ruleConfig(Context c) {
         Rules.Config cfg = new Rules.Config();
+        SharedPreferences sp = prefs(c);
+        if (sp.contains(K_SERVICES) && !sp.getBoolean(K_SVC_SPID, false)) {
+            // elenco già modificato a mano: aggiunge i gestori SPID che mancano, senza toccare le scelte fatte
+            String cur = sp.getString(K_SERVICES, "");
+            StringBuilder b = new StringBuilder(cur.endsWith("\n") || cur.length() == 0 ? cur : cur + "\n");
+            for (String l : SPID_SERVICES.split("\n"))
+                if (l.length() > 0 && !(("\n" + cur).contains("\n" + l + "\n")) && !cur.contains("!" + l)) b.append(l).append('\n');
+            sp.edit().putString(K_SERVICES, b.toString()).putBoolean(K_SVC_SPID, true).apply();
+        }
         for (String[] r : rows(cfg(c, K_SERVICES, DEF_SERVICES))) cfg.services.add(r[0]);
         cfg.people = Rules.people(cfg(c, K_CONTACTS, DEF_CONTACTS));
         for (String[] r : rows(cfg(c, K_WAITING_APPS, DEF_WAITING_APPS))) cfg.waitingApps.add(r[0]);

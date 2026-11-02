@@ -610,6 +610,9 @@ public class NrtTest {
         eq("PosteID: richiesta di autorizzazione passa", svcLvl("posteitaliane.posteapp.appposteid", "PosteID", "PosteID", "Autorizza l'accesso"), Rules.PASS);
         eq("Un'app qualsiasi resta in Altro", svcLvl("com.instagram.android", "Instagram", "Instagram", "Nuovo follower"), Rules.OTHER);
         check("«IO» vale solo come nome esatto, non dentro altri nomi", !Rules.isService("x.y", "Ricordi", svc().services), null);
+        java.util.List<String> spid = java.util.Arrays.asList("pkg:sielte", "MySielte", "ArubaID", "EHT");
+        check("0.13.10: MySielte ID è un servizio (pacchetto o nome)", Rules.isService("it.sielte.mysielteid", "MySielte ID", spid) && Rules.isService("x.y", "MySielte ID", spid), null);
+        check("0.13.10: «EHT» vale solo come nome esatto", !Rules.isService("x.y", "Beht", spid), null);
         java.util.List<String> sv = new java.util.ArrayList<String>(svc().services);
         sv.add("!pkg:com.mybank.app");
         check("0.13: un servizio tolto a mano («!pkg:») non è più un servizio", !Rules.isService("com.mybank.app", "MyBank", sv) && Rules.isService("it.bancaxyz.mobile", "Banca XYZ", sv), null);

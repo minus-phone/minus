@@ -19,7 +19,7 @@ check "Stessa firma della v0.2 (si installa sopra senza disinstallare)" \
   "[ \"\$(apksigner verify --print-certs build/Essenziale.apk | grep SHA-256)\" = \"\$(apksigner verify --print-certs $OLD_APK | grep SHA-256)\" ]"
 B=$(aapt dump badging build/Essenziale.apk 2>/dev/null)
 check "Stesso pacchetto it.essenziale.launcher" "echo \"\$B\" | grep -q \"package: name='it.essenziale.launcher'\""
-check "versionCode 34 > 33 (aggiornamento accettato da Android)" "echo \"\$B\" | grep -q \"versionCode='34'\""
+check "versionCode 35 > 34 (aggiornamento accettato da Android)" "echo \"\$B\" | grep -q \"versionCode='35'\""
 check "minSdk 23 invariato" "echo \"\$B\" | grep -q \"sdkVersion:'23'\""
 
 echo -e "\n## F. Manifest: nulla di v0.2 è sparito" >> "$REPORT"
@@ -149,6 +149,7 @@ check "0.13.6: ricerca con l'aspetto della UI (righe, griglia, avatar) e invito 
 check "0.13.6: Salta nel passo Persone tiene i preferiti" "grep -q 'step() == PEOPLE && peopleLoaded' $S/OnboardingActivity.java"
 check "0.13.7: app a portata in 3 colonne, recenti di lato, stessa persona riconosciuta dal numero (0.13.8)" "grep -q 'i < pt.size() && i < 9; i += 3' $S/SearchActivity.java && grep -q 'Nums.forConv' $S/SearchActivity.java && grep -q 'Nums.remember' $S/FilterService.java"
 check "0.13.9: icone salvate in ARGB, file vuoti ignorati" "! grep -q 'extractAlpha' $S/AppIcons.java && grep -q 'length() > 0' $S/AppIcons.java"
+check "0.13.10: gestori SPID tra i Servizi, anche per chi aveva modificato l'elenco" "grep -q 'SPID_SERVICES' $S/U.java && grep -q 'K_SVC_SPID' $S/U.java"
 check "0.13: barometro in Cosa vede" "grep -q 'TYPE_PRESSURE' $S/SettingsActivity.java"
 
 echo -e "\n## A–D. Test automatici della logica" >> "$REPORT"
