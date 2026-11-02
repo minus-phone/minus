@@ -259,7 +259,8 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         root.requestFocus();
         observer = U.calendarObserver(new Runnable() { public void run() { buildToday(); buildTomorrow(); } });
         // 0.6: al primo avvio l'onboarding chiede i permessi nel passo che li usa
-        if (Onboarding.firstRun(this)) startActivity(new Intent(this, OnboardingActivity.class));
+        // 0.13.5: se la configurazione è già aperta (sei diventata home a metà), torna quella, non una nuova da capo
+        if (Onboarding.firstRun(this)) OnboardingActivity.bringBack(this);
         else if (!U.hasCalendar(this)) requestPermissions(new String[]{android.Manifest.permission.READ_CALENDAR}, REQ_CAL);
     }
 
@@ -286,6 +287,8 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     @Override
     protected void onResume() {
         super.onResume();
+        // 0.13.5: la configurazione vive in un suo task; se era aperta (sei diventata home a metà), torna lei
+        if (OnboardingActivity.running) OnboardingActivity.bringBack(this);
         Store.addListener(this);
         U.watchCalendar(this, observer, true);
         registerReceiver(tick, new android.content.IntentFilter(Intent.ACTION_TIME_TICK));

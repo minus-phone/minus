@@ -114,8 +114,26 @@ public final class Onboarding {
         return n;
     }
 
-    public static void openHomeSettings(Context c) {
-        if (!U.start(c, new Intent(Settings.ACTION_HOME_SETTINGS))) U.start(c, new Intent(Settings.ACTION_SETTINGS));
+    public static final int REQ_HOME = 41;
+
+    /**
+     * 0.13.5: da Android 10 c'è la finestra «Imposta come app Home» (RoleManager): si sceglie e si torna
+     * subito alla configurazione. Prima di Android 10, le impostazioni Home di Android.
+     */
+    public static void openHomeSettings(android.app.Activity a) {
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            try {
+                Object rm = a.getSystemService("role");
+                Class<?> k = Class.forName("android.app.role.RoleManager");
+                boolean avail = (Boolean) k.getMethod("isRoleAvailable", String.class).invoke(rm, "android.app.role.HOME");
+                if (avail) {
+                    Intent i = (Intent) k.getMethod("createRequestRoleIntent", String.class).invoke(rm, "android.app.role.HOME");
+                    a.startActivityForResult(i, REQ_HOME);
+                    return;
+                }
+            } catch (Throwable ignored) {}
+        }
+        if (!U.start(a, new Intent(Settings.ACTION_HOME_SETTINGS))) U.start(a, new Intent(Settings.ACTION_SETTINGS));
     }
 
     public static void openListenerSettings(Context c) {

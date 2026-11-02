@@ -56,6 +56,7 @@ public class OnboardingActivity extends BaseActivity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        running = true;
         cont = getIntent().getBooleanExtra("continue", false);
         if (cont) {
             List<Integer> steps = new ArrayList<Integer>();
@@ -82,7 +83,76 @@ public class OnboardingActivity extends BaseActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        watching = null; // 0.13.5: sei tornata, non serve più riportarti qui
         render(); // al ritorno dalle impostazioni di Android il passo mostra lo stato aggiornato
+    }
+
+    /** 0.13.5: aperta e non finita. La home la riporta davanti invece di ricominciare da capo. */
+    static boolean running;
+
+    static void bringBack(android.app.Activity from) {
+        Intent i = new Intent(from, OnboardingActivity.class);
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+        from.startActivity(i);
+    }
+
+    @Override
+    public void finish() {
+        running = false; // prima che la home riprenda, sennò la riporterebbe davanti
+        super.finish();
+    }
+
+    @Override
+    protected void onDestroy() {
+        running = false;
+        watcher.removeCallbacksAndMessages(null);
+        super.onDestroy();
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        render(); // 0.13.5: dalla finestra «app Home» si torna qui
+    }
+
+    // ---------- 0.13.5: ritorno automatico dalle impostazioni di Android ----------
+
+    interface Check { boolean ok(); }
+
+    private Check watching;
+    private final android.os.Handler watcher = new android.os.Handler();
+
+    /**
+     * Apre una pagina di Android e, appena il permesso risulta concesso, riporta alla configurazione:
+     * niente più «torna con Indietro». Se Android non lo permette, resta il ritorno con Indietro.
+     */
+    private void openAndWatch(Runnable open, final Check c) {
+        watching = c;
+        final long until = System.currentTimeMillis() + 3 * 60 * 1000L;
+        open.run();
+        watcher.removeCallbacksAndMessages(null);
+        watcher.postDelayed(new Runnable() {
+            public void run() {
+                if (watching != c || System.currentTimeMillis() > until) return;
+                boolean ok = false;
+                try { ok = c.ok(); } catch (Exception ignored) {}
+                if (ok) {
+                    watching = null;
+                    Intent i = new Intent(OnboardingActivity.this, OnboardingActivity.class);
+                    i.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    try { startActivity(i); } catch (Exception ignored) {}
+                } else watcher.postDelayed(this, 600);
+            }
+        }, 800);
+    }
+
+    /** Su Android 13+ le app installate fuori dal Play Store hanno l'interruttore delle notifiche grigio. */
+    private boolean maybeRestricted() {
+        if (Build.VERSION.SDK_INT < 33) return false;
+        try {
+            String inst = getPackageManager().getInstallerPackageName(getPackageName());
+            return !"com.android.vending".equals(inst);
+        } catch (Exception e) { return true; }
     }
 
     @Override
@@ -345,8 +415,11 @@ public class OnboardingActivity extends BaseActivity {
             body.addView(U.text(this, "✓ −minus è la tua home.", 15, U.INK, true));
             primary("Avanti", new Runnable() { public void run() { next(); } });
         } else {
-            note("Dopo il tocco Android chiede quale app Home usare: scegli −minus e «Sempre».");
-            primary("Imposta come home", new Runnable() { public void run() { Onboarding.openHomeSettings(OnboardingActivity.this); } });
+            note("Dopo il tocco Android chiede quale app Home usare: scegli −minus. Poi torni qui.");
+            primary("Imposta come home", new Runnable() { public void run() {
+                openAndWatch(new Runnable() { public void run() { Onboarding.openHomeSettings(OnboardingActivity.this); } },
+                        new Check() { public boolean ok() { return Onboarding.isDefaultHome(OnboardingActivity.this); } });
+            } });
         }
     }
 
@@ -576,10 +649,23 @@ public class OnboardingActivity extends BaseActivity {
             primary("Avanti", new Runnable() { public void run() { next(); } });
             return;
         }
-        note("Si apre Android: attiva −minus e torna con Indietro. Per far passare sempre un gruppo: tienilo premuto in Notifiche.");
+        note("Si apre Android: attiva −minus e torni qui da sola. Per far passare sempre un gruppo: tienilo premuto in Notifiche.");
+        if (maybeRestricted()) {
+            // 0.13.5: chi installa l'APK lo trova grigio: la guida è subito qui, non solo dopo un rifiuto
+            TextView r = U.text(this, "L'interruttore è grigio e non si attiva? ›", 15, U.INK, false);
+            r.setMinHeight(U.dp(this, 48));
+            r.setGravity(Gravity.CENTER_VERTICAL);
+            r.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { restricted = true; render(); } });
+            body.addView(r, U.full());
+        }
         primary("Consenti l'accesso alle notifiche", new Runnable() {
-            public void run() { askedNotif = true; Onboarding.openListenerSettings(OnboardingActivity.this); }
+            public void run() { askedNotif = true; openListener(); }
         });
+    }
+
+    private void openListener() {
+        openAndWatch(new Runnable() { public void run() { Onboarding.openListenerSettings(OnboardingActivity.this); } },
+                new Check() { public boolean ok() { return U.listenerEnabled(OnboardingActivity.this); } });
     }
 
     private void notifDenied() {
@@ -596,7 +682,7 @@ public class OnboardingActivity extends BaseActivity {
         TextView again = U.text(this, "Riprova ad attivarlo ›", 15, U.INK, false);
         again.setMinHeight(U.dp(this, 48));
         again.setGravity(Gravity.CENTER_VERTICAL);
-        again.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { Onboarding.openListenerSettings(OnboardingActivity.this); } });
+        again.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { openListener(); } });
         body.addView(again, U.full());
         note("Lo ritrovi in home («Continua la configurazione») e in Impostazioni › Attivazione. Non te lo richiediamo a ogni avvio.");
         primary("Avanti", new Runnable() { public void run() { next(); } });
@@ -624,7 +710,7 @@ public class OnboardingActivity extends BaseActivity {
         again.setMinHeight(U.dp(this, 48));
         again.setGravity(Gravity.CENTER_VERTICAL);
         again.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { restricted = false; Onboarding.openListenerSettings(OnboardingActivity.this); }
+            public void onClick(View v) { restricted = false; openListener(); }
         });
         body.addView(again, U.full());
         note("Compare solo se Android segnala «Impostazione con restrizioni». Con il Play Store questo passo non c'è.");
@@ -653,7 +739,10 @@ public class OnboardingActivity extends BaseActivity {
             });
         } else {
             note("Si apre Android: consenti l'accesso a «Non disturbare» per −minus e torna con Indietro.");
-            primary("Consenti «Non disturbare»", new Runnable() { public void run() { Onboarding.openPolicySettings(OnboardingActivity.this); } });
+            primary("Consenti «Non disturbare»", new Runnable() { public void run() {
+                openAndWatch(new Runnable() { public void run() { Onboarding.openPolicySettings(OnboardingActivity.this); } },
+                        new Check() { public boolean ok() { return Onboarding.policy(OnboardingActivity.this); } });
+            } });
         }
     }
 
@@ -879,7 +968,10 @@ public class OnboardingActivity extends BaseActivity {
         body.addView(dw, U.full());
         if (!draw) {
             note("Si apre Android: attiva −minus e torna con Indietro. Senza: niente pillola, resta la riga in home.");
-            primary("Consenti «Mostra sopra altre app»", new Runnable() { public void run() { Pill.openOverlaySettings(OnboardingActivity.this); } });
+            primary("Consenti «Mostra sopra altre app»", new Runnable() { public void run() {
+                openAndWatch(new Runnable() { public void run() { Pill.openOverlaySettings(OnboardingActivity.this); } },
+                        new Check() { public boolean ok() { return Pill.canDraw(OnboardingActivity.this); } });
+            } });
         } else if (!usage) {
             TextView skip = U.text(this, "Va bene solo il totale ›", 15, U.INK, false);
             skip.setMinHeight(U.dp(this, 48));
@@ -887,7 +979,10 @@ public class OnboardingActivity extends BaseActivity {
             skip.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { done("pausa"); } });
             body.addView(skip, U.full());
             note("Si apre Android: trova −minus in «Accesso ai dati di utilizzo» e torna con Indietro.");
-            primary("Consenti dati di utilizzo · facoltativo", new Runnable() { public void run() { Pill.openUsageSettings(OnboardingActivity.this); } });
+            primary("Consenti dati di utilizzo · facoltativo", new Runnable() { public void run() {
+                openAndWatch(new Runnable() { public void run() { Pill.openUsageSettings(OnboardingActivity.this); } },
+                        new Check() { public boolean ok() { return Pill.usageGranted(OnboardingActivity.this); } });
+            } });
         } else {
             body.addView(U.text(this, "✓ Pronta: la vedrai sopra le app, oltre la soglia.", 15, U.INK, true));
             primary("Avanti", new Runnable() { public void run() { done("pausa"); } });
