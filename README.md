@@ -23,7 +23,7 @@ Scarica l'APK dall'ultima [release](https://github.com/minus-phone/minus/release
 
 ## Da dove nasce
 
-*−minus* nasce da una ricerca con 67 persone e dagli studi sull'uso del telefono: il problema non è il tempo in sé, ma il gesto automatico di prenderlo in mano senza un motivo. Il racconto completo, con le fonti, è sul [sito](https://minus-phone.github.io).
+*−minus* nasce da una ricerca con 72 persone e dagli studi sull'uso del telefono: il problema non è il tempo in sé, ma il gesto automatico di prenderlo in mano senza un motivo. Il racconto completo, con le fonti, è sul [sito](https://minus-phone.github.io).
 
 ## Compilare
 
