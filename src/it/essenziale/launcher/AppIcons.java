@@ -33,22 +33,36 @@ final class AppIcons {
         try {
             if (pkg == null || n == null || n.getSmallIcon() == null) return;
             File f = file(c, pkg);
-            if (f.exists() && System.currentTimeMillis() - f.lastModified() < 30L * 24 * 3600 * 1000) return;
+            if (f.length() > 0 && System.currentTimeMillis() - f.lastModified() < 30L * 24 * 3600 * 1000) return;
             Drawable d = n.getSmallIcon().loadDrawable(c);
             if (d == null) return;
+            d = d.mutate();
+            // 0.13.9: sagoma nera su trasparente, in ARGB (prima: una bitmap di sola trasparenza che
+            // su molti telefoni non si salvava in PNG, e restava un file vuoto: per questo si vedeva il nome)
+            d.setColorFilter(0xFF000000, PorterDuff.Mode.SRC_IN);
             int s = 96;
             Bitmap b = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888);
             Canvas cv = new Canvas(b);
             d.setBounds(0, 0, s, s);
             d.draw(cv);
             f.getParentFile().mkdirs();
-            FileOutputStream o = new FileOutputStream(f);
-            b.extractAlpha().compress(Bitmap.CompressFormat.PNG, 100, o);
+            File tmp = new File(f.getPath() + ".tmp");
+            FileOutputStream o = new FileOutputStream(tmp);
+            boolean ok = b.compress(Bitmap.CompressFormat.PNG, 100, o);
             o.close();
+            if (ok && tmp.length() > 0) tmp.renameTo(f); else tmp.delete();
         } catch (Throwable ignored) {}
     }
 
-    static boolean has(Context c, String pkg) { return pkg != null && file(c, pkg).exists(); }
+    static boolean has(Context c, String pkg) { return pkg != null && file(c, pkg).length() > 0; }
+
+    /** Per «Cosa vede −minus»: quante icone sono già state salvate. */
+    static int count(Context c) {
+        File[] l = new File(c.getFilesDir(), "sb-icons").listFiles();
+        int n = 0;
+        if (l != null) for (File x : l) if (x.getName().endsWith(".png") && x.length() > 0) n++;
+        return n;
+    }
 
     /** L'icona colorata con il colore del testo, o null se l'app non ha ancora mandato notifiche. */
     static Drawable drawable(Context c, String pkg, int color, int sizeDp) {

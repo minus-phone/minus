@@ -285,6 +285,7 @@ public class SettingsActivity extends BaseActivity {
 
     private void showLog(String head) {
         StringBuilder b = new StringBuilder(head);
+        b.append("Icone delle app salvate: ").append(AppIcons.count(this)).append(" (arrivano con la prima notifica di ogni app).\n\n");
         for (String[] r : U.rows(U.prefs(this).getString(FilterService.K_LOG, ""))) {
             if (r.length < 5) continue;
             long t = 0;
