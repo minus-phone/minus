@@ -18,6 +18,7 @@ public class LogoView extends View {
     private static final float END = 0.58f;
     private static final float[] TRAIL = {0.42f, 0.28f, 0.18f, 0.10f, 0.05f};
     private static final long TRAIL_STEP = 35;
+    private static final float ROTATING = 0.3f;
     private final Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG), bar = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final PathInterpolator ease = new PathInterpolator(0.6f, 0f, 0.3f, 1f);
     private long start = -1;
@@ -65,7 +66,9 @@ public class LogoView extends View {
             for (int k = TRAIL.length; k >= 0; k--) {
                 long tk = t - k * TRAIL_STEP;
                 float p = Math.max(0, Math.min(END, tk / (float) CYCLE));
-                bar.setAlpha(k == 0 ? alpha : Math.round(alpha * TRAIL[k - 1]));
+                // 3/11: pieno solo il tratto orizzontale; quelli che ruotano al 30%, scia in proporzione
+                float base0 = base == 0 ? 1f : ROTATING;
+                bar.setAlpha(Math.round(alpha * base0 * (k == 0 ? 1f : TRAIL[k - 1])));
                 cv.save();
                 cv.rotate(angle(base, p), cx, cy);
                 cv.drawRoundRect(r, hh, hh, bar);
