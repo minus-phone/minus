@@ -348,6 +348,15 @@ public class NrtTest {
         check("Notte: spenta non è mai notte", !Notte.active(false, Notte.FIXED, 2, 0, now), null);
         check("Notte automatica attiva fino alla fine", Notte.active(true, Notte.AUTO, 3, now + h, now) && !Notte.active(true, Notte.AUTO, 3, now - 1, now), null);
         check("Sblocco di notte solo dopo una pausa lunga", Notte.nightUnlock(true, 25) && !Notte.nightUnlock(true, 5) && !Notte.nightUnlock(false, 90), null);
+        // 0.14: ora di staccare dalla sveglia e dalle ore di sonno
+        eq("Staccare: sveglia 6:45, 7½ ore → 22:45", Notte.hhmm(Notte.offMin(405, 450, Notte.LEAD_MIN)), "22:45");
+        eq("A dormire: sveglia 6:45, 7½ ore → 23:15", Notte.hhmm(Notte.bedMin(405, 450)), "23:15");
+        eq("Staccare: sveglia 8:00, 8 ore → 23:30", Notte.hhmm(Notte.offMin(480, 480, 30)), "23:30");
+        eq("Staccare: sveglia 4:00, 7 ore → 20:30", Notte.hhmm(Notte.offMin(240, 420, 30)), "20:30");
+        check("Finestra a cavallo della mezzanotte: 23:00 e 3:00 sì, 12:00 no", Notte.inWindow(1380, 1365, 435) && Notte.inWindow(180, 1365, 435) && !Notte.inWindow(720, 1365, 435), null);
+        check("Finestra: l'inizio è dentro, la fine no", Notte.inWindow(1365, 1365, 435) && !Notte.inWindow(435, 1365, 435), null);
+        check("Finestra nello stesso giorno", Notte.inWindow(60, 30, 120) && !Notte.inWindow(150, 30, 120), null);
+        check("Con l'ora di staccare decide l'app, non la logica a ore fisse", !Notte.active(true, Notte.SCHED, 23, 0, now), null);
     }
 
     static void tempo() {
@@ -389,7 +398,7 @@ public class NrtTest {
         check("Ma una corrispondenza migliore vince sulla preferenza", Cerca.rank("Mamma", "mam", false) > Cerca.rank("Tommaso", "mam", true) || Cerca.rank("Tommaso", "mam", true) == 0, null);
         eq("Impostazioni: «pausa» trova la pausa", Cerca.settings("pausa", 3).get(0)[0], "Pausa prima di aprire");
         eq("Impostazioni: «gruppi» trova i gruppi", Cerca.settings("grup", 3).get(0)[0], "Gruppi");
-        check("Impostazioni: «banca» trova Servizi e contenitori dalle parole chiave", hasSetting(Cerca.settings("banca", 3), "Servizi") && hasSetting(Cerca.settings("banca", 3), "Contenitori"), null);
+        check("Impostazioni: «banca» trova Servizi e A portata dalle parole chiave (0.14: niente contenitori)", hasSetting(Cerca.settings("banca", 3), "Servizi") && !hasSetting(Cerca.settings("banca", 3), "Contenitori"), null);
         eq("Impostazioni: una lettera sola non basta", Cerca.settings("p", 3).size(), 0);
         List<String> r = new ArrayList<String>();
         r = Cerca.pushRecent(r, "a"); r = Cerca.pushRecent(r, "b"); r = Cerca.pushRecent(r, "c"); r = Cerca.pushRecent(r, "d");

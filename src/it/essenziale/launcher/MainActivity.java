@@ -47,6 +47,8 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         if (getIntent() != null && getIntent().getBooleanExtra("scope_done", false)) Scope.end(this, "chiusa");
+        Goals.migrate(this); // 0.14: chi aggiorna trova gli obiettivi ricavati da cosa usava già
+        evening = Night.evening(this);
 
         root = U.col(this);
         root.setBackgroundColor(U.BG);
@@ -414,7 +416,11 @@ public class MainActivity extends BaseActivity implements Store.Listener {
 
     /** Ogni minuto: toglie gli impegni appena finiti; alle 17 e alle 19 cambia cosa si vede. */
     private final android.content.BroadcastReceiver tick = new android.content.BroadcastReceiver() {
-        public void onReceive(android.content.Context c, Intent i) { refreshDate(); buildToday(); buildTomorrow(); }
+        public void onReceive(android.content.Context c, Intent i) {
+            // 0.14: all'ora di staccare (e alla sveglia) la home cambia colori: si ridisegna
+            if (Night.evening(MainActivity.this) != evening) { recreate(); return; }
+            refreshDate(); buildToday(); buildTomorrow();
+        }
     };
 
     private void refreshDate() {
@@ -426,6 +432,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     }
 
     private boolean todayEmpty;
+    private boolean evening; // 0.14 (195): modalità sera, dall'ora di staccare alla sveglia
 
     private void buildToday() {
         // 0.6: sotto la data solo il tempo dall'ultimo sblocco; la sveglia sta in Domani
@@ -436,6 +443,18 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         sessionWrap.setContentDescription(sl == null ? null : "Al telefono: " + sl.replace("●", "").replace("◷", "").trim() + ". Tocca per le impostazioni del tempo.");
         sessionWrap.setVisibility(sl == null ? View.INVISIBLE : View.VISIBLE);
         today.removeAllViews();
+        evening = Night.evening(this);
+        if (evening && U.hourNow() >= 12) {
+            // 195: la sera domani prende il posto di oggi, con l'alternativa in vista
+            todayEmpty = true;
+            LinearLayout c = U.col(this);
+            c.setPadding(U.dp(this, 14), U.dp(this, 12), U.dp(this, 14), U.dp(this, 12));
+            c.setBackground(U.box(this, U.SURFACE, U.LINE, 14));
+            c.addView(U.label(this, "Invece di scorrere"));
+            c.addView(U.text(this, Night.alternative(this), 16, U.INK, false));
+            today.addView(c, U.full());
+            return;
+        }
         if (!U.hasCalendar(this)) {
             TextView t = U.text(this, "Tocca qui per permettere la lettura del calendario", 15, U.MUTED, false);
             t.setOnClickListener(new View.OnClickListener() {
@@ -464,7 +483,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     private void buildTomorrow() {
         tomorrow.removeAllViews();
         int hour = U.hourNow();
-        boolean show = Quando.showTomorrow(hour, todayEmpty);
+        boolean show = Quando.showTomorrow(hour, todayEmpty) || evening && hour >= 12;
         tomorrow.setVisibility(show ? View.VISIBLE : View.GONE);
         tomorrowLine.setVisibility(show ? View.VISIBLE : View.GONE);
         if (!show) return;
@@ -581,10 +600,14 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         notifBox.setContentDescription(n == 0 ? "Notifiche" : "Notifiche, " + n + " per te");
         // 0.10: una riga sola alla volta. Prima la fine della prova di «Di notte», poi la configurazione
         boolean night = Night.trialOver(this);
-        setupLine.setVisibility(night || Onboarding.showContinue(this) ? View.VISIBLE : View.GONE);
-        if (setupLine.getVisibility() == View.VISIBLE)
-            ((TextView) setupLine.findViewWithTag("setup")).setText(night ? "Una settimana di «Di notte» ›"
-                    : "Continua la configurazione · " + Onboarding.missing(this).size() + (Onboarding.missing(this).size() == 1 ? " passo ›" : " passi ›"));
+        // 0.14 (197): «Da completare» sostituisce «Continua la configurazione»
+        java.util.List<String[]> todo = Onboarding.todo(this);
+        setupLine.setVisibility(night || Onboarding.showTodo(this) ? View.VISIBLE : View.GONE);
+        if (setupLine.getVisibility() == View.VISIBLE) {
+            TextView t = (TextView) setupLine.findViewWithTag("setup");
+            if (night) t.setText("Una settimana di sonno: com'è andata ›");
+            else t.setText(U.brand("Da completare · " + todo.size() + "\n" + todo.get(0)[1] + (todo.size() > 1 ? " e altro" : "") + "  ›"));
+        }
     }
 
     private View setupRow() {
@@ -598,7 +621,11 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         t.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 if (Night.trialOver(MainActivity.this)) startActivity(new Intent(MainActivity.this, NightReportActivity.class));
-                else startActivity(Onboarding.continueIntent(MainActivity.this));
+                else {
+                    java.util.List<String[]> todo = Onboarding.todo(MainActivity.this);
+                    if (todo.size() == 1) Onboarding.fix(MainActivity.this, todo.get(0)[0]);
+                    else startActivity(new Intent(MainActivity.this, SettingsActivity.class).putExtra("area", SettingsActivity.TODO).putExtra("back", "Home"));
+                }
             }
         });
         TextView x = U.text(this, "✕", 14, U.MUTED, false);
@@ -607,7 +634,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         x.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 if (Night.trialOver(MainActivity.this)) U.prefs(MainActivity.this).edit().putBoolean(Night.K_REPORT_SEEN, true).putLong(Night.K_TRIAL, 0).apply();
-                else Onboarding.dismissContinue(MainActivity.this);
+                else Onboarding.dismissTodo(MainActivity.this);
                 refreshNotif();
             }
         });

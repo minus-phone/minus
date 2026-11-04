@@ -80,6 +80,71 @@ public final class Onboarding {
         return i;
     }
 
+    // ---------- 0.14 · Da completare (wireframe 197) ----------
+
+    /**
+     * Ciò che manca, della base e degli obiettivi accesi: {chiave, nome, obiettivo o null}.
+     * Sostituisce «Continua la configurazione»: copre ogni schermata saltata e ogni permesso mancante.
+     */
+    public static List<String[]> todo(Context c) {
+        List<String[]> out = new ArrayList<String[]>();
+        if (!isDefaultHome(c)) out.add(new String[]{"home", "−minus come home", null});
+        if (!U.hasCalendar(c)) out.add(new String[]{"calendario", "Accesso al calendario", null});
+        if (wasSeen(c, "portata_saltata") && !U.prefs(c).contains(SearchActivity.K_PORTATA)) out.add(new String[]{"portata", "App a portata", null});
+        boolean notif = Goals.on(c, Goals.NOTIF), doom = Goals.on(c, Goals.DOOM), sleep = Goals.on(c, Goals.SLEEP) && Night.on(c);
+        if (notif || sleep) {
+            String g = notif ? Goals.NOTIF : Goals.SLEEP;
+            if (!U.listenerEnabled(c)) out.add(new String[]{"notifiche", "Accesso alle notifiche", g});
+        }
+        if (notif) {
+            if (!hasContacts(c) || !Stars.canWrite(c)) out.add(new String[]{"contatti", "Accesso ai contatti", Goals.NOTIF});
+            if (!policy(c)) out.add(new String[]{"silenzio", "Accesso a Non disturbare", Goals.NOTIF});
+        }
+        if ((doom && !U.pausedPkgs(c).isEmpty()) || (sleep && !Night.nightApps(c).isEmpty()))
+            if (!Pill.usageGranted(c)) out.add(new String[]{"utilizzo", "Accesso ai dati di utilizzo", doom ? Goals.DOOM : Goals.SLEEP});
+        if (doom && U.prefs(c).getBoolean(Pill.K_ON, false) && !Pill.canDraw(c)) out.add(new String[]{"sopra", "Mostra sopra altre app", Goals.DOOM});
+        return out;
+    }
+
+    /** Fa ora la cosa che manca: apre la pagina giusta di Android o di −minus. */
+    public static void fix(android.app.Activity a, String key) {
+        if ("home".equals(key)) openHomeSettings(a);
+        else if ("calendario".equals(key)) askOrInfo(a, new String[]{android.Manifest.permission.READ_CALENDAR, android.Manifest.permission.WRITE_CALENDAR}, 1);
+        else if ("contatti".equals(key)) askOrInfo(a, new String[]{android.Manifest.permission.READ_CONTACTS, android.Manifest.permission.WRITE_CONTACTS}, 2);
+        else if ("notifiche".equals(key)) openListenerSettings(a);
+        else if ("silenzio".equals(key)) openPolicySettings(a);
+        else if ("utilizzo".equals(key)) Pill.openUsageSettings(a);
+        else if ("sopra".equals(key)) Pill.openOverlaySettings(a);
+        else if ("portata".equals(key)) a.startActivity(new Intent(a, PortataActivity.class).putExtra("back", "Da completare"));
+    }
+
+    /** Il dialogo di Android si propone una volta: se è già stato negato, si va alle info dell'app. */
+    static void askOrInfo(android.app.Activity a, String[] perms, int code) {
+        String k = "asked_" + perms[0];
+        boolean before = U.prefs(a).getBoolean(k, false);
+        if (before && !a.shouldShowRequestPermissionRationale(perms[0])) { openAppInfo(a); return; }
+        U.prefs(a).edit().putBoolean(k, true).apply();
+        a.requestPermissions(perms, code);
+    }
+
+    /** La riga in home: visibile finché c'è qualcosa e non l'hai chiusa (torna se cambia cosa manca). */
+    public static boolean showTodo(Context c) {
+        if (!U.prefs(c).getBoolean(K_DONE, false)) return false;
+        List<String[]> t = todo(c);
+        if (t.isEmpty()) return false;
+        return !todoKey(t).equals(U.prefs(c).getString(K_DISMISS + "_todo", ""));
+    }
+
+    public static void dismissTodo(Context c) {
+        U.prefs(c).edit().putString(K_DISMISS + "_todo", todoKey(todo(c))).apply();
+    }
+
+    static String todoKey(List<String[]> t) {
+        StringBuilder b = new StringBuilder();
+        for (String[] x : t) b.append(x[0]).append(',');
+        return b.toString();
+    }
+
     // ---------- Stato dei permessi ----------
 
     public static int alwaysCount(Context c) {

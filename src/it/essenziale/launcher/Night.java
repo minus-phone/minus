@@ -12,7 +12,8 @@ final class Night {
     static final String K_ON = "night_on", K_MODE = "night_mode", K_ALT = "night_alt", K_SCOPE = "night_scope",
             K_APPS = "night_apps", K_TRIAL = "night_trial_until", K_START = "night_start", K_END = "night_end",
             K_OFF_AT = "screen_off_at", K_UNLOCKS = "night_unlocks", K_ALTS = "night_alts", K_OPENS = "night_opens",
-            K_OPEN_MIN = "night_open_min", K_REPORT_SEEN = "night_report_seen";
+            K_OPEN_MIN = "night_open_min", K_REPORT_SEEN = "night_report_seen",
+            K_WAKE = "night_wake_min", K_SLEEP = "night_sleep_min", K_LEAD = "night_lead_min", K_MORNING = "night_morning", K_EVENING = "night_evening";
     static final String DEF_ALT = "Resto al buio e ascolto il respiro";
     static final long WEEK = 7L * 24 * 3600000L;
 
@@ -38,7 +39,49 @@ final class Night {
 
     static boolean active(Context c) {
         long now = System.currentTimeMillis();
-        return Notte.active(on(c), mode(c), Calendar.getInstance().get(Calendar.HOUR_OF_DAY), p(c).getLong(K_END, 0), now);
+        Calendar k = Calendar.getInstance();
+        if (Notte.SCHED.equals(mode(c))) {
+            if (!on(c)) return false;
+            int m = k.get(Calendar.HOUR_OF_DAY) * 60 + k.get(Calendar.MINUTE);
+            return Notte.inWindow(m, offMin(c), wakeMin(c) + (morning(c) ? Notte.MORNING_MIN : 0));
+        }
+        return Notte.active(on(c), mode(c), k.get(Calendar.HOUR_OF_DAY), p(c).getLong(K_END, 0), now);
+    }
+
+    // ---------- 0.14: quando dormi (wireframe 190) ----------
+
+    /** La sveglia in minuti dalla mezzanotte: quella scelta, o la prossima del telefono, o le 7. */
+    static int wakeMin(Context c) {
+        if (p(c).contains(K_WAKE)) return p(c).getInt(K_WAKE, 420);
+        int a = alarmMin(c);
+        return a >= 0 ? a : 420;
+    }
+
+    static int alarmMin(Context c) {
+        long t = U.nextAlarmTime(c);
+        if (t <= 0) return -1;
+        Calendar k = Calendar.getInstance();
+        k.setTimeInMillis(t);
+        return k.get(Calendar.HOUR_OF_DAY) * 60 + k.get(Calendar.MINUTE);
+    }
+
+    static int sleepMin(Context c) { return p(c).getInt(K_SLEEP, 450); }
+    static int leadMin(Context c) { return p(c).getInt(K_LEAD, Notte.LEAD_MIN); }
+    static int offMin(Context c) { return Notte.offMin(wakeMin(c), sleepMin(c), leadMin(c)); }
+    static boolean morning(Context c) { return p(c).getBoolean(K_MORNING, true); }
+
+    static boolean sleeping(Context c) {
+        Calendar k = Calendar.getInstance();
+        int m = k.get(Calendar.HOUR_OF_DAY) * 60 + k.get(Calendar.MINUTE);
+        return on(c) && Notte.inWindow(m, Notte.bedMin(wakeMin(c), sleepMin(c)), wakeMin(c));
+    }
+
+    /** Modalità sera (195): da quando è ora di staccare, home scura con domani e l'alternativa. */
+    static boolean evening(Context c) {
+        if (!on(c) || !Notte.SCHED.equals(mode(c)) || !p(c).getBoolean(K_EVENING, true)) return false;
+        Calendar k = Calendar.getInstance();
+        int m = k.get(Calendar.HOUR_OF_DAY) * 60 + k.get(Calendar.MINUTE);
+        return Notte.inWindow(m, offMin(c), wakeMin(c));
     }
 
     /** Prova di una settimana: accende Di notte e azzera i conteggi. */
@@ -80,7 +123,9 @@ final class Night {
             long end = Notte.end(now, U.nextAlarmTime(c), seven.getTimeInMillis());
             p(c).edit().putLong(K_START, off).putLong(K_END, end).apply();
         }
-        boolean show = Notte.nightUnlock(active(c), gapMin);
+        // 0.14: con l'ora di staccare la schermata della notte vale dall'ora di dormire alla sveglia
+        boolean night = Notte.SCHED.equals(mode(c)) ? sleeping(c) : active(c);
+        boolean show = Notte.nightUnlock(night, gapMin);
         if (show) count(c, K_UNLOCKS, 1);
         return show;
     }

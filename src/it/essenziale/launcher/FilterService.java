@@ -136,6 +136,8 @@ public class FilterService extends NotificationListenerService implements Store.
                 Sticky.seen(this, sbn.getPackageName(), Sticky.channel(sn), st == null ? "" : st.toString());
             }
         } catch (Exception ignored) {}
+        // 0.14: «Meno notifiche» spento: −minus guarda soltanto, le notifiche restano quelle di Android
+        if (!Goals.on(this, Goals.NOTIF)) return;
         int level;
         try { level = classify(sbn); } catch (Exception e) { level = IGNORE; }
         if (level == IGNORE) return;
@@ -484,7 +486,9 @@ public class FilterService extends NotificationListenerService implements Store.
         if (!nm.isNotificationPolicyAccessGranted()) return false;
         try {
             if (on) {
+                // 0.14: anche i messaggi di chi conta (★ in rubrica) passano il silenzio, come le chiamate
                 int cats = NotificationManager.Policy.PRIORITY_CATEGORY_CALLS
+                        | NotificationManager.Policy.PRIORITY_CATEGORY_MESSAGES
                         | NotificationManager.Policy.PRIORITY_CATEGORY_REPEAT_CALLERS
                         | 32 /* ALARMS */ | 64 /* MEDIA */;
                 nm.setNotificationPolicy(new NotificationManager.Policy(cats,

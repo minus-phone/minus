@@ -721,7 +721,6 @@ public class SearchActivity extends BaseActivity {
         else if ("servizi".equals(dest)) i = new Intent(this, ServiziActivity.class);
         else if ("waiting".equals(dest)) { i = new Intent(this, ContainerActivity.class); i.putExtra("tab", ContainerActivity.TAB_WAITING); }
         else if ("portata".equals(dest)) i = new Intent(this, PortataActivity.class);
-        else if ("boxes".equals(dest)) i = new Intent(this, ContainerActivity.class);
         else if ("pause".equals(dest)) i = new Intent(this, PauseActivity.class);
         else if ("session".equals(dest)) i = new Intent(this, SessionActivity.class);
         else if ("calendars".equals(dest)) i = new Intent(this, CalendarsActivity.class);

@@ -9,7 +9,7 @@ public final class Session {
     static final String K_ON = "session_on", K_MIN = "session_min", K_START = "session_start";
     static final int[] CHOICES = {10, 20, 30};
 
-    public static boolean on(Context c) { return U.prefs(c).getBoolean(K_ON, true); }
+    public static boolean on(Context c) { return U.prefs(c).getBoolean(K_ON, true) && Goals.on(c, Goals.DOOM); }
     /** Di notte (0.10) la soglia scende a 5 minuti. */
     public static int threshold(Context c) {
         int t = U.prefs(c).getInt(K_MIN, 10);

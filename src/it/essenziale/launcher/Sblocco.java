@@ -22,7 +22,7 @@ final class Sblocco {
     static final long SHOW_MS = 3 * 60 * 1000L, SNOOZE_MS = 60 * 60 * 1000L;
     private static final String MAPS = "com.google.android.apps.maps";
 
-    static boolean on(Context c) { return U.prefs(c).getBoolean(K_ON, false); }
+    static boolean on(Context c) { return U.prefs(c).getBoolean(K_ON, false) && Goals.on(c, Goals.NOTIF); }
 
     /** Chiamato dal filtro a ogni sblocco. */
     static void unlocked(Context c) {

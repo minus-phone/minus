@@ -46,7 +46,9 @@ final class Scope {
 
     /** Il livello che vale adesso: di notte la pausa diventa «pausa e scopo». */
     static int level(Context c, String pkg) {
-        return Scopo.level(dayLevel(c, pkg), Night.nightApps(c).contains(pkg), Night.active(c), Night.scopeOn(c));
+        // 0.14: «Meno doomscrolling» spento: di giorno niente pausa; di notte restano le app scelte per la notte
+        int day = Goals.on(c, Goals.DOOM) ? dayLevel(c, pkg) : Scopo.NONE;
+        return Scopo.level(day, Night.nightApps(c).contains(pkg), Night.active(c), Night.scopeOn(c));
     }
 
     static void setLevel(Context c, String pkg, int level) {

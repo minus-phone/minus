@@ -19,7 +19,7 @@ check "Stessa firma della v0.2 (si installa sopra senza disinstallare)" \
   "[ \"\$(apksigner verify --print-certs build/Essenziale.apk | grep SHA-256)\" = \"\$(apksigner verify --print-certs $OLD_APK | grep SHA-256)\" ]"
 B=$(aapt dump badging build/Essenziale.apk 2>/dev/null)
 check "Stesso pacchetto it.essenziale.launcher" "echo \"\$B\" | grep -q \"package: name='it.essenziale.launcher'\""
-check "versionCode 36 > 35 (aggiornamento accettato da Android)" "echo \"\$B\" | grep -q \"versionCode='36'\""
+check "versionCode 37 > 36 (aggiornamento accettato da Android)" "echo \"\$B\" | grep -q \"versionCode='37'\""
 check "minSdk 23 invariato" "echo \"\$B\" | grep -q \"sdkVersion:'23'\""
 
 echo -e "\n## F. Manifest: nulla di v0.2 è sparito" >> "$REPORT"
@@ -38,7 +38,7 @@ for f in src/it/essenziale/launcher/*Activity.java; do
   [ "$c" = BaseActivity ] && continue
   check "Ogni schermata è dichiarata: $c" "grep -q 'android:name=\".$c\"' $M"
 done
-check "Permessi nuovi solo READ_CONTACTS (0.6), pillola e dati di utilizzo (0.9), Live Update di Android 16 (0.10)" "[ \$(grep -c uses-permission $M) -eq \$((\$(grep -c uses-permission $OM)+4)) ] && grep -q READ_CONTACTS $M && grep -q SYSTEM_ALERT_WINDOW $M && grep -q PACKAGE_USAGE_STATS $M"
+check "Permessi nuovi solo contatti (0.6, scrittura per la stella 0.14), pillola e dati di utilizzo (0.9), Live Update di Android 16 (0.10)" "[ \$(grep -c uses-permission $M) -eq \$((\$(grep -c uses-permission $OM)+5)) ] && grep -q WRITE_CONTACTS $M && grep -q READ_CONTACTS $M && grep -q SYSTEM_ALERT_WINDOW $M && grep -q PACKAGE_USAGE_STATS $M"
 
 echo -e "\n## G. Dati salvati della v0.2: stesse chiavi (nessuna perdita all'aggiornamento)" >> "$REPORT"
 for k in '"contacts"' '"shop"' '"money"' '"waiting_apps"' '"myname"' '"silence"' '"lockscreen"' '"essenziale"'; do
@@ -59,7 +59,7 @@ check "Filtro 0.6.2: registro senza il testo dei messaggi" "grep -q 'mai il test
 check "Conversazioni 0.6.3: per ogni persona si scelgono le app (anche Telegram)" "grep -q 'chooseApps' src/it/essenziale/launcher/ListActivity.java && grep -q '\"TG\"' <(sed -n '/private void chooseApps/,/^    }/p' src/it/essenziale/launcher/ListActivity.java)"
 check "Onboarding 0.6.3: le app già scelte per una persona restano" "grep -q 'le app scelte restano' src/it/essenziale/launcher/OnboardingActivity.java"
 check "0.7: niente contenitori in home, la ricerca apre tutto" "! grep -q 'addContainer(grid' src/it/essenziale/launcher/MainActivity.java && grep -q 'SearchActivity.class' src/it/essenziale/launcher/MainActivity.java"
-check "0.7: Shop, Movimenti e Persone e gruppi raggiungibili da Impostazioni" "grep -q 'MODE_SHOP' src/it/essenziale/launcher/SettingsActivity.java && grep -q 'MODE_MONEY' src/it/essenziale/launcher/SettingsActivity.java && grep -q 'peopleIntent' src/it/essenziale/launcher/SettingsActivity.java"
+check "0.14: contenitori tolti dalle Impostazioni e dalla ricerca; Persone e gruppi raggiungibili" "! grep -q 'MODE_SHOP' src/it/essenziale/launcher/SettingsActivity.java && ! grep -q '\"Contenitori\"' src/it/essenziale/launcher/Cerca.java && grep -q 'peopleIntent' src/it/essenziale/launcher/SettingsActivity.java"
 check "0.7: ricerca con risultati appoggiati in basso" "grep -q 'setGravity(Gravity.BOTTOM)' src/it/essenziale/launcher/SearchActivity.java"
 check "0.7: le app con la pausa si aprono con la pausa anche dalla ricerca" "grep -q 'U.open(this, a)' src/it/essenziale/launcher/SearchActivity.java"
 check "0.8: a portata in due blocchi, persone e gruppi insieme" "grep -q 'fixedPeople' src/it/essenziale/launcher/SearchActivity.java && grep -q 'groupAlways' <(sed -n '/static List<String\\[\\]> fixedPeople/,/^    }/p' src/it/essenziale/launcher/SearchActivity.java)"
@@ -69,7 +69,7 @@ check "0.8: ordine di persone e gruppi annullabile" "grep -q 'K_ORDER}' src/it/e
 check "0.9: pillola spenta finché non la accendi e mai sopra Essenziale" "grep -q 'getBoolean(K_ON, false)' src/it/essenziale/launcher/Pill.java && grep -q 'Pill.resumed' src/it/essenziale/launcher/BaseActivity.java && grep -q 'Pill.resumed' src/it/essenziale/launcher/LockActivity.java"
 check "0.9: un segnale alla volta (con la pillola niente avviso in tendina)" "grep -q 'if (Pill.active(this)) return' src/it/essenziale/launcher/FilterService.java"
 check "0.9: icone fisse con «Rendi silenziosa» sulla categoria giusta" "grep -q 'CHANNEL_NOTIFICATION_SETTINGS' src/it/essenziale/launcher/Sticky.java && grep -q 'StickyActivity' AndroidManifest.xml"
-check "0.9: onboarding con «Cosa ti interessa?» e percorso costruito sulle scelte" "grep -q 'Cosa ti interessa?' src/it/essenziale/launcher/OnboardingActivity.java && grep -q 'buildPath' src/it/essenziale/launcher/OnboardingActivity.java && ! grep -q 'Essere raggiungibile solo da chi conta' src/it/essenziale/launcher/OnboardingActivity.java"
+check "0.14: onboarding con «Cosa vuoi cambiare?» e percorso costruito sugli obiettivi" "grep -q 'Cosa vuoi cambiare?' src/it/essenziale/launcher/OnboardingActivity.java && grep -q 'buildPath' src/it/essenziale/launcher/OnboardingActivity.java && ! grep -q 'Essere raggiungibile solo da chi conta' src/it/essenziale/launcher/OnboardingActivity.java"
 check "0.9: niente contenitori nell'onboarding, al loro posto A portata" "! grep -q 'title(\"Contenitori\")' src/it/essenziale/launcher/OnboardingActivity.java && grep -q 'title(\"A portata\")' src/it/essenziale/launcher/OnboardingActivity.java"
 check "0.9: chi aggiorna da prima della 0.6 non vede «Continua la configurazione»" "grep -q 'path.length() == 0) return false' src/it/essenziale/launcher/Onboarding.java"
 check "0.10: pausa e scopo, «Non ora» con lo stesso peso di «Apri»" "grep -q 'Per cosa ti serve?' src/it/essenziale/launcher/FrictionActivity.java && grep -q 'new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));' src/it/essenziale/launcher/FrictionActivity.java"
@@ -79,11 +79,11 @@ check "0.10: lo scopo finisce spegnendo lo schermo; «Chiudo» passa dalla home"
 check "0.10: Di notte non misura il sonno e la home resta a un tocco" "grep -q 'Non misura il sonno' src/it/essenziale/launcher/NightSettingsActivity.java && grep -q 'Apri la home' src/it/essenziale/launcher/NightActivity.java"
 check "0.10: fine prova con Tienilo, Cambia qualcosa, Spegnilo" "grep -q 'Tienilo' src/it/essenziale/launcher/NightReportActivity.java && grep -q 'Spegnilo' src/it/essenziale/launcher/NightReportActivity.java"
 check "0.10: Segnala un problema sempre in Impostazioni e nella ricerca" "grep -q 'BugActivity' src/it/essenziale/launcher/SettingsActivity.java && grep -q 'bug problema' src/it/essenziale/launcher/Cerca.java"
-check "0.10: tema e testo dall'onboarding e da Aspetto" "grep -q 'ASPETTO' src/it/essenziale/launcher/OnboardingActivity.java && grep -q 'AspettoActivity' AndroidManifest.xml && grep -q 'applyTheme' src/it/essenziale/launcher/BaseActivity.java"
+check "0.10: tema e testo dall'onboarding e da Aspetto" "grep -q 'Aspetto.controls' src/it/essenziale/launcher/OnboardingActivity.java && grep -q 'AspettoActivity' AndroidManifest.xml && grep -q 'applyTheme' src/it/essenziale/launcher/BaseActivity.java"
 check "0.7: recenti senza app con la pausa" "grep -q 'paused.contains(r\\[1\\])' src/it/essenziale/launcher/SearchActivity.java"
 check "Persone di esempio mai usate come vere" "grep -q 'Rules.stripSamples' src/it/essenziale/launcher/U.java"
-check "Silenzio (Non disturbare) identico alla v0.2" \
-  "diff <(sed -n '/static boolean applySilence/,/^    }/p' $OLD_SRC/it/essenziale/launcher/FilterService.java) <(sed -n '/static boolean applySilence/,/^    }/p' src/it/essenziale/launcher/FilterService.java)"
+check "Silenzio (Non disturbare) come la v0.2, più i messaggi di chi conta (0.14)" \
+  "diff <(sed -n '/static boolean applySilence/,/^    }/p' $OLD_SRC/it/essenziale/launcher/FilterService.java) <(sed -n '/static boolean applySilence/,/^    }/p' src/it/essenziale/launcher/FilterService.java | grep -v 'PRIORITY_CATEGORY_MESSAGES' | grep -v '0.14: anche i messaggi')"
 
 echo -e "\n## H. Percorsi della home v0.2 ancora presenti" >> "$REPORT"
 H=src/it/essenziale/launcher/MainActivity.java
@@ -101,7 +101,7 @@ check "Home: Domani secondo le regole «quando serve»" "grep -q 'Quando.showTom
 check "Home: «+ Aggiungi» propone domani dopo le 19" "grep -q 'Quando.addDayOffset' $H"
 check "Blocco: sveglia secondo le regole «quando serve»" "grep -q 'Quando.lockAlarm' $L"
 check "Settimana: un + per ogni giorno con il giorno già scelto" "grep -q 'putExtra(\"day\", dayF)' $S/WeekActivity.java"
-check "Impostazioni: cinque aree" "grep -q '\"Notifiche\", \"App\", \"Tempo e uso\", \"Home e giornata\", \"Attivazione\"' $S/SettingsActivity.java"
+check "0.14: Impostazioni per obiettivi (198–203)" "grep -q '\"La tua home\", \"La tua giornata\", \"Meno notifiche\", \"Meno doomscrolling\", \"Meno interferenze sul sonno\"' $S/SettingsActivity.java && grep -q 'goalHeader' $S/SettingsActivity.java"
 check "Impostazioni: Modifiche recenti" "grep -q 'ChangesActivity.class' $S/SettingsActivity.java"
 for f in ListActivity GroupsActivity PauseActivity SessionActivity CalendarsActivity ContainerActivity SettingsActivity; do
   check "Annulla dopo le scelte: $f" "grep -q 'Changes.track' $S/$f.java"
@@ -109,7 +109,7 @@ done
 check "Annulla: avviso di 6 secondi, ultime 20 modifiche per 30 giorni" "grep -q 'SHOW_MS = 6000' $S/Changes.java && grep -q 'MAX = 20' $S/Changes.java && grep -q '30L \* 24' $S/Changes.java"
 check "Gruppi: niente campo nome né menzioni" "! grep -q 'K_MYNAME' $S/GroupsActivity.java && ! grep -q 'mention' $S/Rules.java"
 check "Onboarding solo al primo avvio vero (chi aggiorna non lo rivede)" "grep -q 'Onboarding.firstRun' $H && grep -q 'K_CONTACTS, U.K_SHOP' $S/Onboarding.java"
-check "Onboarding: guida alle impostazioni con restrizioni solo da Android 13" "grep -q 'SDK_INT >= 33' $S/OnboardingActivity.java"
+check "Onboarding: guida alle impostazioni con restrizioni solo da Android 13" "grep -q 'SDK_INT < 33) return false' $S/OnboardingActivity.java && grep -q 'restrictedGuide' $S/OnboardingActivity.java"
 check "Nessuna lambda nel bytecode (il dex senza Gradle non le supporta)" "! javap -c -p build/classes/it/essenziale/launcher/*.class | grep -q invokedynamic"
 
 echo -e "\n## L. Novità della 0.11 e accessibilità" >> "$REPORT"
@@ -146,7 +146,12 @@ check "0.13.4: barre e tastiera fanno spazio con una transizione, senza salto" "
 check "0.13.5: dalla configurazione si torna da soli dopo ogni permesso; home con la finestra di Android" "grep -q 'openAndWatch' $S/OnboardingActivity.java && grep -q 'createRequestRoleIntent' $S/Onboarding.java && grep -q 'bringBack' $H"
 check "0.13.5: interruttore grigio delle notifiche spiegato subito a chi installa l'APK" "grep -q 'maybeRestricted' $S/OnboardingActivity.java"
 check "0.13.6: ricerca con l'aspetto della UI (righe, griglia, avatar) e invito se nessuno passa sempre" "grep -q 'settingsRow()' $S/SearchActivity.java && grep -q 'gridCell' $S/SearchActivity.java && grep -q 'Scegli chi passa sempre' $S/SearchActivity.java"
-check "0.13.6: Salta nel passo Persone tiene i preferiti" "grep -q 'step() == PEOPLE && peopleLoaded' $S/OnboardingActivity.java"
+check "0.13.6: Salta nel passo Chi conta tiene i preferiti" "grep -q 'who && peopleLoaded) savePeople' $S/OnboardingActivity.java"
+check "0.14: chi conta prende la stella in rubrica" "grep -q 'Stars.starAlways' $S/OnboardingActivity.java && grep -q 'Contacts.STARRED' $S/Stars.java"
+check "0.14: i permessi si chiedono con Avanti, uno dopo l'altro, e si torna da soli" "grep -q 'askThen' $S/OnboardingActivity.java && grep -q 'usagePerm()' $S/OnboardingActivity.java && grep -q 'overlayPerm()' $S/OnboardingActivity.java"
+check "0.14: «Da completare» in home al posto di «Continua la configurazione»" "grep -q 'Onboarding.showTodo' $H && ! grep -q 'Continua la configurazione ·' $H"
+check "0.14: obiettivo spento = sue funzioni spente (filtro, pausa, notte)" "grep -q 'Goals.on(this, Goals.NOTIF)) return' $S/FilterService.java && grep -q 'Goals.on(c, Goals.DOOM)' $S/Scope.java && grep -q 'e.putBoolean(Night.K_ON, on)' $S/Goals.java"
+check "0.14: modalità sera dall'ora di staccare" "grep -q 'Night.evening(c)) d = true' $S/U.java && grep -q 'Invece di scorrere' $H"
 check "0.13.7: app a portata in 3 colonne, recenti di lato, stessa persona riconosciuta dal numero (0.13.8)" "grep -q 'i < pt.size() && i < 9; i += 3' $S/SearchActivity.java && grep -q 'Nums.forConv' $S/SearchActivity.java && grep -q 'Nums.remember' $S/FilterService.java"
 check "0.13.9: icone salvate in ARGB, file vuoti ignorati" "! grep -q 'extractAlpha' $S/AppIcons.java && grep -q 'length() > 0' $S/AppIcons.java"
 check "0.13.10: gestori SPID tra i Servizi, anche per chi aveva modificato l'elenco" "grep -q 'SPID_SERVICES' $S/U.java && grep -q 'K_SVC_SPID' $S/U.java"

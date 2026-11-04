@@ -58,6 +58,7 @@ public final class U {
             int ui = c.getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
             d = ui == android.content.res.Configuration.UI_MODE_NIGHT_YES || Night.active(c);
         }
+        if (Night.evening(c)) d = true; // 0.14: dall'ora di staccare la home va in grigio scuro
         float sc = prefs(c).getBoolean(K_TEXT_BIG, false) ? 1.15f : 1f;
         boolean changed = d != dark || sc != textScale;
         dark = d;

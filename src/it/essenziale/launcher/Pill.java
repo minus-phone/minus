@@ -59,7 +59,7 @@ final class Pill {
         if (!U.start(c, new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))) U.start(c, new Intent(Settings.ACTION_SETTINGS));
     }
 
-    static boolean on(Context c) { return U.prefs(c).getBoolean(K_ON, false); }
+    static boolean on(Context c) { return U.prefs(c).getBoolean(K_ON, false) && Goals.on(c, Goals.DOOM); }
 
     /** La pillola è davvero attiva: accesa e con il permesso. Allora l'avviso in tendina non serve. */
     static boolean active(Context c) { return on(c) && canDraw(c); }

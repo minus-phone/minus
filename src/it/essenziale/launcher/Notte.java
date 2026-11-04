@@ -8,7 +8,33 @@ package it.essenziale.launcher;
 public final class Notte {
     private Notte() {}
 
-    public static final String AUTO = "auto", FIXED = "fisso";
+    public static final String AUTO = "auto", FIXED = "fisso", SCHED = "orario";
+    public static final int LEAD_MIN = 30;      // 0.14: l'ora di staccare viene 30 minuti prima di andare a dormire
+    public static final int MORNING_MIN = 30;   // 0.14: mattino tranquillo, 30 minuti dopo la sveglia
+
+    /** 0.14: l'ora di staccare in minuti dalla mezzanotte: sveglia meno le ore di sonno, meno 30 minuti. */
+    public static int offMin(int wakeMin, int sleepMin, int leadMin) {
+        return ((wakeMin - sleepMin - leadMin) % 1440 + 1440) % 1440;
+    }
+
+    /** L'ora in cui andare a dormire (sveglia meno le ore di sonno). */
+    public static int bedMin(int wakeMin, int sleepMin) {
+        return offMin(wakeMin, sleepMin, 0);
+    }
+
+    /** Dentro la finestra [start, end), anche a cavallo della mezzanotte. */
+    public static boolean inWindow(int nowMin, int startMin, int endMin) {
+        if (startMin == endMin) return false;
+        if (startMin < endMin) return nowMin >= startMin && nowMin < endMin;
+        return nowMin >= startMin || nowMin < endMin;
+    }
+
+    /** «22:45» da minuti dalla mezzanotte. */
+    public static String hhmm(int min) {
+        min = ((min % 1440) + 1440) % 1440;
+        int m = min % 60;
+        return (min / 60) + ":" + (m < 10 ? "0" : "") + m;
+    }
     public static final int LONG_PAUSE_MIN = 60;   // pausa che apre la notte, in automatico
     public static final int NIGHT_UNLOCK_MIN = 20; // pausa dopo cui lo sblocco mostra la schermata della notte
 
@@ -32,6 +58,7 @@ public final class Notte {
     public static boolean active(boolean on, String mode, int hour, long nightEnd, long now) {
         if (!on) return false;
         if (FIXED.equals(mode)) return fixed(hour);
+        if (SCHED.equals(mode)) return false; // 0.14: con l'ora di staccare decide Night.active, che conosce i minuti
         return nightEnd > now;
     }
 
