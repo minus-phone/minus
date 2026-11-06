@@ -8,7 +8,7 @@ Ultimo aggiornamento: 6 novembre 2026 · versione 0.15
 
 *−minus* è un progetto personale, gratuito e open source ([codice](https://github.com/minus-phone/minus)).
 
-- **Contatto:** [EMAIL DEL PROGETTO DA CREARE]
+- **Contatto:** [minus-phone@proton.me](mailto:minus-phone@proton.me)
 - **Titolare del trattamento**, solo per i dati che ci invii tu (segnalazioni e registro della beta): la persona che cura il progetto. Nome e recapiti completi sono nel modulo di consenso di chi partecipa alla beta, e li forniamo a chiunque li chieda al contatto sopra.
 
 ## Cosa usa *−minus* sul telefono, e perché
@@ -44,7 +44,7 @@ Quando invii qualcosa con un'app (Gmail, WhatsApp…), quell'app tratta il messa
 | Segnalazioni | Capire e correggere il problema, rispondere | Tua richiesta (art. 6.1.b GDPR) | Fino alla soluzione, al massimo 12 mesi |
 | Registro della beta e risposte a diario e interviste | Capire quali funzioni aiutano e quali no | Tuo consenso (art. 6.1.a GDPR), revocabile in ogni momento | Fino alla fine dello studio, poi cancellati entro 3 mesi; nei risultati solo numeri aggregati |
 
-Li conserviamo nell'email del progetto e nell'archivio personale di chi lo cura, senza servizi di analisi. Il fornitore dell'email può conservarli anche fuori dall'Unione europea, con le garanzie previste dal GDPR. Non vendiamo né cediamo i dati e non li usiamo per pubblicità o profilazione.
+Li conserviamo nell'email del progetto, su Proton Mail, e nell'archivio personale di chi lo cura, senza servizi di analisi. Proton conserva le email in Svizzera, che per l'Unione europea garantisce un livello di protezione adeguato. Non vendiamo né cediamo i dati e non li usiamo per pubblicità o profilazione.
 
 La beta è riservata a persone maggiorenni.
 
@@ -60,4 +60,4 @@ Se questa pagina cambia, la data in alto cambia e la versione precedente resta n
 
 ## *−minus* privacy (English summary)
 
-*−minus* runs entirely on your phone and has no internet permission: no accounts, servers, ads or trackers. It uses calendar, contacts, notification access, usage data, overlay and Do Not Disturb only on the device, to show your day, let through the people you choose and pause distracting apps; uninstalling deletes everything. Data leaves the phone only when you send it yourself: a problem report, or, for beta participants who switch it on, a daily log of counts (no names of people, apps or messages) tied to a random code. Reports are kept up to 12 months; beta data until the end of the study plus 3 months, on the basis of your consent, which you can withdraw at any time. Contact: [PROJECT EMAIL TO BE CREATED]. You can complain to the Italian Data Protection Authority (Garante).
+*−minus* runs entirely on your phone and has no internet permission: no accounts, servers, ads or trackers. It uses calendar, contacts, notification access, usage data, overlay and Do Not Disturb only on the device, to show your day, let through the people you choose and pause distracting apps; uninstalling deletes everything. Data leaves the phone only when you send it yourself: a problem report, or, for beta participants who switch it on, a daily log of counts (no names of people, apps or messages) tied to a random code. Reports are kept up to 12 months; beta data until the end of the study plus 3 months, on the basis of your consent, which you can withdraw at any time. Contact: [minus-phone@proton.me](mailto:minus-phone@proton.me). You can complain to the Italian Data Protection Authority (Garante).

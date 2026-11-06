@@ -66,7 +66,7 @@ Le impostazioni di *−minus* e le notifiche tenute da parte. Calendario, contat
 Un riepilogo giornaliero di numeri (sblocchi, pause, notifiche passate e trattenute), senza nomi di persone o app e senza testi. È spento di default e serve solo a chi partecipa alla beta. Si accende in Impostazioni › Registro per la beta, si vede, si invia e si cancella da lì.
 
 **Come partecipo alla beta?**
-Scrivici a [EMAIL DEL PROGETTO DA CREARE]. Cerchiamo persone maggiorenni con un telefono Android, per 4 settimane.
+Scrivici a [minus-phone@proton.me](mailto:minus-phone@proton.me). Cerchiamo persone maggiorenni con un telefono Android, per 4 settimane.
 
 **Ho trovato un problema.**
 Usa «Segnala un problema» dentro l'app (in fondo alle Impostazioni) oppure apri una [segnalazione](https://github.com/minus-phone/minus/issues/new/choose) su GitHub. Su GitHub è pubblica: non scrivere nomi o numeri di altre persone.
