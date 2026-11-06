@@ -12,9 +12,15 @@ dalvik-exchange --dex --output=build/classes.dex build/classes
 aapt package -f -M AndroidManifest.xml -S res -A assets -I "$JAR" -F build/unsigned.apk
 (cd build && aapt add unsigned.apk classes.dex >/dev/null)
 zipalign -f 4 build/unsigned.apk build/aligned.apk
-if [ ! -f essenziale.keystore ]; then
-  keytool -genkeypair -keystore essenziale.keystore -storepass essenziale -keypass essenziale \
-    -alias essenziale -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Essenziale" >/dev/null 2>&1
+# Chiave: quella indicata da KEYSTORE (le release, dai segreti di GitHub), altrimenti una di prova locale.
+KS=${KEYSTORE:-essenziale.keystore}
+export KS_PASS=${KEYSTORE_PASSWORD:-essenziale}
+KEY_ALIAS=${KEY_ALIAS:-essenziale}
+export KEY_PASS=${KEY_PASSWORD:-$KS_PASS}
+if [ ! -f "$KS" ]; then
+  keytool -genkeypair -keystore "$KS" -storepass "$KS_PASS" -keypass "$KEY_PASS" \
+    -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Essenziale" >/dev/null 2>&1
 fi
-apksigner sign --ks essenziale.keystore --ks-pass pass:essenziale --out build/Essenziale.apk build/aligned.apk
+apksigner sign --ks "$KS" --ks-pass env:KS_PASS --ks-key-alias "$KEY_ALIAS" --key-pass env:KEY_PASS \
+  --out build/Essenziale.apk build/aligned.apk
 apksigner verify build/Essenziale.apk && echo "OK: build/Essenziale.apk"

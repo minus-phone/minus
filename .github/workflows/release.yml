@@ -1,0 +1,55 @@
+# Compila, prova e firma l'APK con la chiave delle release (segreti del repository).
+# - A ogni pull request e su richiesta: build firmata, scaricabile tra gli artefatti.
+# - A ogni tag v* (per esempio v0.15): crea la Release con l'APK allegato.
+# Segreti: KEYSTORE_BASE64 (obbligatorio); KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+# (facoltativi: senza, valgono quelli di build.sh).
+name: Build e release
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Strumenti Android
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq android-sdk-platform-23 aapt dalvik-exchange zipalign apksigner
+      - name: Test della logica
+        run: test/logica.sh
+      - name: Chiave delle release
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then echo "::error::Manca il segreto KEYSTORE_BASE64: l'APK non si firma con la chiave di prova"; exit 1; fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+      - name: Build firmata
+        env:
+          KEYSTORE: ${{ runner.temp }}/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'essenziale' }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'essenziale' }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || secrets.KEYSTORE_PASSWORD || 'essenziale' }}
+        run: |
+          ./build.sh
+          V=$(grep -o 'versionName="[^"]*"' AndroidManifest.xml | cut -d'"' -f2)
+          mv build/Essenziale.apk "build/minus-$V.apk"
+          echo "V=$V" >> "$GITHUB_ENV"
+          echo "### Impronta della firma" >> "$GITHUB_STEP_SUMMARY"
+          apksigner verify --print-certs "build/minus-$V.apk" | grep SHA-256 >> "$GITHUB_STEP_SUMMARY"
+      - name: Cancella la chiave dal runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.keystore"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: minus-${{ env.V }}
+          path: build/minus-*.apk
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" build/minus-*.apk --title "−minus $V" --notes "Come installarla: [guida](https://github.com/minus-phone/minus/blob/main/INSTALLARE.md)."
