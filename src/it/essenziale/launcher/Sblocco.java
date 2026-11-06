@@ -40,6 +40,7 @@ final class Sblocco {
         android.content.SharedPreferences.Editor e = p.edit().putLong(K_LAST, now);
         if (ask) {
             e.putLong(K_ASK_AT, now).putLong(K_ASK_DAY, today).putInt(K_ASK_N, asked + 1).putString(K_EMPTY, "");
+            Beta.add(c, Registro.ASK_UNLOCK);
         } else {
             StringBuilder b = new StringBuilder();
             for (Long t : empties) { if (b.length() > 0) b.append(','); b.append(t); }

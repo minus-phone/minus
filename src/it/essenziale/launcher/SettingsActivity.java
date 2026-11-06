@@ -379,6 +379,8 @@ public class SettingsActivity extends BaseActivity {
         open("Da completare", todo == 0 ? "Niente" : todo + " da completare", TODO);
         nav("Modifiche recenti", "Le ultime scelte, per tornare indietro", new Intent(this, ChangesActivity.class), "›");
         nav("Segnala un problema", "Qualcosa non va? Raccontacelo", new Intent(this, BugActivity.class), "›");
+        nav("Registro per la beta", Beta.on(this) ? "Acceso · " + Registro.days(Beta.log(this)) + " giorni · " + Beta.code(this) : "Spento · solo per chi partecipa alla beta",
+                new Intent(this, BetaActivity.class), "›");
         row("Cosa vede −minus", "Le ultime notifiche di chat arrivate e dove sono finite", "›", new Runnable() { public void run() { showLog(); } });
 
         TextView again = button("Rifai la configurazione guidata");

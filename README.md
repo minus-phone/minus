@@ -15,11 +15,11 @@ Quasi un dumbphone, ma con WhatsApp, banca e SPID.
 - **Di notte.** Se ti svegli e prendi il telefono, solo l'essenziale e tempi più brevi.
 - **Niente regole da aggirare.** Livelli per app, nessun «spegni per qualche giorno», ogni modifica si annulla.
 
-*−minus* non raccoglie dati e non ha pubblicità. Tutto resta sul telefono.
+*−minus* non raccoglie dati, non ha pubblicità e non ha il permesso di accedere a internet. Tutto resta sul telefono: leggi la [privacy](PRIVACY.md).
 
 ## Installare
 
-Scarica l'APK dall'ultima [release](https://github.com/minus-phone/minus/releases) e installalo. Serve Android 6 o successivo; è sviluppato e provato su Android 14.
+Scarica l'APK dall'ultima [release](https://github.com/minus-phone/minus/releases) e installalo. Serve Android 6 o successivo; è sviluppato e provato su Android 14. Su Android 13 e successivi un passo in più sblocca l'accesso alle notifiche: la [guida all'installazione](INSTALLARE.md) lo spiega passo passo, e le [domande frequenti](FAQ.md) rispondono ai dubbi più comuni.
 
 ## Da dove nasce
 

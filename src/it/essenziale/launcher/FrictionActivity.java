@@ -149,7 +149,7 @@ public class FrictionActivity extends Activity {
                 alt.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         Night.count(FrictionActivity.this, Night.K_ALTS, 1);
-                        if (!demo) Scope.notNow(FrictionActivity.this, app.pkg);
+                        if (!demo) { Scope.notNow(FrictionActivity.this, app.pkg); Beta.add(FrictionActivity.this, Registro.PAUSE_NOT_NOW); }
                         startActivity(new Intent(FrictionActivity.this, DimActivity.class));
                         finish();
                     }
@@ -277,7 +277,7 @@ public class FrictionActivity extends Activity {
     public void onBackPressed() { notNow(); }
 
     private void notNow() {
-        if (!demo) Scope.notNow(this, app.pkg);
+        if (!demo) { Scope.notNow(this, app.pkg); Beta.add(this, Registro.PAUSE_NOT_NOW); }
         Intent i = new Intent(this, MainActivity.class);
         i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
         U.start(this, i);
@@ -289,6 +289,8 @@ public class FrictionActivity extends Activity {
         if (demo) { U.toast(this, "Qui si aprirebbe l'app"); finish(); return; }
         if (scope) Scope.start(this, app.pkg, app.cls, app.label, purpose, minutes);
         else Scope.passed(this, app.pkg);
+        Beta.add(this, Registro.PAUSE_OPEN);
+        if (scope) Beta.add(this, Registro.SCOPE);
         if (app.cls != null) U.launch(this, app); else U.launchPkg(this, app.pkg);
         finish();
     }
