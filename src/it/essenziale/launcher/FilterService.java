@@ -142,6 +142,7 @@ public class FilterService extends NotificationListenerService implements Store.
         try { level = classify(sbn); } catch (Exception e) { level = IGNORE; }
         if (level == IGNORE) return;
         if (level == PASS) {
+            if (live) Beta.add(this, Registro.NOTIF_PASS);
             lastPass.put(sbn.getPackageName(), System.currentTimeMillis());
             if (live && !selfReply) alert();
             return;
@@ -163,6 +164,7 @@ public class FilterService extends NotificationListenerService implements Store.
         it.level = level;
         if (TextUtils.isEmpty(it.title) && TextUtils.isEmpty(it.text)) { cancelNotification(sbn.getKey()); return; }
         Store.put(this, it, n.contentIntent);
+        if (live) Beta.add(this, Registro.NOTIF_WAIT);
         cancelNotification(sbn.getKey());
     }
 
@@ -340,6 +342,7 @@ public class FilterService extends NotificationListenerService implements Store.
     /** 0.10: allo sblocco la sessione, il controllo delle app con pausa e, di notte, la schermata ridotta. */
     private void unlocked() {
         Sblocco.unlocked(this); // 0.12: sblocchi senza scopo (spento di default)
+        Beta.unlocked(this); // 0.15: registro per la beta, spento di default
         startSession();
         Scope.startGuard(this);
         if (Night.onUnlock(this)) {

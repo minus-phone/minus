@@ -64,6 +64,7 @@ public class NrtTest {
         voice();
         cosa();
         servizi();
+        registro();
         stessaPersona();
         System.out.println("\nTotale: " + pass + " superati, " + fail + " falliti");
         FileWriter w = new FileWriter(a.length > 0 ? a[0] : "nrt-report.md");
@@ -551,6 +552,39 @@ public class NrtTest {
         eq("Cosa posso dire", v("cosa posso dire").type, VoiceParser.HELP);
         eq("Somiglianza titoli", VoiceParser.score("il pediatra", "Pediatra"), 100);
         check("Somiglianza parziale", VoiceParser.score("cena da mamma", "Cena da mamma e papà") >= 70, null);
+    }
+
+    static void registro() {
+        sec("Registro per la beta (0.15)");
+        String log = "";
+        log = Registro.add(log, "2026-11-06", Registro.UNLOCKS, 1);
+        log = Registro.add(log, "2026-11-06", Registro.UNLOCKS, 1);
+        log = Registro.add(log, "2026-11-06", Registro.PAUSE_NOT_NOW, 1);
+        eq("Due sblocchi e un «Non ora» nello stesso giorno", log, "2026-11-06;sblocchi=2;pausa_non_ora=1\n");
+        log = Registro.add(log, "2026-11-07", Registro.UNLOCKS, 1);
+        eq("Un giorno nuovo è una riga nuova", Registro.days(log), 2);
+        eq("Chiave sconosciuta: registro invariato", Registro.add(log, "2026-11-07", "app_instagram", 1), log);
+        eq("Data non valida: registro invariato", Registro.add(log, "7/11", Registro.UNLOCKS, 1), log);
+        eq("Lo stato non si somma con add", Registro.add(log, "2026-11-07", Registro.HOME, 1), log);
+        log = Registro.set(log, "2026-11-07", Registro.HOME, "1");
+        log = Registro.set(log, "2026-11-07", Registro.HOME, "0");
+        check("Lo stato del giorno vale l'ultima volta", log.contains("2026-11-07;home=0;"), log);
+        log = Registro.set(log, "2026-11-07", Registro.GOALS, Registro.goals(true, false, true));
+        check("Obiettivi come lettere: n e s", log.contains("obiettivi=ns"), log);
+        eq("Nessun obiettivo: vuoto", Registro.goals(false, false, false), "");
+        check("I valori non possono rompere la riga", !Registro.set(log, "2026-11-07", Registro.GOALS, "a;b=c,d\ne").contains("a;b"), null);
+        eq("Si tengono solo i giorni dal più vecchio indicato", Registro.days(Registro.prune(log, "2026-11-07")), 1);
+        String ex = Registro.export(log, "M-ABC234", "0.15");
+        check("Export: codice partecipante e versione", ex.contains("Partecipante: M-ABC234 · versione 0.15"), null);
+        check("Export: intestazione CSV con tutte le colonne", ex.contains("giorno,home,obiettivi,sblocchi,sblocchi_notte,pausa_aperte,pausa_non_ora,scopo_aperte,notifiche_passate,notifiche_trattenute,domande_sblocco\n"), ex);
+        check("Export: valore mancante = cella vuota, non zero", ex.contains("2026-11-06,,,2,,,1,,,,\n"), ex);
+        eq("Export: una legenda per colonna", Registro.KEYS.length, Registro.LABELS.length);
+        java.util.List<String[]> r = Registro.recent(log, 7);
+        eq("Schermata: il giorno più recente in alto", r.get(0)[0], "7 nov");
+        eq("Schermata: solo i numeri diversi da zero", r.get(1)[1], "2 sblocchi · 1 «Non ora»");
+        String code = Registro.code(new int[]{0, 1, 2, 3, 4, 5});
+        check("Codice: M- più 6 caratteri, senza 0, O, 1, I, L", code.matches("M-[A-HJKMNP-Z2-9]{6}"), code);
+        check("Registro corrotto: si ignora senza errori", Registro.days("ciao\n;;=\n2026-13") == 0, null);
     }
 
     static void cosa() {
