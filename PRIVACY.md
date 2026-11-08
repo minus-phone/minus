@@ -25,6 +25,8 @@ Questi dati restano sul telefono. *−minus* li usa per funzionare e nessuno, ne
 | Non disturbare | Il silenzio, con le eccezioni per chi conta | Niente |
 | Vibrazione | Avvisarti quando ti scrive qualcuno che conta | Niente |
 
+**Per i tre controlli** (a 2 settimane, 1 mese e 3 mesi) *−minus* conta ogni giorno tre numeri: le notifiche tenute da parte, le volte che scegli «Non ora» davanti a un'app e gli sblocchi di notte. Solo numeri, senza nomi di persone o app; li tiene al massimo 100 giorni e non li invia mai.
+
 Ogni permesso si può revocare dalle impostazioni di Android; la funzione che lo usa smette di funzionare, il resto continua. I dati di *−minus* non finiscono nel backup di Google (il backup automatico è spento) e si cancellano tutti disinstallando l'app.
 
 **I comandi vocali** usano il riconoscimento vocale del telefono, di solito quello di Google: la voce è trattata dal servizio che hai sul telefono, secondo le sue regole, non da *−minus*.

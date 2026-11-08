@@ -164,7 +164,7 @@ public class FilterService extends NotificationListenerService implements Store.
         it.level = level;
         if (TextUtils.isEmpty(it.title) && TextUtils.isEmpty(it.text)) { cancelNotification(sbn.getKey()); return; }
         Store.put(this, it, n.contentIntent);
-        if (live) Beta.add(this, Registro.NOTIF_WAIT);
+        if (live) { Beta.add(this, Registro.NOTIF_WAIT); Checks.add(this, Registro.NOTIF_WAIT); }
         cancelNotification(sbn.getKey());
     }
 
@@ -343,6 +343,7 @@ public class FilterService extends NotificationListenerService implements Store.
     private void unlocked() {
         Sblocco.unlocked(this); // 0.12: sblocchi senza scopo (spento di default)
         Beta.unlocked(this); // 0.15: registro per la beta, spento di default
+        Checks.unlocked(this); // 0.15: conteggi per i tre controlli, solo sul telefono
         startSession();
         Scope.startGuard(this);
         if (Night.onUnlock(this)) {

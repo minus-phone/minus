@@ -599,13 +599,19 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         notifCount.setVisibility(n == 0 ? View.GONE : View.VISIBLE);
         notifBox.setContentDescription(n == 0 ? "Notifiche" : "Notifiche, " + n + " per te");
         // 0.10: una riga sola alla volta. Prima la fine della prova di «Di notte», poi la configurazione
-        boolean night = Night.trialOver(this);
+        // 0.15 (211): il controllo viene prima di tutto: è la proposta della settimana
+        int check = Checks.current(this);
+        boolean night = check == 0 && Night.trialOver(this);
         // 0.14 (197): «Da completare» sostituisce «Continua la configurazione»
         java.util.List<String[]> todo = Onboarding.todo(this);
-        setupLine.setVisibility(night || Onboarding.showTodo(this) ? View.VISIBLE : View.GONE);
+        setupLine.setVisibility(check > 0 || night || Onboarding.showTodo(this) ? View.VISIBLE : View.GONE);
+        View setupX = setupLine.findViewWithTag("setupX");
+        if (setupX != null) setupX.setVisibility(check > 0 ? View.GONE : View.VISIBLE);
         if (setupLine.getVisibility() == View.VISIBLE) {
             TextView t = (TextView) setupLine.findViewWithTag("setup");
-            if (night) t.setText("Una settimana di sonno: com'è andata ›");
+            String[] when = {"Due settimane", "Un mese", "Tre mesi"};
+            if (check > 0) t.setText(U.brand(when[check - 1] + " con −minus\nCom'è andata? · controllo " + check + " di 3  ›"));
+            else if (night) t.setText("Una settimana di sonno: com'è andata ›");
             else t.setText(U.brand("Da completare · " + todo.size() + "\n" + todo.get(0)[1] + (todo.size() > 1 ? " e altro" : "") + "  ›"));
         }
     }
@@ -620,7 +626,9 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         r.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         t.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                if (Night.trialOver(MainActivity.this)) startActivity(new Intent(MainActivity.this, NightReportActivity.class));
+                int check = Checks.current(MainActivity.this);
+                if (check > 0) startActivity(new Intent(MainActivity.this, CheckActivity.class).putExtra("n", check));
+                else if (Night.trialOver(MainActivity.this)) startActivity(new Intent(MainActivity.this, NightReportActivity.class));
                 else {
                     java.util.List<String[]> todo = Onboarding.todo(MainActivity.this);
                     if (todo.size() == 1) Onboarding.fix(MainActivity.this, todo.get(0)[0]);
@@ -629,6 +637,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
             }
         });
         TextView x = U.text(this, "✕", 14, U.MUTED, false);
+        x.setTag("setupX");
         x.setGravity(Gravity.CENTER);
         x.setContentDescription("Non mostrare più");
         x.setOnClickListener(new View.OnClickListener() {

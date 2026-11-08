@@ -149,7 +149,7 @@ public class FrictionActivity extends Activity {
                 alt.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         Night.count(FrictionActivity.this, Night.K_ALTS, 1);
-                        if (!demo) { Scope.notNow(FrictionActivity.this, app.pkg); Beta.add(FrictionActivity.this, Registro.PAUSE_NOT_NOW); }
+                        if (!demo) { Scope.notNow(FrictionActivity.this, app.pkg); Beta.add(FrictionActivity.this, Registro.PAUSE_NOT_NOW); Checks.add(FrictionActivity.this, Registro.PAUSE_NOT_NOW); }
                         startActivity(new Intent(FrictionActivity.this, DimActivity.class));
                         finish();
                     }
@@ -277,7 +277,7 @@ public class FrictionActivity extends Activity {
     public void onBackPressed() { notNow(); }
 
     private void notNow() {
-        if (!demo) { Scope.notNow(this, app.pkg); Beta.add(this, Registro.PAUSE_NOT_NOW); }
+        if (!demo) { Scope.notNow(this, app.pkg); Beta.add(this, Registro.PAUSE_NOT_NOW); Checks.add(this, Registro.PAUSE_NOT_NOW); }
         Intent i = new Intent(this, MainActivity.class);
         i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
         U.start(this, i);

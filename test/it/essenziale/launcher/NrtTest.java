@@ -65,6 +65,7 @@ public class NrtTest {
         cosa();
         servizi();
         registro();
+        controlli();
         stessaPersona();
         System.out.println("\nTotale: " + pass + " superati, " + fail + " falliti");
         FileWriter w = new FileWriter(a.length > 0 ? a[0] : "nrt-report.md");
@@ -585,6 +586,45 @@ public class NrtTest {
         String code = Registro.code(new int[]{0, 1, 2, 3, 4, 5});
         check("Codice: M- più 6 caratteri, senza 0, O, 1, I, L", code.matches("M-[A-HJKMNP-Z2-9]{6}"), code);
         check("Registro corrotto: si ignora senza errori", Registro.days("ciao\n;;=\n2026-13") == 0, null);
+    }
+
+    static void controlli() {
+        sec("Controlli a 2 settimane, 1 mese e 3 mesi (0.15)");
+        String st = "2026-11-09";
+        eq("Controllo 1 a 14 giorni", Controlli.due(st, 1), "2026-11-23");
+        eq("Controllo 2 a un mese", Controlli.due(st, 2), "2026-12-09");
+        eq("Controllo 3 a tre mesi", Controlli.due(st, 3), "2027-02-09");
+        boolean[] none = {false, false, false};
+        eq("Prima della data: nessun controllo", Controlli.current(st, "2026-11-22", none, false), 0);
+        eq("Il giorno del controllo 1: compare", Controlli.current(st, "2026-11-23", none, false), 1);
+        eq("Per 7 giorni resta", Controlli.current(st, "2026-11-29", none, false), 1);
+        eq("Dopo 7 giorni sparisce", Controlli.current(st, "2026-11-30", none, false), 0);
+        eq("Fatto il primo, il secondo arriva alla sua data", Controlli.current(st, "2026-12-09", new boolean[]{true, false, false}, false), 2);
+        eq("Saltato il primo, il secondo arriva lo stesso", Controlli.current(st, "2026-12-10", none, false), 2);
+        eq("«Non mostrarmeli più»: nessun controllo", Controlli.current(st, "2026-11-23", none, true), 0);
+        eq("Dopo il terzo, basta", Controlli.current(st, "2027-03-01", none, false), 0);
+        eq("Senza giorno d'inizio: nessun controllo", Controlli.current(null, "2026-11-23", none, false), 0);
+        String log = "";
+        for (int d = 0; d < 14; d++) {
+            String day = Controlli.plus(st, d);
+            for (int k = 0; k < 30; k++) log = Registro.add(log, day, Registro.NOTIF_WAIT, 1);
+            if (d % 2 == 0) log = Registro.add(log, day, Registro.PAUSE_NOT_NOW, 3);
+            log = Registro.add(log, day, Registro.NIGHT_UNLOCKS, d < 7 ? 3 : 1);
+        }
+        java.util.List<String[]> n1 = Controlli.numbers(log, st, 1, true, true, true);
+        eq("Controllo 1: un numero per obiettivo acceso", n1.size(), 3);
+        eq("Controllo 1: totale delle notifiche che hanno aspettato", n1.get(0)[1], "420");
+        eq("Controllo 1: volte «Non ora»", n1.get(1)[1], "21 volte");
+        eq("Controllo 1: sblocchi di notte in media", n1.get(2)[1], "2 sblocchi");
+        check("Controllo 1: nessun confronto", n1.get(0)[3] == null && n1.get(2)[3] == null, null);
+        eq("Solo gli obiettivi accesi", Controlli.numbers(log, st, 1, false, true, false).size(), 1);
+        check("Solo la base: nessun numero", Controlli.numbers(log, st, 1, false, false, false).isEmpty(), null);
+        for (int d = 14; d < 30; d++) log = Registro.add(log, Controlli.plus(st, d), Registro.NIGHT_UNLOCKS, 1);
+        java.util.List<String[]> n2 = Controlli.numbers(log, st, 2, false, false, true);
+        eq("Controllo 2: media delle ultime 2 settimane", n2.get(0)[1], "1 sblocco");
+        eq("Controllo 2: confronto con la prima settimana", n2.get(0)[3], "3 a notte");
+        eq("Numeri piccoli con un decimale", Controlli.num(0.4), "0,4");
+        eq("Data in italiano", Controlli.label("2026-12-09"), "9 dicembre");
     }
 
     static void cosa() {

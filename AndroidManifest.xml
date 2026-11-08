@@ -66,6 +66,7 @@
         <activity android:name=".NightReportActivity" android:screenOrientation="portrait" />
         <activity android:name=".DimActivity" android:screenOrientation="portrait" android:excludeFromRecents="true" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
         <activity android:name=".AspettoActivity" android:screenOrientation="portrait" />
+        <activity android:name=".CheckActivity" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize|stateHidden" />
         <activity android:name=".BetaActivity" android:screenOrientation="portrait" />
         <activity android:name=".BugActivity" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
         <receiver android:name=".ScopeReceiver" android:exported="false" />
