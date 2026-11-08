@@ -119,6 +119,23 @@ public final class Cerca {
         try { long t = Long.parseLong(r[3].trim()); return now - t >= 0 && now - t < RECENT_MS; } catch (NumberFormatException e) { return false; }
     }
 
+    /**
+     * 0.15: persone e gruppi in Ricerca: prima le conversazioni in corso, poi per ultima interazione, più recente prima.
+     * Chi non senti da tempo (0) resta nell'ordine di partenza, che è quello scelto in A portata.
+     */
+    public static List<String> byLast(List<String> names, final java.util.Map<String, Long> last, final java.util.Set<String> live) {
+        List<String> out = new ArrayList<String>(names);
+        java.util.Collections.sort(out, new java.util.Comparator<String>() {
+            public int compare(String a, String b) {
+                boolean la = live.contains(a), lb = live.contains(b);
+                if (la != lb) return la ? -1 : 1;
+                Long ta = last.get(a), tb = last.get(b);
+                return Long.compare(tb == null ? 0 : tb, ta == null ? 0 : ta);
+            }
+        });
+        return out;
+    }
+
     /** 0.8: ordina i nomi secondo l'ordine scelto; chi non c'è ancora va in fondo, nell'ordine di partenza. */
     public static List<String> ordered(List<String> names, List<String> order) {
         List<String> out = new ArrayList<String>();

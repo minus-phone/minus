@@ -45,6 +45,10 @@ public class PortataActivity extends BaseActivity {
         final List<String> names = new ArrayList<String>();
         for (String[] f : fixed) names.add(f[0]);
         list.addView(U.label(this, "Persone e gruppi · passano sempre"));
+        // 0.15: in Ricerca l'ordine segue le conversazioni; quello scelto qui vale per chi non senti da un po'
+        TextView how = U.text(this, "In Ricerca vengono prima le conversazioni in corso, poi chi hai sentito di recente. Quest'ordine vale per gli altri.", 12, U.MUTED, false);
+        how.setPadding(0, 0, 0, U.dp(this, 8));
+        list.addView(how, U.full());
         for (int i = 0; i < fixed.size(); i++) {
             final int k = i;
             final String[] f = fixed.get(i);
@@ -71,7 +75,7 @@ public class PortataActivity extends BaseActivity {
             public void onClick(View v) { startActivity(SettingsActivity.peopleIntent(PortataActivity.this, "A portata")); }
         });
         list.addView(link, U.full());
-        toggleRow("Conversazioni attive", "Aperte e chi ti ha scritto oggi: le 3 più recenti", SearchActivity.K_ACTIVE_ON, "Conversazioni attive");
+        toggleRow("Conversazioni attive", "Quelle a cui hai risposto nelle ultime 12 ore: le 3 più recenti", SearchActivity.K_ACTIVE_ON, "Conversazioni attive");
 
         // 0.11: le app in una sola vista, con la ricerca tra tutte (wireframe 161)
         if (picker == null) {
@@ -91,7 +95,7 @@ public class PortataActivity extends BaseActivity {
         list.addView(U.label(this, "App"));
         list.addView(picker.root, U.full());
         list.addView(U.divider(this));
-        toggleRow("Ricerche recenti", "Le ultime 3, mai le app con la pausa", SearchActivity.K_RECENT_ON, "Ricerche recenti");
+        toggleRow("Ricerche recenti", "Solo ciò che hai scritto o chiesto a voce, nelle ultime 2 ore; mai le app con la pausa", SearchActivity.K_RECENT_ON, "Ricerche recenti");
         TextView note = U.text(this, "Le app che non sono a portata si aprono scrivendone il nome. Shop e Movimenti restano in Impostazioni › App, in prova.", 13, U.MUTED, false);
         note.setPadding(0, U.dp(this, 14), 0, U.dp(this, 90));
         list.addView(note);

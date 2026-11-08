@@ -143,6 +143,13 @@ public final class Rules {
      * 0.6.1: alcune versioni di WhatsApp e Telegram non segnano i gruppi: titolo = gruppo,
      * testo = «Mittente: messaggio». Lo riconosco solo per le app di chat e con un mittente breve.
      */
+    /** 0.15: titoli delle notifiche di chiamata nelle app di chat («1 videochiamata persa», «Missed voice call»). */
+    public static boolean isCallTitle(String title) {
+        if (title == null) return false;
+        String t = title.toLowerCase(java.util.Locale.ROOT);
+        return t.matches(".*(chiamat[ae] pers[ae]|videochiamat[ae]|chiamata in (arrivo|corso)|chiamata vocale|missed (voice |video )?calls?|incoming (voice |video )?call|ongoing (voice |video )?call).*");
+    }
+
     public static boolean looksLikeGroup(String pkg, String title, String text) {
         String code = chatCode(pkg);
         if (!"WA".equals(code) && !"TG".equals(code) || title == null || text == null) return false;
@@ -368,11 +375,15 @@ public final class Rules {
         public String code = "", name = "";
         public boolean group;
         public long last, until;
+        /** 0.15: l'ultima volta che hai scritto tu (risposta vista nella notifica o messaggio a voce); 0 = mai. */
+        public long mine;
 
         public String key() { return convKey(code, name); }
         public boolean isOpen(long now) { return until > now; }
+        /** 0.15: aperta e con una tua risposta nelle ultime 12 ore: è una conversazione in corso, non solo una notifica. */
+        public boolean replied(long now) { return mine > 0 && mine + OPEN_MS > now && isOpen(now); }
         public String line() {
-            return code + " | " + name.replace("|", "/") + " | " + (group ? "gruppo" : "persona") + " | " + last + " | " + until;
+            return code + " | " + name.replace("|", "/") + " | " + (group ? "gruppo" : "persona") + " | " + last + " | " + until + " | " + mine;
         }
     }
 
@@ -383,6 +394,7 @@ public final class Rules {
             Conv c = new Conv();
             c.code = r[0]; c.name = r[1]; c.group = "gruppo".equals(r[2]);
             try { c.last = Long.parseLong(r[3]); c.until = Long.parseLong(r[4]); } catch (Exception e) { continue; }
+            if (r.length > 5) try { c.mine = Long.parseLong(r[5]); } catch (Exception ignored) {}
             out.add(c);
         }
         return out;
@@ -413,6 +425,19 @@ public final class Rules {
         c.last = Math.max(c.last, now);
         if (open) c.until = Math.max(c.until, now + OPEN_MS);
         return list;
+    }
+
+    /** 0.15: hai scritto tu: la conversazione si apre per 12 ore e risulta in corso. */
+    public static List<Conv> wrote(List<Conv> list, String code, String name, Boolean group, long time) {
+        touch(list, code, name, group, time, true);
+        String k = convKey(code, name);
+        for (Conv x : list) if (x.key().equals(k)) x.mine = Math.max(x.mine, time);
+        return list;
+    }
+
+    /** 0.15: ultima interazione con una conversazione: un tuo messaggio, o quando l'hai aperta. */
+    public static long touched(Conv c) {
+        return Math.max(c.mine, c.until > 0 ? c.until - OPEN_MS : 0);
     }
 
     public static Map<String, Long> openMap(List<Conv> list, long now) {

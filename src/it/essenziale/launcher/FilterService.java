@@ -215,7 +215,9 @@ public class FilterService extends NotificationListenerService implements Store.
         selfReply = false;
         // 0.4: conversazioni recenti e aperte. Se l'ultimo messaggio è tuo, le hai risposto dalla notifica.
         String code = Rules.chatCode(note.pkg);
-        if (code != null && (n.flags & Rules.FLAG_GROUP_SUMMARY) == 0 && note.title.length() > 0
+        // 0.15: una chiamata (persa o in arrivo) non è una conversazione
+        boolean call = "call".equals(n.category) || "missed_call".equals(n.category) || Rules.isCallTitle(note.title);
+        if (code != null && !call && (n.flags & Rules.FLAG_GROUP_SUMMARY) == 0 && note.title.length() > 0
                 && (n.flags & (Rules.FLAG_ONGOING_EVENT | Rules.FLAG_FOREGROUND_SERVICE | Rules.FLAG_NO_CLEAR)) == 0) {
             selfReply = lastIsMine(ex);
             long t = Math.min(sbn.getPostTime(), System.currentTimeMillis());
@@ -224,10 +226,10 @@ public class FilterService extends NotificationListenerService implements Store.
             // 0.6.1: se tra i messaggi della notifica ce n'è uno tuo (anche scritto dentro l'app),
             // la conversazione è aperta per 12 ore da quel messaggio
             long mine = lastMineTime(ex);
-            if (selfReply) Convs.open(this, code, note.title, note.group, t);
+            if (selfReply) Convs.wrote(this, code, note.title, note.group, t);
             else {
                 Convs.seen(this, code, note.title, note.group, t);
-                if (mine > 0 && System.currentTimeMillis() - mine < Rules.OPEN_MS) Convs.open(this, code, note.title, note.group, mine);
+                if (mine > 0 && System.currentTimeMillis() - mine < Rules.OPEN_MS) Convs.wrote(this, code, note.title, note.group, mine);
             }
         }
         int level = Rules.decide(note, U.ruleConfig(this));
@@ -295,7 +297,7 @@ public class FilterService extends NotificationListenerService implements Store.
             String title = tt[0];
             if (!group && (ex == null || ex.getParcelableArray("android.messages") == null) && !isPerson(tt[0])
                     && Rules.looksLikeGroup(sbn.getPackageName(), tt[0], tt[1])) { group = true; title = Rules.groupTitle(tt[0]); }
-            if (title != null && title.length() > 0) Convs.open(this, code, title, group);
+            if (title != null && title.length() > 0 && !Rules.isCallTitle(title) && !"call".equals(n.category) && !"missed_call".equals(n.category)) Convs.open(this, code, title, group);
         } catch (Exception ignored) {}
     }
 

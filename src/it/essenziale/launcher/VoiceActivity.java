@@ -201,7 +201,9 @@ public class VoiceActivity extends BaseActivity {
         cta(text == null ? "Apri la chat" : "Apri e invia", new Runnable() {
             public void run() {
                 if (ListActivity.contact(VoiceActivity.this, app, p.target, text)) {
-                    Convs.open(VoiceActivity.this, app, p.name, false);
+                    if (text != null) Convs.wrote(VoiceActivity.this, app, p.name, false, System.currentTimeMillis());
+                    else Convs.open(VoiceActivity.this, app, p.name, false);
+                    SearchActivity.remember(VoiceActivity.this, "person", p.name, p.name);
                     finish();
                 }
             }
@@ -220,7 +222,7 @@ public class VoiceActivity extends BaseActivity {
         line("Numero", p.target);
         hint("Si apre il telefono con il numero: tocchi tu per chiamare.");
         cta("Chiama", new Runnable() {
-            public void run() { if (ListActivity.contact(VoiceActivity.this, "TEL", p.target, null)) finish(); }
+            public void run() { if (ListActivity.contact(VoiceActivity.this, "TEL", p.target, null)) { SearchActivity.remember(VoiceActivity.this, "person", p.name, p.name); finish(); } }
         });
     }
 
@@ -232,7 +234,7 @@ public class VoiceActivity extends BaseActivity {
         line("App", a.label);
         line("Pausa", paused ? U.pauseSeconds(this) + " secondi prima di aprire" : "nessuna");
         if (paused) hint("La pausa vale anche per i comandi vocali.");
-        cta("Apri", new Runnable() { public void run() { U.open(VoiceActivity.this, a); finish(); } });
+        cta("Apri", new Runnable() { public void run() { if (U.open(VoiceActivity.this, a)) SearchActivity.remember(VoiceActivity.this, "app", a.pkg, a.label); finish(); } });
     }
 
     private String enc(String s) {

@@ -414,6 +414,21 @@ public class NrtTest {
         List<String> nm = java.util.Arrays.asList("Mamma", "Andrea", "Calcetto", "Nido");
         eq("A portata 0.8: ordine scelto, i nuovi in fondo", Cerca.ordered(nm, java.util.Arrays.asList("nido", "Mamma", "Sparito")).toString(), "[Nido, Mamma, Andrea, Calcetto]");
         eq("A portata 0.8: senza ordine resta com'è", Cerca.ordered(nm, new ArrayList<String>()).toString(), "[Mamma, Andrea, Calcetto, Nido]");
+        java.util.Map<String, Long> lt = new java.util.HashMap<String, Long>();
+        lt.put("Andrea", 500L); lt.put("Nido", 900L); lt.put("Calcetto", 100L);
+        java.util.Set<String> lv = new java.util.HashSet<String>(java.util.Arrays.asList("Calcetto"));
+        eq("Ricerca 0.15: prima le conversazioni in corso, poi le più recenti, poi l'ordine scelto", Cerca.byLast(nm, lt, lv).toString(), "[Calcetto, Nido, Andrea, Mamma]");
+        eq("Ricerca 0.15: senza interazioni resta l'ordine scelto", Cerca.byLast(nm, new java.util.HashMap<String, Long>(), new java.util.HashSet<String>()).toString(), "[Mamma, Andrea, Calcetto, Nido]");
+        long h = 3600 * 1000L, t0 = 100 * h;
+        List<Rules.Conv> cv = Rules.touch(new ArrayList<Rules.Conv>(), "WA", "PM Mama's Living", false, t0, true);
+        check("Conversazioni 0.15: aperta dalla notifica ma senza risposta non è in corso", cv.get(0).isOpen(t0 + h) && !cv.get(0).replied(t0 + h), null);
+        Rules.wrote(cv, "WA", "PM Mama's Living", false, t0 + h);
+        check("Conversazioni 0.15: con una tua risposta è in corso", cv.get(0).replied(t0 + 2 * h), null);
+        check("Conversazioni 0.15: dopo 12 ore dalla risposta non più", !cv.get(0).replied(t0 + 14 * h), null);
+        eq("Conversazioni 0.15: la risposta si salva e si rilegge", Rules.convs(Rules.convsText(cv, t0 + 2 * h)).get(0).mine, t0 + h);
+        eq("Conversazioni 0.15: le righe vecchie (5 campi) si leggono ancora", Rules.convs("WA | Anna | persona | 5 | 6\n").get(0).mine, 0L);
+        check("Chiamate 0.15: «1 videochiamate perse» non è una conversazione", Rules.isCallTitle("1 videochiamate perse") && Rules.isCallTitle("Chiamata persa") && Rules.isCallTitle("Missed voice call"), null);
+        check("Chiamate 0.15: un nome resta un nome", !Rules.isCallTitle("Filippo") && !Rules.isCallTitle("PM Mama's Living"), null);
         eq("A portata 0.8: sposta su", Cerca.moveUp(nm, 2).toString(), "[Mamma, Calcetto, Andrea, Nido]");
         eq("A portata 0.8: il primo non si sposta", Cerca.moveUp(nm, 0).toString(), "[Mamma, Andrea, Calcetto, Nido]");
     }
