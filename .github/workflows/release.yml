@@ -1,8 +1,11 @@
-# Compila, prova e firma l'APK con la chiave delle release (segreti del repository).
-# - A ogni pull request e su richiesta: build firmata, scaricabile tra gli artefatti.
-# - A ogni tag v* (per esempio v0.15): crea la Release con l'APK allegato.
+# Due lavori separati, perché la chiave delle release esca solo quando serve.
+# - prova: a ogni pull request. Compila e prova con una chiave usa e getta; nessun segreto.
+#   L'APK serve a controllare la build, non si installa sopra quello firmato.
+# - firmata: a ogni tag v* (crea la Release) o a mano da Actions (solo l'artefatto).
+#   Gira nell'ambiente "release", che chiede la tua approvazione prima di partire.
 # Segreti: KEYSTORE_BASE64 (obbligatorio); KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
-# (facoltativi: senza, valgono quelli di build.sh).
+# (facoltativi: senza, valgono quelli di build.sh). Meglio come segreti dell'ambiente "release".
+# Le azioni sono fissate a un commit: per aggiornarle, cambia l'hash e il commento accanto.
 name: Build e release
 on:
   pull_request:
@@ -10,12 +13,34 @@ on:
   push:
     tags: ["v*"]
 permissions:
-  contents: write
+  contents: read
 jobs:
-  apk:
+  prova:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Strumenti Android
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq android-sdk-platform-23 aapt dalvik-exchange zipalign apksigner
+      - name: Test della logica
+        run: test/logica.sh
+      - name: Build con chiave di prova
+        run: ./build.sh
+
+  firmata:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Strumenti Android
         run: |
           sudo apt-get update -qq
@@ -44,7 +69,7 @@ jobs:
       - name: Cancella la chiave dal runner
         if: always()
         run: rm -f "$RUNNER_TEMP/release.keystore"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: minus-${{ env.V }}
           path: build/minus-*.apk
@@ -53,5 +78,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" build/minus-*.apk --title "−minus $V" \
+          gh release create "$GITHUB_REF_NAME" build/minus-*.apk --repo "$GITHUB_REPOSITORY" --title "−minus $V" \
             --notes "Come installarla: [guida](https://github.com/minus-phone/minus/blob/main/INSTALLARE.md)."
