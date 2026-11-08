@@ -72,7 +72,7 @@ final class Adesso {
         LinearLayout box = U.col(c);
         box.setPadding(U.dp(c, 16), U.dp(c, 14), U.dp(c, 16), U.dp(c, 14));
         box.setBackground(U.box(c, bg, line, 16));
-        TextView lab = U.text(c, "UNA COSA CHE PUOI FARE ADESSO", 12, muted, false);
+        TextView lab = U.text(c, t != null ? "COMPLETA UN TASK" : "LA TUA ALTERNATIVA", 12, muted, false); // 0.15: era «Una cosa che puoi fare adesso»
         lab.setLetterSpacing(0.06f);
         box.addView(lab);
         if (t != null) {
@@ -113,7 +113,7 @@ final class Adesso {
         box.addView(alt, U.full());
         if (t == null) {
             // senza attività: solo l'alternativa, e il modo di scriverne una
-            TextView add = U.text(c, "+ Segna una cosa da fare", 15, ink, false);
+            TextView add = U.text(c, "+ Aggiungi un task", 15, ink, false);
             add.setMinHeight(U.dp(c, 44));
             add.setGravity(Gravity.CENTER_VERTICAL);
             add.setOnClickListener(new View.OnClickListener() {

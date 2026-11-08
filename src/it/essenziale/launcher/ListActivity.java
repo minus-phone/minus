@@ -49,7 +49,7 @@ public class ListActivity extends BaseActivity {
         else if (mode == MODE_SHOP) buildApps(U.rows(U.cfg(this, U.K_SHOP, U.DEF_SHOP)), false);
         else buildApps(U.rows(U.cfg(this, U.K_MONEY, U.DEF_MONEY)), true);
         if (mode != MODE_CONTACTS) {
-            TextView hint = U.text(this, "Per pagare: sblocca e avvicina il telefono al POS.", 13, U.MUTED, false);
+            TextView hint = U.text(this, "Per pagare: sblocca e avvicina il telefono al POS.", 12, U.MUTED, false);
             hint.setGravity(Gravity.CENTER);
             hint.setPadding(0, U.dp(this, 10), 0, 0);
             root.addView(hint, U.full());
@@ -243,7 +243,7 @@ public class ListActivity extends BaseActivity {
             }
         });
         list.addView(all, U.full());
-        TextView hint = U.text(this, "In ordine di ultimo messaggio. Quando scrivi a qualcuno da qui, da Notifiche, a voce o rispondendo dalla notifica, i suoi messaggi passano per 12 ore. Con ⋯ scegli come passano, o togli una riga dalla lista.", 13, U.MUTED, false);
+        TextView hint = U.text(this, "In ordine di ultimo messaggio. Quando scrivi a qualcuno da qui, da Notifiche, a voce o rispondendo dalla notifica, i suoi messaggi passano per 12 ore. Con ⋯ scegli come passano, o togli una riga dalla lista.", 12, U.MUTED, false);
         hint.setPadding(0, U.dp(this, 8), 0, U.dp(this, 8));
         list.addView(hint);
     }
@@ -267,11 +267,20 @@ public class ListActivity extends BaseActivity {
         }
         r.addView(txt, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         if (badge != null) {
-            TextView bd = U.text(this, badge, 12, U.MUTED, false);
-            bd.setTypeface(U.SERIF);
-            bd.setPadding(U.dp(this, 6), U.dp(this, 2), U.dp(this, 6), U.dp(this, 2));
-            bd.setBackground(U.box(this, U.BG, U.LINE, 6));
-            r.addView(bd);
+            // 0.15: le icone delle app al posto delle sigle WA, TG, SMS (il nome per intero se l'icona non c'è ancora)
+            LinearLayout icons = U.row(this);
+            StringBuilder said = new StringBuilder();
+            for (String code : badge.split(" · ")) {
+                if (code.trim().length() == 0) continue;
+                View b = AppIcons.badge(this, AppIcons.pkgOfCode(this, code.trim()), Rules.appName(code.trim()), U.MUTED);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                lp.leftMargin = U.dp(this, 6);
+                icons.addView(b, lp);
+                if (said.length() > 0) said.append(", ");
+                said.append(Rules.appName(code.trim()));
+            }
+            r.addView(icons);
+            name = name + " (" + said + ")";
         }
         r.setContentDescription(name + (group ? ", gruppo" : "") + (status != null ? ", " + status : "") + ". Tieni premuto per scegliere come passano i messaggi");
         list.addView(r, U.full());

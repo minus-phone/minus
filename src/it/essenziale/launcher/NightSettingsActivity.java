@@ -163,7 +163,7 @@ public class NightSettingsActivity extends BaseActivity {
                 render();
             }
         });
-        TextView n = U.text(this, "La scala di grigi la fa Android: −minus è già in bianco e nero. Di notte il tempo dall'ultimo sblocco scende a 5 minuti.", 13, U.MUTED, false);
+        TextView n = U.text(this, "La scala di grigi la fa Android: −minus è già in bianco e nero. Di notte il tempo dall'ultimo sblocco scende a 5 minuti.", 12, U.MUTED, false);
         n.setPadding(0, U.dp(this, 14), 0, U.dp(this, 30));
         list.addView(n);
     }

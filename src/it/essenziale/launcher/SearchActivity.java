@@ -104,7 +104,7 @@ public class SearchActivity extends BaseActivity {
         LinearLayout.LayoutParams flp = U.full();
         flp.topMargin = U.dp(this, 8);
         root.addView(field, flp);
-        TextView hint = U.text(this, "Le altre app si aprono scrivendone il nome.", 14, U.MUTED, false);
+        TextView hint = U.text(this, "Le altre app si aprono scrivendone il nome.", 12, U.MUTED, false);
         hint.setTypeface(android.graphics.Typeface.create(U.SERIF, android.graphics.Typeface.ITALIC)); // 0.13.6: come nella UI
         hint.setGravity(Gravity.CENTER);
         hint.setPadding(0, U.dp(this, 6), 0, 0);
@@ -160,9 +160,14 @@ public class SearchActivity extends BaseActivity {
         if (U.prefs(this).getBoolean(K_RECENT_ON, true)) {
             // 0.13.7: di nuovo una riga che scorre di lato
             LinearLayout chips = hrow();
+            long nowMs = System.currentTimeMillis();
             for (final String[] r : recents(this)) {
-                if (r.length < 3 || ("app".equals(r[0]) && paused.contains(r[1]))) continue;
-                chips.addView(chip(r[2], new Runnable() { public void run() { openRecent(r); } }), chipLp());
+                if (r.length < 3 || ("app".equals(r[0]) && paused.contains(r[1])) || !Cerca.recentVisible(r, nowMs)) continue;
+                // 0.15: un pallino distingue persone e gruppi dalle app
+                boolean who = !"app".equals(r[0]);
+                View ch = chip(who ? "● " + r[2] : r[2], new Runnable() { public void run() { openRecent(r); } });
+                if (who) ch.setContentDescription("Persona o gruppo: " + r[2]);
+                chips.addView(ch, chipLp());
             }
             if (chips.getChildCount() > 0) { blocks.add(sectionLabel("Cercate di recente")); blocks.add(scrollOf(chips)); }
         }
@@ -206,14 +211,23 @@ public class SearchActivity extends BaseActivity {
         LinearLayout av = hrow();
         av.setGravity(Gravity.TOP);
         for (final String[] f : fixed) av.addView(personChip(f));
-        // «Altri ›» porta all'elenco; senza nessuno che passa sempre, invita a sceglierlo
-        av.addView(avatar(fixed.isEmpty() ? "+" : "›", fixed.isEmpty() ? "Scegli chi passa sempre" : "Altri", false, true, new Runnable() {
+        // senza nessuno che passa sempre, invita a sceglierlo
+        if (fixed.isEmpty()) av.addView(avatar("+", "Scegli chi passa sempre", false, true, new Runnable() {
             public void run() { startActivity(SettingsActivity.peopleIntent(SearchActivity.this, "Ricerca")); }
         }));
         blocks.add(scrollOf(av));
         for (int i = 0; i < cs.size() && i < MAX_ACTIVE; i++) blocks.add(convRow(cs.get(i)));
+        // 0.15: «Vedi tutti» in fondo alle conversazioni attive, dove si cerca; prima stava in fondo agli avatar
+        TextView all = U.text(this, "Vedi tutti  ›", 15, U.INK, false);
+        all.setMinHeight(U.dp(this, 48));
+        all.setGravity(Gravity.CENTER_VERTICAL);
+        all.setContentDescription("Vedi tutte le persone e i gruppi");
+        all.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { startActivity(SettingsActivity.peopleIntent(SearchActivity.this, "Ricerca")); }
+        });
+        blocks.add(all);
         if (blocks.isEmpty()) {
-            TextView t = U.text(this, "Scrivi il nome di una persona, di un'app o di un impegno. Puoi anche chiedere o dire un comando.", 14, U.MUTED, false);
+            TextView t = U.text(this, "Scrivi il nome di una persona, di un'app o di un impegno. Puoi anche chiedere o dire un comando.", 12, U.MUTED, false);
             t.setPadding(0, 0, 0, U.dp(this, 8));
             blocks.add(t);
         }
@@ -739,8 +753,8 @@ public class SearchActivity extends BaseActivity {
 
     private void remember(String kind, String value, String label) {
         List<String> old = new ArrayList<String>();
-        for (String[] r : recents(this)) old.add(r[0] + " | " + r[1] + " | " + r[2]);
-        List<String> now = Cerca.pushRecent(old, kind + " | " + value.replace("|", "/") + " | " + label.replace("|", "/"));
+        for (String[] r : recents(this)) old.add(r[0] + " | " + r[1] + " | " + r[2] + (r.length > 3 ? " | " + r[3] : ""));
+        List<String> now = Cerca.pushRecent(old, kind + " | " + value.replace("|", "/") + " | " + label.replace("|", "/") + " | " + System.currentTimeMillis());
         U.prefs(this).edit().putString(K_RECENT, U.lines(now)).apply();
     }
 

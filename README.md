@@ -9,7 +9,7 @@ Quasi un dumbphone, ma con WhatsApp, banca e SPID.
 
 ## Cosa fa
 
-- **Solo l'essenziale a portata.** La giornata (impegni, cose da fare, sveglia) e le app di tutti i giorni. Il resto si apre dalla ricerca.
+- **Solo l'essenziale a portata.** La giornata (impegni, task, sveglia) e le app di tutti i giorni. Il resto si apre dalla ricerca.
 - **Raggiungibile da chi conta.** Le persone e i gruppi scelti passano sempre; le altre notifiche aspettano il riepilogo.
 - **Un motivo prima di aprire.** Pausa, oppure pausa e scopo, sulle app che distraggono, anche aperte fuori da *−minus*.
 - **Di notte.** Se ti svegli e prendi il telefono, solo l'essenziale e tempi più brevi.

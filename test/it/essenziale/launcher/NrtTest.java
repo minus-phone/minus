@@ -66,6 +66,7 @@ public class NrtTest {
         servizi();
         registro();
         controlli();
+        ordine();
         stessaPersona();
         System.out.println("\nTotale: " + pass + " superati, " + fail + " falliti");
         FileWriter w = new FileWriter(a.length > 0 ? a[0] : "nrt-report.md");
@@ -403,9 +404,13 @@ public class NrtTest {
         check("Impostazioni: «banca» trova Servizi e A portata dalle parole chiave (0.14: niente contenitori)", hasSetting(Cerca.settings("banca", 3), "Servizi") && !hasSetting(Cerca.settings("banca", 3), "Contenitori"), null);
         eq("Impostazioni: una lettera sola non basta", Cerca.settings("p", 3).size(), 0);
         List<String> r = new ArrayList<String>();
-        r = Cerca.pushRecent(r, "a"); r = Cerca.pushRecent(r, "b"); r = Cerca.pushRecent(r, "c"); r = Cerca.pushRecent(r, "d");
-        eq("Recenti: al massimo 3, la più nuova in cima", r.toString(), "[d, c, b]");
-        eq("Recenti: niente doppioni", Cerca.pushRecent(r, "b").toString(), "[b, d, c]");
+        for (int i = 1; i <= 10; i++) r = Cerca.pushRecent(r, "app | p" + i + " | App " + i + " | " + (1000 + i));
+        eq("Recenti 0.15: al massimo 9, il più nuovo in cima", r.size() + " " + r.get(0), "9 app | p10 | App 10 | 1010");
+        eq("Recenti: niente doppioni, anche con un'ora diversa", Cerca.pushRecent(r, "app | p5 | App 5 | 2000").size(), 9);
+        long now = 10L * 3600 * 1000;
+        check("Recenti: visibile se di meno di 2 ore fa", Cerca.recentVisible(new String[]{"app", "p", "P", String.valueOf(now - 3600 * 1000)}, now), null);
+        check("Recenti: non visibile dopo 2 ore", !Cerca.recentVisible(new String[]{"app", "p", "P", String.valueOf(now - 3 * 3600 * 1000)}, now), null);
+        check("Recenti: senza ora (prima della 0.15) non visibile", !Cerca.recentVisible(new String[]{"app", "p", "P"}, now), null);
         List<String> nm = java.util.Arrays.asList("Mamma", "Andrea", "Calcetto", "Nido");
         eq("A portata 0.8: ordine scelto, i nuovi in fondo", Cerca.ordered(nm, java.util.Arrays.asList("nido", "Mamma", "Sparito")).toString(), "[Nido, Mamma, Andrea, Calcetto]");
         eq("A portata 0.8: senza ordine resta com'è", Cerca.ordered(nm, new ArrayList<String>()).toString(), "[Mamma, Andrea, Calcetto, Nido]");
@@ -625,6 +630,24 @@ public class NrtTest {
         eq("Controllo 2: confronto con la prima settimana", n2.get(0)[3], "3 a notte");
         eq("Numeri piccoli con un decimale", Controlli.num(0.4), "0,4");
         eq("Data in italiano", Controlli.label("2026-12-09"), "9 dicembre");
+    }
+
+    static void ordine() {
+        sec("Task in home, scopo scritto a mano (0.15)");
+        long day = 1000L * 86400 * 100, unlock = day + 3600_000L;
+        check("Completato prima dello sblocco: sparisce dalla home", !Ordine.doneVisibleInHome(day + 1000, unlock, day, 1), null);
+        check("Completato dopo l'ultimo sblocco: ancora visibile", Ordine.doneVisibleInHome(unlock + 1000, unlock, day, 1), null);
+        check("Da 3 completati: tutti nell'elenco, non spariscono", Ordine.doneVisibleInHome(day + 1000, unlock, day, 3), null);
+        check("Completato ieri: mai in home", !Ordine.doneVisibleInHome(day - 1000, 0, day, 5), null);
+        eq("Elenco: titolo", Ordine.accordionTitle(3), "3 task completati");
+        java.util.List<String> ids = java.util.Arrays.asList("a", "b", "c");
+        eq("Sposta su", Ordine.move(ids, 2, -1).toString(), "[a, c, b]");
+        eq("Sposta giù", Ordine.move(ids, 0, 1).toString(), "[b, a, c]");
+        eq("Il primo non sale", Ordine.move(ids, 0, -1).toString(), "[a, b, c]");
+        java.util.List<String> past = java.util.Arrays.asList("Messaggio a Giulia", "Rispondere a un messaggio", "messaggio a giulia", "Mappa del parco");
+        eq("Scopo: con una lettera nessun suggerimento", Scopo.suggest(past, "m", Scopo.DAY_PURPOSES).size(), 0);
+        eq("Scopo: solo le parole della persona, senza doppioni", Scopo.suggest(past, "mes", Scopo.DAY_PURPOSES).toString(), "[Messaggio a Giulia]");
+        eq("Scopo: al massimo 3", Scopo.suggest(java.util.Arrays.asList("ab1", "ab2", "ab3", "ab4"), "ab", new String[0]).size(), 3);
     }
 
     static void cosa() {

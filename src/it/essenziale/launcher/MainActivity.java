@@ -195,7 +195,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         add.setGravity(Gravity.CENTER);
         add.setPadding(U.dp(this, 18), 0, U.dp(this, 18), 0);
         add.setBackground(U.box(this, U.BG, U.INK, 22));
-        add.setContentDescription("Aggiungi al calendario un impegno o una cosa da fare");
+        add.setContentDescription("Aggiungi un impegno o un task");
         add.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 Intent i = new Intent(MainActivity.this, AddActivity.class);
@@ -236,12 +236,9 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         field.addView(query, new LinearLayout.LayoutParams(0, U.dp(this, 48), 1f));
         MicView mic = new MicView(this);
         mic.setContentDescription("Comando vocale");
+        // 0.15: il microfono avvia subito i comandi vocali, senza passare dalla ricerca
         mic.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                Intent i = new Intent(MainActivity.this, SearchActivity.class);
-                i.putExtra("voice", true);
-                startActivity(i);
-            }
+            public void onClick(View v) { voice(); }
         });
         field.addView(mic, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
         bar.addView(field, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
@@ -316,7 +313,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
             LinearLayout.LayoutParams lp = U.full();
             lp.topMargin = U.dp(this, 8);
             askBox.addView(card, lp);
-            TextView ok = U.text(this, "Annoiarsi va bene. Questa è solo un'idea.", 13, U.MUTED, false);
+            TextView ok = U.text(this, "Annoiarsi va bene. Questa è solo un'idea.", 12, U.MUTED, false);
             ok.setPadding(0, U.dp(this, 8), 0, 0);
             askBox.addView(ok);
             TextView need = U.text(this, "Mi serve il telefono adesso ›", 15, U.INK, false);
@@ -330,7 +327,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         LinearLayout box = U.col(this);
         box.setPadding(U.dp(this, 16), U.dp(this, 14), U.dp(this, 16), U.dp(this, 8));
         box.setBackground(U.box(this, U.SURFACE, U.BORDER, 16));
-        box.addView(U.text(this, "Terza volta in 10 minuti", 13, U.MUTED, false));
+        box.addView(U.text(this, "Terza volta in 10 minuti", 12, U.MUTED, false));
         TextView q = U.text(this, "Per cosa l'hai preso?", 18, U.INK, true);
         q.setPadding(0, U.dp(this, 4), 0, U.dp(this, 4));
         box.addView(q);
@@ -432,6 +429,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     }
 
     private boolean todayEmpty;
+    private boolean doneOpen; // 0.15: l'elenco «n task completati» aperto
     private boolean evening; // 0.14 (195): modalità sera, dall'ora di staccare alla sveglia
 
     private void buildToday() {
@@ -473,9 +471,28 @@ public class MainActivity extends BaseActivity implements Store.Listener {
             if (isNext) nextMarked = true;
             today.addView(eventRow(e, isNext, false, 16));
         }
+        // 0.15: prima i task da fare, nell'ordine scelto; i completati sbiaditi fino allo sblocco successivo,
+        // oppure, da 3 in su, tutti in un elenco chiuso «n task completati» che resta
         List<Tasks.Task> tasks = Tasks.forToday(this, true, true);
-        for (Tasks.Task t : tasks) today.addView(taskRow(t, 16, true));
-        todayEmpty = ev.isEmpty() && tasks.isEmpty();
+        final List<Tasks.Task> todo = new java.util.ArrayList<Tasks.Task>();
+        List<Tasks.Task> doneToday = new java.util.ArrayList<Tasks.Task>();
+        for (Tasks.Task t : tasks) if (t.done) doneToday.add(t); else todo.add(t);
+        for (Tasks.Task t : todo) today.addView(taskRow(t, 16, true, todo));
+        long lastUnlock = Tasks.lastUnlock(this), midnight = U.startOfDay(0);
+        boolean acc = Ordine.accordion(doneToday.size());
+        int doneShown = 0;
+        if (acc) {
+            doneShown = doneToday.size();
+            final TextView head = U.text(this, Ordine.accordionTitle(doneToday.size()) + (doneOpen ? "  ▴" : "  ▾"), 14, U.MUTED, false);
+            head.setMinHeight(U.dp(this, 44));
+            head.setGravity(Gravity.CENTER_VERTICAL);
+            head.setContentDescription(Ordine.accordionTitle(doneToday.size()) + (doneOpen ? ", aperto. Tocca per chiudere" : ", chiuso. Tocca per aprire"));
+            head.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { doneOpen = !doneOpen; buildToday(); } });
+            today.addView(head, U.full());
+            if (doneOpen) for (Tasks.Task t : doneToday) today.addView(taskRow(t, 15, false, null));
+        } else for (Tasks.Task t : doneToday)
+            if (Ordine.doneVisibleInHome(t.doneAt, lastUnlock, midnight, doneToday.size())) { today.addView(taskRow(t, 16, false, null)); doneShown++; }
+        todayEmpty = ev.isEmpty() && todo.isEmpty() && doneShown == 0;
         if (todayEmpty && U.hasCalendar(this))
             today.addView(U.text(this, all.isEmpty() ? "Niente in programma oggi" : "Niente più in programma oggi", 16, U.MUTED, false));
     }
@@ -494,7 +511,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         List<U.Event> ev = U.events(this, d, U.startOfDay(2));
         for (U.Event e : ev) tomorrow.addView(eventRow(e, false, false, 15));
         List<Tasks.Task> tasks = Tasks.forDay(this, d);
-        for (Tasks.Task t : tasks) tomorrow.addView(taskRow(t, 15, false));
+        for (Tasks.Task t : tasks) tomorrow.addView(taskRow(t, 15, false, tasks));
         if (ev.isEmpty() && tasks.isEmpty()) tomorrow.addView(U.text(this, "Niente in programma", 15, U.MUTED, false));
     }
 
@@ -541,18 +558,20 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         return r;
     }
 
-    private View taskRow(final Tasks.Task t, float sp, boolean showDue) {
+    private View taskRow(final Tasks.Task t, float sp, boolean showDue, final List<Tasks.Task> scope) {
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 40));
         LinearLayout boxWrap = U.row(this);
         boxWrap.setMinimumWidth(U.dp(this, 64));
         boxWrap.addView(U.checkbox(this, t.done, U.INK), new LinearLayout.LayoutParams(U.dp(this, 18), U.dp(this, 18)));
         r.addView(boxWrap);
-        TextView title = U.text(this, t.title, sp, t.done ? U.MUTED : U.INK, false);
+        // 0.15: i completati in un grigio meno contrastato (almeno 3:1 sullo sfondo), barrati
+        TextView title = U.text(this, t.title, sp, t.done ? U.BORDER : U.INK, false);
         if (t.done) title.setPaintFlags(title.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
         title.setSingleLine(true);
         title.setEllipsize(TextUtils.TruncateAt.END);
         r.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        if (t.done) r.setContentDescription(t.title + ", completato. Tocca per riaprirlo");
         if (showDue) {
             String due = Tasks.dueLabel(t);
             if (due.length() > 0) r.addView(U.text(this, due, 12, Tasks.overdue(t) ? U.ALERT : U.MUTED, Tasks.overdue(t)));
@@ -575,9 +594,28 @@ public class MainActivity extends BaseActivity implements Store.Listener {
             });
         } else r.setOnClickListener(toggle);
         r.setOnLongClickListener(new View.OnLongClickListener() {
-            public boolean onLongClick(View v) { confirmDelete(t); return true; }
+            public boolean onLongClick(View v) { taskMenu(t, scope); return true; }
         });
         return r;
+    }
+
+    /** 0.15: con un tocco lungo si sposta il task nella giornata, come in Keep; o si elimina. */
+    private void taskMenu(final Tasks.Task t, final List<Tasks.Task> scope) {
+        final java.util.List<String> opts = new java.util.ArrayList<String>();
+        int at = -1;
+        if (scope != null) for (int i = 0; i < scope.size(); i++) if (scope.get(i).id.equals(t.id)) at = i;
+        if (at > 0) opts.add("Sposta su");
+        if (at >= 0 && at < scope.size() - 1) opts.add("Sposta giù");
+        opts.add("Elimina");
+        new AlertDialog.Builder(this).setTitle(t.title)
+                .setItems(opts.toArray(new String[0]), new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        String o = opts.get(w);
+                        if ("Sposta su".equals(o)) { Tasks.move(MainActivity.this, scope, t.id, -1); refresh(); }
+                        else if ("Sposta giù".equals(o)) { Tasks.move(MainActivity.this, scope, t.id, 1); refresh(); }
+                        else confirmDelete(t);
+                    }
+                }).show();
     }
 
     private void confirmDelete(final Tasks.Task t) {

@@ -85,6 +85,12 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
         style(tabWaiting, level == Store.WAITING);
         style(tabOther, level == Store.OTHER);
         list.removeAllViews();
+        // 0.15: Altro non si accumula, e la pagina lo dice
+        if (level == Store.OTHER) {
+            TextView d = U.text(this, "Qui restano 24 ore, poi spariscono da sole.", 12, U.MUTED, false);
+            d.setPadding(0, U.dp(this, 4), 0, U.dp(this, 8));
+            list.addView(d, U.full());
+        }
         List<Store.Item> items = Store.load(this);
         int shown = 0;
         for (final Store.Item it : items) {
@@ -101,7 +107,7 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
         }
         clearAll.setVisibility(shown > 0 ? View.VISIBLE : View.GONE);
         if (shown > 0) {
-            TextView hint = U.text(this, "Tieni premuto un messaggio di WhatsApp, Telegram o SMS per far passare sempre chi lo ha scritto, o il gruppo.", 13, U.MUTED, false);
+            TextView hint = U.text(this, "Tieni premuto un messaggio di WhatsApp, Telegram o SMS per far passare sempre chi lo ha scritto, o il gruppo.", 12, U.MUTED, false);
             hint.setPadding(0, U.dp(this, 12), 0, U.dp(this, 8));
             list.addView(hint, U.full());
         }
@@ -165,8 +171,22 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
         return r;
     }
 
+    /** 0.15: una chiamata persa apre il registro delle chiamate, non i contatti. */
+    static boolean missedCall(Store.Item it) {
+        boolean dialer = false;
+        for (String d : Rules.DIALERS) if (d.equals(it.pkg)) dialer = true;
+        String t = ((it.title == null ? "" : it.title) + " " + (it.text == null ? "" : it.text)).toLowerCase(java.util.Locale.ITALY);
+        return dialer || t.contains("chiamata persa") || t.contains("chiamate perse") || t.contains("missed call");
+    }
+
     private void open(Store.Item it) {
         boolean ok = false;
+        if (missedCall(it)) {
+            android.content.Intent log = new android.content.Intent(android.content.Intent.ACTION_VIEW);
+            log.setType(android.provider.CallLog.Calls.CONTENT_TYPE);
+            log.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            try { startActivity(log); Store.remove(this, it.id); return; } catch (Exception ignored) {}
+        }
         PendingIntent pi = Store.intent(it.id);
         if (pi != null) {
             try { pi.send(); ok = true; } catch (Exception ignored) {}

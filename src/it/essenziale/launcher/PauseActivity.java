@@ -29,7 +29,7 @@ public class PauseActivity extends BaseActivity {
         super.onCreate(b);
         apps = U.sortedApps(this);
         LinearLayout root = U.screen(this, "Pausa prima di aprire");
-        TextView intro = U.text(this, "Per ogni app scegli quanto attrito vuoi. «Pausa e scopo» chiede per cosa la apri e per quanto.", 14, U.MUTED, false);
+        TextView intro = U.text(this, "Per ogni app scegli quanto attrito vuoi.\n«Pausa e scopo» rallenta l'apertura dell'app perché ti chiede il motivo per cui vuoi aprirla. Meglio non usarla per le cose da aprire in fretta, come banca o mappe.", 12, U.MUTED, false);
         intro.setPadding(0, U.dp(this, 4), 0, U.dp(this, 6));
         root.addView(intro);
         ScrollView sv = new ScrollView(this);
@@ -83,7 +83,7 @@ public class PauseActivity extends BaseActivity {
         for (U.AppInfo a : on) row(a);
         list.addView(U.label(this, "Altre app"));
         for (U.AppInfo a : off) row(a);
-        TextView n = U.text(this, "Non c'è «spegni per qualche giorno»: chi sospende tende a ricadere in fretta. Si può solo scendere di livello, app per app, e ogni scelta ha «Annulla». Di notte, con «Di notte» attivo, la pausa diventa pausa e scopo.", 13, U.MUTED, false);
+        TextView n = U.text(this, "Non c'è «spegni per qualche giorno»: chi sospende tende a ricadere in fretta. Si può solo scendere di livello, app per app, e ogni scelta ha «Annulla». Di notte, con «Di notte» attivo, la pausa diventa pausa e scopo.", 12, U.MUTED, false);
         n.setPadding(0, U.dp(this, 14), 0, U.dp(this, 24));
         list.addView(n);
     }

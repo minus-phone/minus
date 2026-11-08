@@ -105,7 +105,7 @@ public class CalendarsActivity extends BaseActivity {
         r.addView(ch);
         r.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pickDefault(); } });
         list.addView(r, U.full());
-        TextView n = U.text(this, "Il calendario iCloud condiviso col partner arriva tramite l'account Google o con un'app di sincronizzazione.", 13, U.MUTED, false);
+        TextView n = U.text(this, "Il calendario iCloud condiviso col partner arriva tramite l'account Google o con un'app di sincronizzazione.", 12, U.MUTED, false);
         n.setPadding(0, U.dp(this, 10), 0, U.dp(this, 20));
         list.addView(n);
     }

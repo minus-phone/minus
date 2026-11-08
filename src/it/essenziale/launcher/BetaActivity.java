@@ -60,7 +60,7 @@ public class BetaActivity extends BaseActivity {
         if (on) {
             label("Il tuo codice");
             box.addView(U.text(this, Beta.code(this), 22, U.INK, true));
-            box.addView(U.text(this, "Ti riconosce nella beta senza il tuo nome. Usalo nel diario e nelle interviste.", 13, U.MUTED, false));
+            box.addView(U.text(this, "Ti riconosce nella beta senza il tuo nome. Usalo nel diario e nelle interviste.", 12, U.MUTED, false));
         }
 
         label("Cosa conta, ogni giorno");

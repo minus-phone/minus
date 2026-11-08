@@ -595,7 +595,7 @@ public class OnboardingActivity extends BaseActivity {
 
     private void day() {
         title("La tua giornata");
-        sub("Impegni e cose da fare sempre a vista: in home e sulla schermata di blocco, senza sbloccare.");
+        sub("Impegni e task sempre a vista: in home e sulla schermata di blocco, senza sbloccare.");
         if (U.hasCalendar(this)) {
             caption("Calendari da mostrare");
             final Set<Long> shown = U.shownCalendars(this);
@@ -617,7 +617,7 @@ public class OnboardingActivity extends BaseActivity {
             String def = U.prefs(this).getString("last_cal_name", null);
             line(def != null ? def : "Scegli un calendario", null, null, "Cambia", new Runnable() { public void run() { pickCalendar(); } });
         } else {
-            LinearLayout c = card(new String[]{"Non vediamo il tuo calendario", "Senza accesso al calendario la home mostra solo le cose da fare e la sveglia."}, true);
+            LinearLayout c = card(new String[]{"Non vediamo il tuo calendario", "Senza accesso al calendario la home mostra solo i task e la sveglia."}, true);
             c.setBackground(U.box(this, U.SURFACE, U.BORDER, 14));
             TextView b = U.text(this, "Collega il calendario", 15, U.INK, true);
             b.setGravity(Gravity.CENTER);
@@ -1169,7 +1169,7 @@ public class OnboardingActivity extends BaseActivity {
             public void run() { U.prefs(OnboardingActivity.this).edit().putBoolean(Pill.K_ON, !pill).apply(); render(); }
         });
         if (pill && !Pill.canDraw(this))
-            body.addView(U.text(this, "Con l'interruttore acceso, Avanti ti porta un attimo nelle impostazioni di Android per dare il permesso.", 13, U.MUTED, false));
+            body.addView(U.text(this, "Con l'interruttore acceso, Avanti ti porta un attimo nelle impostazioni di Android per dare il permesso.", 12, U.MUTED, false));
         primary("Avanti", new Runnable() {
             public void run() {
                 List<Perm> p = new ArrayList<Perm>();

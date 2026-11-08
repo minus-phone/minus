@@ -277,7 +277,7 @@ public class VoiceActivity extends BaseActivity {
         head("TASK", "Nuovo task");
         line("Task", cmd.text);
         line("Scadenza", dayText(cmd.day));
-        hint("Comparirà in Da fare.");
+        hint("Comparirà tra i task di oggi.");
         cta("Aggiungi", new Runnable() {
             public void run() {
                 Tasks.add(VoiceActivity.this, cmd.text, cmd.day < 0 ? 0 : U.startOfDay(cmd.day));

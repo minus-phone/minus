@@ -27,7 +27,7 @@ public class VoiceHelpActivity extends BaseActivity {
         TextView rest = U.text(this, "Tutto il resto: “Chiedi a Gemini”. Si apre fuori da −minus.", 15, U.INK, false);
         rest.setPadding(0, U.dp(this, 18), 0, U.dp(this, 6));
         c.addView(rest);
-        TextView n = U.text(this, "Usa il riconoscimento vocale di Android. Puoi anche scrivere il comando nella barra in basso.", 13, U.MUTED, false);
+        TextView n = U.text(this, "Usa il riconoscimento vocale di Android. Puoi anche scrivere il comando nella barra in basso.", 12, U.MUTED, false);
         n.setPadding(0, 0, 0, U.dp(this, 20));
         c.addView(n);
         setContentView(root);

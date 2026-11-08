@@ -145,6 +145,9 @@ public class FilterService extends NotificationListenerService implements Store.
             if (live) Beta.add(this, Registro.NOTIF_PASS);
             lastPass.put(sbn.getPackageName(), System.currentTimeMillis());
             if (live && !selfReply) alert();
+            // 0.15: «Per te» tiene tutto ciò che conta, anche ciò che ha già avvisato (deciso il 4 novembre).
+            // La notifica resta anche nella tendina di Android.
+            if (!selfReply) keepCopy(sbn);
             return;
         }
         if (level == DROP) {
@@ -166,6 +169,24 @@ public class FilterService extends NotificationListenerService implements Store.
         Store.put(this, it, n.contentIntent);
         if (live) { Beta.add(this, Registro.NOTIF_WAIT); Checks.add(this, Registro.NOTIF_WAIT); }
         cancelNotification(sbn.getKey());
+    }
+
+    /** 0.15: copia in «Per te» di una notifica che passa subito, senza toglierla dalla tendina. */
+    private void keepCopy(StatusBarNotification sbn) {
+        try {
+            Notification n = sbn.getNotification();
+            String[] tt = titleAndText(n);
+            if (TextUtils.isEmpty(tt[0]) && TextUtils.isEmpty(tt[1])) return;
+            Store.Item it = new Store.Item();
+            it.id = sbn.getKey();
+            it.pkg = sbn.getPackageName();
+            it.app = appLabel(sbn.getPackageName());
+            it.title = tt[0];
+            it.text = tt[1];
+            it.time = sbn.getPostTime();
+            it.level = Store.WAITING;
+            Store.put(this, it, n.contentIntent);
+        } catch (Exception ignored) {}
     }
 
     /** La decisione vera è in Rules.decide (pura, coperta dal test di non regressione). */
@@ -344,6 +365,7 @@ public class FilterService extends NotificationListenerService implements Store.
         Sblocco.unlocked(this); // 0.12: sblocchi senza scopo (spento di default)
         Beta.unlocked(this); // 0.15: registro per la beta, spento di default
         Checks.unlocked(this); // 0.15: conteggi per i tre controlli, solo sul telefono
+        U.prefs(this).edit().putLong(Tasks.K_LAST_UNLOCK, System.currentTimeMillis()).apply(); // 0.15: i task fatti spariscono dalla home
         startSession();
         Scope.startGuard(this);
         if (Night.onUnlock(this)) {

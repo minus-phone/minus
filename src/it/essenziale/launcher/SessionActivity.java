@@ -66,7 +66,7 @@ public class SessionActivity extends BaseActivity {
             }
             body.addView(chips, U.full());
         }
-        TextView n = U.text(this, "Si azzera quando spegni lo schermo. Non compare mentre sei in chiamata o usi la navigazione. Serve il filtro notifiche attivo.", 13, U.MUTED, false);
+        TextView n = U.text(this, "Si azzera quando spegni lo schermo. Non compare mentre sei in chiamata o usi la navigazione. Serve il filtro notifiche attivo.", 12, U.MUTED, false);
         n.setPadding(0, U.dp(this, 14), 0, U.dp(this, 6));
         body.addView(n);
         body.addView(U.divider(this));
@@ -77,7 +77,7 @@ public class SessionActivity extends BaseActivity {
             public void onClick(View v) { Session.openWellbeing(SessionActivity.this); }
         });
         body.addView(dw, U.full());
-        TextView dn = U.text(this, "Conta il tempo per app, anche la home come se fosse −minus. −minus non può spegnerla: si disattiva da Benessere digitale.", 13, U.MUTED, false);
+        TextView dn = U.text(this, "Conta il tempo per app, anche la home come se fosse −minus. −minus non può spegnerla: si disattiva da Benessere digitale.", 12, U.MUTED, false);
         body.addView(dn);
     }
 

@@ -11,6 +11,28 @@ public final class Scopo {
     public static final int[] DAY_MIN = {5, 10, 15, 30};
     public static final int[] NIGHT_MIN = {2, 5};
     public static final int EXTRA_MIN = 5;
+    /**
+     * 0.15: niente motivazioni già pronte, lo scopo si scrive sempre. Dopo 2 lettere compaiono al
+     * massimo 3 motivazioni già scritte dalla persona, le più recenti prima, mai quelle suggerite da −minus.
+     * past: dalla più recente; exclude: le vecchie motivazioni preimpostate, che non sono parole sue.
+     */
+    public static java.util.List<String> suggest(java.util.List<String> past, String typed, String[] exclude) {
+        java.util.List<String> out = new java.util.ArrayList<String>();
+        String q = typed == null ? "" : typed.trim().toLowerCase(java.util.Locale.ITALY);
+        if (q.length() < 2) return out;
+        java.util.Set<String> seen = new java.util.HashSet<String>();
+        for (String e : exclude) seen.add(e.toLowerCase(java.util.Locale.ITALY));
+        for (String p : past) {
+            if (p == null) continue;
+            String t = p.trim(), low = t.toLowerCase(java.util.Locale.ITALY);
+            if (t.length() == 0 || seen.contains(low) || low.equals(q) || !low.contains(q)) continue;
+            seen.add(low);
+            out.add(t);
+            if (out.size() == 3) break;
+        }
+        return out;
+    }
+
     public static final String[] DAY_PURPOSES = {"Rispondere a un messaggio", "Pubblicare", "Cercare qualcosa", "Solo guardare"};
     public static final String[] NIGHT_PURPOSES = {"Rispondere a un messaggio", "Cercare una cosa", "Non lo so"};
 
