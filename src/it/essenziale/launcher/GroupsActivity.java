@@ -126,7 +126,7 @@ public class GroupsActivity extends BaseActivity {
         destChip(chips, "Notifiche", "contati", Rules.DEST_NOTIF, dest);
         destChip(chips, "Altro", "non contati", Rules.DEST_OTHER, dest);
         list.addView(chips, U.full());
-        TextView foot = U.text(this, "I gruppi nuovi partono in silenzio. Un gruppo in cui scrivi passa per 12 ore, come le conversazioni aperte.", 13, U.MUTED, false);
+        TextView foot = U.text(this, "I gruppi nuovi partono in silenzio. Un gruppo in cui scrivi passa per 12 ore, come le conversazioni aperte.", 12, U.MUTED, false);
         foot.setPadding(0, U.dp(this, 14), 0, U.dp(this, 24));
         list.addView(foot);
     }

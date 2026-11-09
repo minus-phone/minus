@@ -84,6 +84,14 @@ public class WeekActivity extends BaseActivity {
         range.setText(fd.format(new java.util.Date(U.startOfDay(base))) + " – " + fd.format(new java.util.Date(U.startOfDay(base + 6))));
         backToNow.setVisibility(week == 0 ? View.INVISIBLE : View.VISIBLE);
         updated.setText("Aggiornato alle " + U.hhmm(System.currentTimeMillis()) + " · si aggiorna a ogni modifica");
+        // 0.15: i task senza scadenza in alto, dove si vedono (prima stavano in fondo e si perdevano)
+        if (week == 0) {
+            List<Tasks.Task> und = Tasks.undated(this);
+            if (!und.isEmpty()) {
+                list.addView(U.label(this, "Senza scadenza"));
+                for (Tasks.Task k : und) list.addView(taskRow(k));
+            }
+        }
         for (int d = base; d < base + 7; d++) {
             long day = U.startOfDay(d);
             list.addView(U.divider(this));
@@ -123,46 +131,54 @@ public class WeekActivity extends BaseActivity {
                 r.addView(U.text(this, "  ›", 16, U.MUTED, false));
                 list.addView(r);
             }
-            List<Tasks.Task> tasks = d == 0 ? Tasks.forToday(this, true, false) : Tasks.forDay(this, day);
-            for (final Tasks.Task k : tasks) {
-                LinearLayout r = U.row(this);
-                r.setMinimumHeight(U.dp(this, 38));
-                LinearLayout w = U.row(this);
-                w.setMinimumWidth(U.dp(this, 64));
-                w.addView(U.checkbox(this, k.done, U.INK), new LinearLayout.LayoutParams(U.dp(this, 16), U.dp(this, 16)));
-                r.addView(w);
-                TextView ti = U.text(this, k.title, 15, k.done ? U.MUTED : U.INK, false);
-                if (k.done) ti.setPaintFlags(ti.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
-                r.addView(ti, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-                if (Tasks.overdue(k)) r.addView(U.text(this, "scaduto", 12, U.ALERT, true));
-                r.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) { Tasks.setDone(WeekActivity.this, k.id, !k.done); render(); }
-                });
-                list.addView(r);
-            }
+            // 0.15: da fare con scadenza quel giorno (oggi anche gli scaduti), più i completati in quel giorno
+            List<Tasks.Task> tasks = new java.util.ArrayList<Tasks.Task>();
+            if (d == 0) { for (Tasks.Task k : Tasks.forToday(this, false, false)) tasks.add(k); }
+            else if (d > 0) tasks.addAll(Tasks.forDay(this, day));
+            tasks.addAll(Tasks.doneOn(this, day));
+            for (Tasks.Task k : tasks) list.addView(taskRow(k));
             if (ev.isEmpty() && tasks.isEmpty()) {
                 TextView n = U.text(this, "Niente in programma", 14, U.MUTED, false);
                 n.setPadding(0, 0, 0, U.dp(this, 6));
                 list.addView(n);
             }
         }
-        // Task senza scadenza (solo nella settimana corrente)
-        if (week != 0) return;
-        boolean header = false;
-        for (final Tasks.Task k : Tasks.all(this)) {
-            if (k.due != 0 || k.done) continue;
-            if (!header) { list.addView(U.divider(this)); list.addView(U.label(this, "Senza scadenza")); header = true; }
-            LinearLayout r = U.row(this);
-            r.setMinimumHeight(U.dp(this, 38));
-            LinearLayout w = U.row(this);
-            w.setMinimumWidth(U.dp(this, 64));
-            w.addView(U.checkbox(this, false, U.INK), new LinearLayout.LayoutParams(U.dp(this, 16), U.dp(this, 16)));
-            r.addView(w);
-            r.addView(U.text(this, k.title, 15, U.INK, false), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+    }
+
+    /** 0.15: un task con la casella, il collegamento alla sua app (come in home) e «scaduto» in rosso. */
+    private View taskRow(final Tasks.Task k) {
+        LinearLayout r = U.row(this);
+        r.setMinimumHeight(U.dp(this, 40));
+        LinearLayout w = U.row(this);
+        w.setMinimumWidth(U.dp(this, 64));
+        w.setMinimumHeight(U.dp(this, 44));
+        w.setGravity(Gravity.CENTER_VERTICAL);
+        w.addView(U.checkbox(this, k.done, U.INK), new LinearLayout.LayoutParams(U.dp(this, 16), U.dp(this, 16)));
+        r.addView(w);
+        TextView ti = U.text(this, k.title, 15, k.done ? U.BORDER : U.INK, false);
+        if (k.done) ti.setPaintFlags(ti.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
+        ti.setSingleLine(true);
+        ti.setEllipsize(TextUtils.TruncateAt.END);
+        r.addView(ti, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        if (Tasks.overdue(k)) r.addView(U.text(this, "scaduto", 12, U.ALERT, true));
+        View.OnClickListener toggle = new View.OnClickListener() {
+            public void onClick(View v) { Tasks.setDone(WeekActivity.this, k.id, !k.done); render(); }
+        };
+        if (k.app != null && !k.done && U.installed(this, k.app)) {
+            final String label = U.appLabel(this, k.app);
+            TextView open = U.text(this, label + " ›", 13, U.MUTED, false);
+            open.setPadding(U.dp(this, 10), 0, 0, 0);
+            r.addView(open);
+            w.setOnClickListener(toggle);
+            w.setContentDescription("Segna fatto: " + k.title);
+            r.setContentDescription(k.title + ", apri " + label);
             r.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View v) { Tasks.setDone(WeekActivity.this, k.id, true); render(); }
+                public void onClick(View v) { if (!U.launchPkg(WeekActivity.this, k.app)) U.toast(WeekActivity.this, "Non riesco ad aprire " + label); }
             });
-            list.addView(r);
+        } else {
+            r.setOnClickListener(toggle);
+            if (k.done) r.setContentDescription(k.title + ", completato. Tocca per riaprirlo");
         }
+        return r;
     }
 }

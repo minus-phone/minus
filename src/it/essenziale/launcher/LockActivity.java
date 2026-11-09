@@ -210,7 +210,7 @@ public class LockActivity extends Activity {
 
         todo.removeAllViews();
         if (!tasks.isEmpty()) {
-            todo.addView(darkLabel("Da fare"));
+            todo.addView(darkLabel("Task"));
             int max = MAX_ROWS - 1;
             for (int i = 0; i < tasks.size() && i < max; i++) {
                 Tasks.Task t = tasks.get(i);

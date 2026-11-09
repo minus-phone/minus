@@ -71,7 +71,7 @@ public class SettingsActivity extends BaseActivity {
     private void main() {
         body.addView(U.label(this, "Il telefono essenziale"));
         open("La tua home", "Home, aspetto, a portata, ricerca, voce", HOME);
-        open("La tua giornata", "Calendari, cose da fare, schermata di blocco", DAY);
+        open("La tua giornata", "Calendari, task, schermata di blocco", DAY);
         body.addView(U.label(this, "I tuoi obiettivi"));
         int people = Onboarding.alwaysCount(this);
         open(Goals.NAMES[0], Goals.on(this, Goals.NOTIF) ? "Acceso · " + people + (people == 1 ? " persona" : " persone") + " che contano" : "Spento", NOTIF);
@@ -130,7 +130,7 @@ public class SettingsActivity extends BaseActivity {
     // ---------- 199 · La tua giornata ----------
 
     private void day() {
-        if (!U.hasCalendar(this)) row("Collega il calendario", "Senza, la home mostra solo le cose da fare e la sveglia", "Concedi ›", new Runnable() {
+        if (!U.hasCalendar(this)) row("Collega il calendario", "Senza, la home mostra solo i task e la sveglia", "Concedi ›", new Runnable() {
             public void run() { Onboarding.fix(SettingsActivity.this, "calendario"); }
         });
         int shown = U.shownCalendars(this).size();
@@ -141,7 +141,7 @@ public class SettingsActivity extends BaseActivity {
             public void run() { if (!U.openAlarms(SettingsActivity.this)) U.toast(SettingsActivity.this, "Non trovo l'app Orologio"); }
         });
         final boolean lockOn = U.prefs(this).getBoolean(U.K_LOCK, true);
-        toggle("Schermata di blocco −minus", "Ora, impegni, cose da fare, sveglia", lockOn, new Runnable() {
+        toggle("Schermata di blocco −minus", "Ora, impegni, task, sveglia", lockOn, new Runnable() {
             public void run() {
                 Changes.track(SettingsActivity.this, lockOn ? "Schermata di blocco −minus spenta" : "Schermata di blocco −minus attiva", new String[]{U.K_LOCK},
                         new Runnable() { public void run() { U.prefs(SettingsActivity.this).edit().putBoolean(U.K_LOCK, !lockOn).commit(); } },
@@ -310,7 +310,9 @@ public class SettingsActivity extends BaseActivity {
         nav("Ora di staccare", Notte.hhmm(Night.offMin(this)) + " · " + Night.leadMin(this) + " minuti prima di dormire", q, "›");
         prefToggle("Modalità sera", "Grigio, domani in home, l'alternativa in vista", Night.K_EVENING, true, "Modalità sera accesa", "Modalità sera spenta");
         nav("Chi ti raggiunge di notte", Onboarding.alwaysCount(this) + " persone che contano", to(PeopleActivity.class), "›");
-        nav("App frenate di notte", Night.nightApps(this).size() + " app", to(NightSettingsActivity.class), "›");
+        StringBuilder na = new StringBuilder();
+        for (String pk : Night.nightApps(this)) { if (na.length() > 0) na.append(", "); na.append(U.appLabel(this, pk)); }
+        nav("App frenate di notte", na.length() == 0 ? "Nessuna" : na.toString(), to(NightSettingsActivity.class), "›");
         prefToggle("Mattino tranquillo", "Fino a " + Notte.MORNING_MIN + " minuti dopo la sveglia", Night.K_MORNING, true, "Mattino tranquillo acceso", "Mattino tranquillo spento");
         row("Scala di grigi di Android", "Apri Modalità Riposo · orari " + Notte.hhmm(Night.offMin(this)) + " – " + Notte.hhmm(Night.wakeMin(this)), "↗", new Runnable() {
             public void run() { Session.openWellbeing(SettingsActivity.this); }
@@ -531,7 +533,7 @@ public class SettingsActivity extends BaseActivity {
         LinearLayout r = U.col(this);
         r.setPadding(0, U.dp(this, 10), 0, U.dp(this, 12));
         r.addView(U.text(this, "Durata della pausa", 16, U.INK, false));
-        r.addView(U.text(this, "Prima di aprire un'app con la pausa. Pausa e scopo resta di 4 secondi", 13, U.MUTED, false));
+        r.addView(U.text(this, "Prima di aprire un'app con la pausa. Pausa e scopo resta di 4 secondi", 12, U.MUTED, false));
         final int cur = U.pauseSeconds(this);
         LinearLayout seg = U.row(this);
         seg.setBackground(U.box(this, U.SURFACE, U.BORDER, 10));

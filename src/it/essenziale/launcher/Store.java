@@ -18,7 +18,7 @@ public final class Store {
     public static final int WAITING = 2;
     public static final int OTHER = 3;
     private static final int MAX_ITEMS = 300;
-    private static final long OTHER_TTL = 7L * 24 * 3600 * 1000; // Altro: tenuto 7 giorni
+    static final long OTHER_TTL = 24L * 3600 * 1000; // 0.15: Altro tenuto 24 ore (prima 7 giorni)
 
     public static class Item {
         public String id, pkg, app, title, text;

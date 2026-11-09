@@ -652,7 +652,7 @@ public final class U {
 
     /**
      * 0.13.3: la barra di navigazione è nascosta in tutte le schermate e il suo spazio è della pagina
-     * (niente più fascia grigia). In home è nascosta anche la barra di stato. Scorrendo dal bordo le barre
+     * (niente più fascia grigia). 0.15: la barra di stato resta sempre visibile, anche in home. Scorrendo dal bordo le barre
      * tornano; dopo 3 secondi si rinascondono.
      * 0.13.4: la pagina occupa sempre tutto lo schermo e lo spazio per le barre (e per la tastiera) lo fa
      * lei, con un margine che cresce e cala in 220 ms: niente salto quando le barre compaiono o spariscono.
@@ -663,7 +663,6 @@ public final class U {
         d.setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE
                         | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        | (home ? View.SYSTEM_UI_FLAG_FULLSCREEN : 0)
                         | (dark ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR));
         d.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
             public void onSystemUiVisibilityChange(int vis) {

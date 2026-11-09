@@ -104,7 +104,7 @@ public class SearchActivity extends BaseActivity {
         LinearLayout.LayoutParams flp = U.full();
         flp.topMargin = U.dp(this, 8);
         root.addView(field, flp);
-        TextView hint = U.text(this, "Le altre app si aprono scrivendone il nome.", 14, U.MUTED, false);
+        TextView hint = U.text(this, "Le altre app si aprono scrivendone il nome.", 12, U.MUTED, false);
         hint.setTypeface(android.graphics.Typeface.create(U.SERIF, android.graphics.Typeface.ITALIC)); // 0.13.6: come nella UI
         hint.setGravity(Gravity.CENTER);
         hint.setPadding(0, U.dp(this, 6), 0, 0);
@@ -160,9 +160,14 @@ public class SearchActivity extends BaseActivity {
         if (U.prefs(this).getBoolean(K_RECENT_ON, true)) {
             // 0.13.7: di nuovo una riga che scorre di lato
             LinearLayout chips = hrow();
+            long nowMs = System.currentTimeMillis();
             for (final String[] r : recents(this)) {
-                if (r.length < 3 || ("app".equals(r[0]) && paused.contains(r[1]))) continue;
-                chips.addView(chip(r[2], new Runnable() { public void run() { openRecent(r); } }), chipLp());
+                if (r.length < 3 || ("app".equals(r[0]) && paused.contains(r[1])) || !Cerca.recentVisible(r, nowMs)) continue;
+                // 0.15: un pallino distingue persone e gruppi dalle app
+                boolean who = !"app".equals(r[0]);
+                View ch = chip(who ? "● " + r[2] : r[2], new Runnable() { public void run() { openRecent(r); } });
+                if (who) ch.setContentDescription("Persona o gruppo: " + r[2]);
+                chips.addView(ch, chipLp());
             }
             if (chips.getChildCount() > 0) { blocks.add(sectionLabel("Cercate di recente")); blocks.add(scrollOf(chips)); }
         }
@@ -194,30 +199,69 @@ public class SearchActivity extends BaseActivity {
             if (p.section.equalsIgnoreCase("Sempre")) fixedNums.addAll(Nums.forPerson(this, p));
         List<Rules.Conv> cs = new ArrayList<Rules.Conv>();
         if (U.prefs(this).getBoolean(K_ACTIVE_ON, true)) {
-            long now = System.currentTimeMillis(), today = U.startOfDay(0);
+            long now = System.currentTimeMillis();
+            // 0.15: solo le conversazioni in corso, cioè a cui hai risposto: le notifiche restano in Per te
             for (Rules.Conv c : Convs.load(this))
-                if ((c.isOpen(now) || c.last >= today) && !fixedKeys.contains(Cerca.norm(Rules.groupName(c.name)))
+                if (c.replied(now) && !Rules.isCallTitle(c.name) && !fixedKeys.contains(Cerca.norm(Rules.groupName(c.name)))
                         && (c.group || java.util.Collections.disjoint(fixedNums, Nums.forConv(this, c.name)))) cs.add(c);
             Collections.sort(cs, new Comparator<Rules.Conv>() {
-                public int compare(Rules.Conv a, Rules.Conv b) { return Long.compare(Math.max(b.last, b.until - Rules.OPEN_MS), Math.max(a.last, a.until - Rules.OPEN_MS)); }
+                public int compare(Rules.Conv a, Rules.Conv b) { return Long.compare(Math.max(b.last, b.mine), Math.max(a.last, a.mine)); }
             });
         }
         blocks.add(sectionLabel("Persone e gruppi"));
         LinearLayout av = hrow();
         av.setGravity(Gravity.TOP);
-        for (final String[] f : fixed) av.addView(personChip(f));
-        // «Altri ›» porta all'elenco; senza nessuno che passa sempre, invita a sceglierlo
-        av.addView(avatar(fixed.isEmpty() ? "+" : "›", fixed.isEmpty() ? "Scegli chi passa sempre" : "Altri", false, true, new Runnable() {
+        for (final String[] f : byLastTouch(fixed)) av.addView(personChip(f));
+        // senza nessuno che passa sempre, invita a sceglierlo
+        if (fixed.isEmpty()) av.addView(avatar("+", "Scegli chi passa sempre", false, true, new Runnable() {
             public void run() { startActivity(SettingsActivity.peopleIntent(SearchActivity.this, "Ricerca")); }
         }));
         blocks.add(scrollOf(av));
         for (int i = 0; i < cs.size() && i < MAX_ACTIVE; i++) blocks.add(convRow(cs.get(i)));
+        // 0.15: «Vedi tutti» in fondo alle conversazioni attive, dove si cerca; prima stava in fondo agli avatar
+        TextView all = U.text(this, "Vedi tutti  ›", 15, U.INK, false);
+        all.setMinHeight(U.dp(this, 48));
+        all.setGravity(Gravity.CENTER_VERTICAL);
+        all.setContentDescription("Vedi tutte le persone e i gruppi");
+        all.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { startActivity(SettingsActivity.peopleIntent(SearchActivity.this, "Ricerca")); }
+        });
+        blocks.add(all);
         if (blocks.isEmpty()) {
-            TextView t = U.text(this, "Scrivi il nome di una persona, di un'app o di un impegno. Puoi anche chiedere o dire un comando.", 14, U.MUTED, false);
+            TextView t = U.text(this, "Scrivi il nome di una persona, di un'app o di un impegno. Puoi anche chiedere o dire un comando.", 12, U.MUTED, false);
             t.setPadding(0, 0, 0, U.dp(this, 8));
             blocks.add(t);
         }
         for (View v : blocks) results.addView(v, U.full());
+    }
+
+    /** 0.15: chi passa sempre, con prima le conversazioni in corso e poi chi hai sentito più di recente. */
+    private List<String[]> byLastTouch(List<String[]> fixed) {
+        long now = System.currentTimeMillis();
+        List<Rules.Conv> convs = Convs.load(this);
+        java.util.Map<String, Rules.Person> persons = new java.util.HashMap<String, Rules.Person>();
+        for (Rules.Person p : Rules.people(U.cfg(this, U.K_CONTACTS, U.DEF_CONTACTS))) persons.put(Cerca.norm(p.name), p);
+        java.util.Map<String, Long> last = new java.util.HashMap<String, Long>();
+        Set<String> live = new java.util.HashSet<String>();
+        java.util.Map<String, String[]> byName = new java.util.LinkedHashMap<String, String[]>();
+        for (String[] f : fixed) {
+            byName.put(f[0], f);
+            String key = Cerca.norm(f[0]);
+            Rules.Person p = "g".equals(f[2]) ? null : persons.get(key);
+            Set<String> nums = p == null ? java.util.Collections.<String>emptySet() : Nums.forPerson(this, p);
+            long t = 0;
+            for (Rules.Conv c : convs) {
+                boolean same = Cerca.norm(Rules.groupName(c.name)).equals(key)
+                        || (!c.group && !nums.isEmpty() && !java.util.Collections.disjoint(nums, Nums.forConv(this, c.name)));
+                if (!same) continue;
+                t = Math.max(t, Rules.touched(c));
+                if (c.replied(now)) live.add(f[0]);
+            }
+            last.put(f[0], t);
+        }
+        List<String[]> out = new ArrayList<String[]>();
+        for (String n : Cerca.byLast(new ArrayList<String>(byName.keySet()), last, live)) out.add(byName.get(n));
+        return out;
     }
 
     private LinearLayout hrow() {
@@ -701,6 +745,7 @@ public class SearchActivity extends BaseActivity {
 
     /** 0.12.3: un recente porta dritto alla destinazione (prima, per le persone, riempiva solo il campo). */
     private void openRecent(String[] r) {
+        fromRecent = true;
         if ("app".equals(r[0])) { openApp(r[1], r[2]); return; }
         if ("person".equals(r[0]))
             for (Hit h : peopleHits(r[1]))
@@ -737,11 +782,21 @@ public class SearchActivity extends BaseActivity {
         startActivity(i);
     }
 
+    /** 0.15: tra i cercati di recente va solo ciò che hai scritto nel campo (o riaperto da lì); quello che tocchi negli elenchi è già a portata. */
+    private boolean fromRecent;
+
     private void remember(String kind, String value, String label) {
+        boolean typed = fromRecent || (query != null && query.getText().toString().trim().length() > 0);
+        fromRecent = false;
+        if (typed) remember(this, kind, value, label);
+    }
+
+    /** Anche i comandi vocali lo usano: ciò che chiedi a voce conta come cercato. */
+    static void remember(Context c, String kind, String value, String label) {
         List<String> old = new ArrayList<String>();
-        for (String[] r : recents(this)) old.add(r[0] + " | " + r[1] + " | " + r[2]);
-        List<String> now = Cerca.pushRecent(old, kind + " | " + value.replace("|", "/") + " | " + label.replace("|", "/"));
-        U.prefs(this).edit().putString(K_RECENT, U.lines(now)).apply();
+        for (String[] r : recents(c)) old.add(r[0] + " | " + r[1] + " | " + r[2] + (r.length > 3 ? " | " + r[3] : ""));
+        List<String> now = Cerca.pushRecent(old, kind + " | " + value.replace("|", "/") + " | " + label.replace("|", "/") + " | " + System.currentTimeMillis());
+        U.prefs(c).edit().putString(K_RECENT, U.lines(now)).apply();
     }
 
     static List<String[]> recents(Context c) {

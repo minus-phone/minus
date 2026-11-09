@@ -65,6 +65,8 @@ public class NrtTest {
         cosa();
         servizi();
         registro();
+        controlli();
+        ordine();
         stessaPersona();
         System.out.println("\nTotale: " + pass + " superati, " + fail + " falliti");
         FileWriter w = new FileWriter(a.length > 0 ? a[0] : "nrt-report.md");
@@ -335,6 +337,19 @@ public class NrtTest {
         eq("Scaduto: la prima volta", Scopo.expired(0, "Instagram", 10, "Rispondere a un messaggio")[0], "10 minuti passati");
         eq("Scaduto: lo scopo nel testo", Scopo.expired(0, "Instagram", 10, "Rispondere a un messaggio")[1], "Volevi: rispondere a un messaggio.");
         eq("Scaduto: alla seconda proroga cambia la domanda", Scopo.expired(1, "Instagram", 15, "Solo guardare")[0], "Ti serve ancora?");
+        long m1 = 60000L;
+        eq("Pillola 0.15 (204): chiusa mostra i minuti che restano", Scopo.closed(5 * m1 + 10), "6'");
+        eq("Pillola 0.15 (207): appena scaduta 0'", Scopo.closed(-20000), "0'");
+        eq("Pillola 0.15 (209): poi i minuti in più", Scopo.closed(-4 * m1 - 5000), "+4'");
+        check("Pillola 0.15: l'anello si svuota", Scopo.ring(3 * m1, 6 * m1) == 0.5f && Scopo.ring(-1, 6 * m1) == 0f && Scopo.ring(9 * m1, 6 * m1) == 1f, null);
+        eq("Pillola 0.15 (205): aperta", Scopo.openTitle("Instagram", 6 * m1) + " / " + Scopo.openLine("Rispondere a un messaggio", 6 * m1), "Instagram · 6 min / Volevi: rispondere a un messaggio");
+        eq("Pillola 0.15 (209): oltre il tempo", Scopo.openTitle("Instagram", -4 * m1) + " / " + Scopo.openLine("x", -4 * m1), "Instagram · +4 min / Oltre il tempo che avevi scelto");
+        eq("Pillola 0.15 (206): preavviso", java.util.Arrays.toString(Scopo.warn(1, "Rispondere a un messaggio")), "[Tra 1 minuto, Rispondere a un messaggio. Hai finito?, Sì, chiudo, Ok]");
+        eq("Pillola 0.15 (207): il foglio dice cosa chiudi", Scopo.sheet(0, "Instagram", 6, "Rispondere a un messaggio")[2], "Chiudo Instagram");
+        eq("Pillola 0.15 (208): la seconda volta", Scopo.sheet(1, "Instagram", 11, "Rispondere a un messaggio")[1], "Sei su Instagram da 11 minuti. Volevi: rispondere a un messaggio.");
+        check("Pillola 0.15 (209): dalla terza volta nessun foglio", Scopo.sheet(2, "Instagram", 16, "") == null, null);
+        check("Pillola 0.15 (209): chiusa a mano si riapre dopo un minuto", !Scopo.reopen(1000, 1000 + 30000) && Scopo.reopen(1000, 1000 + 60000), null);
+        check("Pillola 0.15 (209): un tocco ogni 5 minuti", !Scopo.buzz(0, 4 * m1) && Scopo.buzz(0, 5 * m1), null);
         check("Scaduto: dalla terza nessun avviso", Scopo.expired(2, "Instagram", 20, "") == null, null);
         eq("Pillola dello scopo: tempo che resta", Scopo.pill("Instagram", 5 * 60000L + 1000), "◷  Instagram · 6 min");
         eq("Pillola dello scopo: appena scaduto", Scopo.pill("Instagram", -1000), "◷  Instagram · tempo scaduto");
@@ -402,12 +417,31 @@ public class NrtTest {
         check("Impostazioni: «banca» trova Servizi e A portata dalle parole chiave (0.14: niente contenitori)", hasSetting(Cerca.settings("banca", 3), "Servizi") && !hasSetting(Cerca.settings("banca", 3), "Contenitori"), null);
         eq("Impostazioni: una lettera sola non basta", Cerca.settings("p", 3).size(), 0);
         List<String> r = new ArrayList<String>();
-        r = Cerca.pushRecent(r, "a"); r = Cerca.pushRecent(r, "b"); r = Cerca.pushRecent(r, "c"); r = Cerca.pushRecent(r, "d");
-        eq("Recenti: al massimo 3, la più nuova in cima", r.toString(), "[d, c, b]");
-        eq("Recenti: niente doppioni", Cerca.pushRecent(r, "b").toString(), "[b, d, c]");
+        for (int i = 1; i <= 10; i++) r = Cerca.pushRecent(r, "app | p" + i + " | App " + i + " | " + (1000 + i));
+        eq("Recenti 0.15: al massimo 9, il più nuovo in cima", r.size() + " " + r.get(0), "9 app | p10 | App 10 | 1010");
+        eq("Recenti: niente doppioni, anche con un'ora diversa", Cerca.pushRecent(r, "app | p5 | App 5 | 2000").size(), 9);
+        long now = 10L * 3600 * 1000;
+        check("Recenti: visibile se di meno di 2 ore fa", Cerca.recentVisible(new String[]{"app", "p", "P", String.valueOf(now - 3600 * 1000)}, now), null);
+        check("Recenti: non visibile dopo 2 ore", !Cerca.recentVisible(new String[]{"app", "p", "P", String.valueOf(now - 3 * 3600 * 1000)}, now), null);
+        check("Recenti: senza ora (prima della 0.15) non visibile", !Cerca.recentVisible(new String[]{"app", "p", "P"}, now), null);
         List<String> nm = java.util.Arrays.asList("Mamma", "Andrea", "Calcetto", "Nido");
         eq("A portata 0.8: ordine scelto, i nuovi in fondo", Cerca.ordered(nm, java.util.Arrays.asList("nido", "Mamma", "Sparito")).toString(), "[Nido, Mamma, Andrea, Calcetto]");
         eq("A portata 0.8: senza ordine resta com'è", Cerca.ordered(nm, new ArrayList<String>()).toString(), "[Mamma, Andrea, Calcetto, Nido]");
+        java.util.Map<String, Long> lt = new java.util.HashMap<String, Long>();
+        lt.put("Andrea", 500L); lt.put("Nido", 900L); lt.put("Calcetto", 100L);
+        java.util.Set<String> lv = new java.util.HashSet<String>(java.util.Arrays.asList("Calcetto"));
+        eq("Ricerca 0.15: prima le conversazioni in corso, poi le più recenti, poi l'ordine scelto", Cerca.byLast(nm, lt, lv).toString(), "[Calcetto, Nido, Andrea, Mamma]");
+        eq("Ricerca 0.15: senza interazioni resta l'ordine scelto", Cerca.byLast(nm, new java.util.HashMap<String, Long>(), new java.util.HashSet<String>()).toString(), "[Mamma, Andrea, Calcetto, Nido]");
+        long h = 3600 * 1000L, t0 = 100 * h;
+        List<Rules.Conv> cv = Rules.touch(new ArrayList<Rules.Conv>(), "WA", "PM Mama's Living", false, t0, true);
+        check("Conversazioni 0.15: aperta dalla notifica ma senza risposta non è in corso", cv.get(0).isOpen(t0 + h) && !cv.get(0).replied(t0 + h), null);
+        Rules.wrote(cv, "WA", "PM Mama's Living", false, t0 + h);
+        check("Conversazioni 0.15: con una tua risposta è in corso", cv.get(0).replied(t0 + 2 * h), null);
+        check("Conversazioni 0.15: dopo 12 ore dalla risposta non più", !cv.get(0).replied(t0 + 14 * h), null);
+        eq("Conversazioni 0.15: la risposta si salva e si rilegge", Rules.convs(Rules.convsText(cv, t0 + 2 * h)).get(0).mine, t0 + h);
+        eq("Conversazioni 0.15: le righe vecchie (5 campi) si leggono ancora", Rules.convs("WA | Anna | persona | 5 | 6\n").get(0).mine, 0L);
+        check("Chiamate 0.15: «1 videochiamate perse» non è una conversazione", Rules.isCallTitle("1 videochiamate perse") && Rules.isCallTitle("Chiamata persa") && Rules.isCallTitle("Missed voice call"), null);
+        check("Chiamate 0.15: un nome resta un nome", !Rules.isCallTitle("Filippo") && !Rules.isCallTitle("PM Mama's Living"), null);
         eq("A portata 0.8: sposta su", Cerca.moveUp(nm, 2).toString(), "[Mamma, Calcetto, Andrea, Nido]");
         eq("A portata 0.8: il primo non si sposta", Cerca.moveUp(nm, 0).toString(), "[Mamma, Andrea, Calcetto, Nido]");
     }
@@ -585,6 +619,63 @@ public class NrtTest {
         String code = Registro.code(new int[]{0, 1, 2, 3, 4, 5});
         check("Codice: M- più 6 caratteri, senza 0, O, 1, I, L", code.matches("M-[A-HJKMNP-Z2-9]{6}"), code);
         check("Registro corrotto: si ignora senza errori", Registro.days("ciao\n;;=\n2026-13") == 0, null);
+    }
+
+    static void controlli() {
+        sec("Controlli a 2 settimane, 1 mese e 3 mesi (0.15)");
+        String st = "2026-11-09";
+        eq("Controllo 1 a 14 giorni", Controlli.due(st, 1), "2026-11-23");
+        eq("Controllo 2 a un mese", Controlli.due(st, 2), "2026-12-09");
+        eq("Controllo 3 a tre mesi", Controlli.due(st, 3), "2027-02-09");
+        boolean[] none = {false, false, false};
+        eq("Prima della data: nessun controllo", Controlli.current(st, "2026-11-22", none, false), 0);
+        eq("Il giorno del controllo 1: compare", Controlli.current(st, "2026-11-23", none, false), 1);
+        eq("Per 7 giorni resta", Controlli.current(st, "2026-11-29", none, false), 1);
+        eq("Dopo 7 giorni sparisce", Controlli.current(st, "2026-11-30", none, false), 0);
+        eq("Fatto il primo, il secondo arriva alla sua data", Controlli.current(st, "2026-12-09", new boolean[]{true, false, false}, false), 2);
+        eq("Saltato il primo, il secondo arriva lo stesso", Controlli.current(st, "2026-12-10", none, false), 2);
+        eq("«Non mostrarmeli più»: nessun controllo", Controlli.current(st, "2026-11-23", none, true), 0);
+        eq("Dopo il terzo, basta", Controlli.current(st, "2027-03-01", none, false), 0);
+        eq("Senza giorno d'inizio: nessun controllo", Controlli.current(null, "2026-11-23", none, false), 0);
+        String log = "";
+        for (int d = 0; d < 14; d++) {
+            String day = Controlli.plus(st, d);
+            for (int k = 0; k < 30; k++) log = Registro.add(log, day, Registro.NOTIF_WAIT, 1);
+            if (d % 2 == 0) log = Registro.add(log, day, Registro.PAUSE_NOT_NOW, 3);
+            log = Registro.add(log, day, Registro.NIGHT_UNLOCKS, d < 7 ? 3 : 1);
+        }
+        java.util.List<String[]> n1 = Controlli.numbers(log, st, 1, true, true, true);
+        eq("Controllo 1: un numero per obiettivo acceso", n1.size(), 3);
+        eq("Controllo 1: totale delle notifiche che hanno aspettato", n1.get(0)[1], "420");
+        eq("Controllo 1: volte «Non ora»", n1.get(1)[1], "21 volte");
+        eq("Controllo 1: sblocchi di notte in media", n1.get(2)[1], "2 sblocchi");
+        check("Controllo 1: nessun confronto", n1.get(0)[3] == null && n1.get(2)[3] == null, null);
+        eq("Solo gli obiettivi accesi", Controlli.numbers(log, st, 1, false, true, false).size(), 1);
+        check("Solo la base: nessun numero", Controlli.numbers(log, st, 1, false, false, false).isEmpty(), null);
+        for (int d = 14; d < 30; d++) log = Registro.add(log, Controlli.plus(st, d), Registro.NIGHT_UNLOCKS, 1);
+        java.util.List<String[]> n2 = Controlli.numbers(log, st, 2, false, false, true);
+        eq("Controllo 2: media delle ultime 2 settimane", n2.get(0)[1], "1 sblocco");
+        eq("Controllo 2: confronto con la prima settimana", n2.get(0)[3], "3 a notte");
+        eq("Numeri piccoli con un decimale", Controlli.num(0.4), "0,4");
+        eq("Data in italiano", Controlli.label("2026-12-09"), "9 dicembre");
+    }
+
+    static void ordine() {
+        sec("Task in home, scopo scritto a mano (0.15)");
+        long day = 1000L * 86400 * 100, unlock = day + 3600_000L;
+        check("Completato prima dello sblocco: sparisce dalla home", !Ordine.doneVisibleInHome(day + 1000, unlock, day, 1), null);
+        check("Completato dopo l'ultimo sblocco: ancora visibile", Ordine.doneVisibleInHome(unlock + 1000, unlock, day, 1), null);
+        check("Da 3 completati: tutti nell'elenco, non spariscono", Ordine.doneVisibleInHome(day + 1000, unlock, day, 3), null);
+        check("Completato ieri: mai in home", !Ordine.doneVisibleInHome(day - 1000, 0, day, 5), null);
+        eq("Elenco: titolo", Ordine.accordionTitle(3), "3 task completati");
+        java.util.List<String> ids = java.util.Arrays.asList("a", "b", "c");
+        eq("Sposta su", Ordine.move(ids, 2, -1).toString(), "[a, c, b]");
+        eq("Sposta giù", Ordine.move(ids, 0, 1).toString(), "[b, a, c]");
+        eq("Il primo non sale", Ordine.move(ids, 0, -1).toString(), "[a, b, c]");
+        java.util.List<String> past = java.util.Arrays.asList("Messaggio a Giulia", "Rispondere a un messaggio", "messaggio a giulia", "Mappa del parco");
+        eq("Scopo: con una lettera nessun suggerimento", Scopo.suggest(past, "m", Scopo.DAY_PURPOSES).size(), 0);
+        eq("Scopo: solo le parole della persona, senza doppioni", Scopo.suggest(past, "mes", Scopo.DAY_PURPOSES).toString(), "[Messaggio a Giulia]");
+        eq("Scopo: al massimo 3", Scopo.suggest(java.util.Arrays.asList("ab1", "ab2", "ab3", "ab4"), "ab", new String[0]).size(), 3);
     }
 
     static void cosa() {

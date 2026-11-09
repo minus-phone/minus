@@ -49,7 +49,7 @@ public final class Cerca {
             {"Servizi", "banca spid io otp codici accesso pagamenti poste identità digitale sms", "servizi"},
             {"Conversazioni aperte", "12 ore aperte risposta", "area:2"},
             {"App che aspettano in Notifiche", "in attesa contate", "waiting"},
-            {"Sblocchi senza scopo", "sblocco sblocchi noia annoiavo domanda una cosa adesso", "area:2"},
+            {"Sblocchi senza scopo", "sblocco sblocchi noia annoiavo domanda completa un task una cosa adesso", "area:2"},
             {"La tua home", "home app applicazioni tastiera", "area:0"},
             {"A portata", "preferite app persone gruppi ordine conversazioni attive ricerca recenti banca", "portata"},
             {"Apri subito la tastiera", "tastiera ricerca", "area:0"},
@@ -60,7 +60,7 @@ public final class Cerca {
             {"Benessere digitale", "tempo per app wellbeing timer", "wellbeing"},
             {"Pillola del tempo", "pillola sopra le altre app tempo minuti overlay", "area:3"},
             {"Icone fisse nella barra", "barra di stato icone fisse silenziosa notifiche fisse", "sticky"},
-            {"La tua giornata", "giornata cose da fare", "area:1"},
+            {"La tua giornata", "giornata task cose da fare", "area:1"},
             {"Calendari", "calendario impegni google icloud", "calendars"},
             {"Sveglia", "sveglia orologio allarme", "alarms"},
             {"Comandi vocali", "voce microfono parla", "voice"},
@@ -96,10 +96,43 @@ public final class Cerca {
     }
 
     /** Recenti: la voce più nuova in cima, niente doppioni, al massimo 3. */
+    /** 0.15: i cercati di recente sono al massimo 9, e si mostrano solo quelli delle ultime 2 ore. */
+    public static final int MAX_RECENT = 9;
+    public static final long RECENT_MS = 2 * 60 * 60 * 1000L;
+
+    /** «tipo | valore | etichetta | ora»: lo stesso elemento (senza l'ora) non si ripete. */
     public static List<String> pushRecent(List<String> old, String item) {
         List<String> out = new ArrayList<String>();
         out.add(item);
-        for (String s : old) if (!s.equals(item) && out.size() < 3) out.add(s);
+        for (String s : old) if (!recentKey(s).equals(recentKey(item)) && out.size() < MAX_RECENT) out.add(s);
+        return out;
+    }
+
+    static String recentKey(String s) {
+        String[] f = s.split(" \\| ", -1);
+        return f.length >= 4 ? f[0] + " | " + f[1] + " | " + f[2] : s;
+    }
+
+    /** Il recente è delle ultime 2 ore? Senza ora (prima della 0.15): no. */
+    public static boolean recentVisible(String[] r, long now) {
+        if (r.length < 4) return false;
+        try { long t = Long.parseLong(r[3].trim()); return now - t >= 0 && now - t < RECENT_MS; } catch (NumberFormatException e) { return false; }
+    }
+
+    /**
+     * 0.15: persone e gruppi in Ricerca: prima le conversazioni in corso, poi per ultima interazione, più recente prima.
+     * Chi non senti da tempo (0) resta nell'ordine di partenza, che è quello scelto in A portata.
+     */
+    public static List<String> byLast(List<String> names, final java.util.Map<String, Long> last, final java.util.Set<String> live) {
+        List<String> out = new ArrayList<String>(names);
+        java.util.Collections.sort(out, new java.util.Comparator<String>() {
+            public int compare(String a, String b) {
+                boolean la = live.contains(a), lb = live.contains(b);
+                if (la != lb) return la ? -1 : 1;
+                Long ta = last.get(a), tb = last.get(b);
+                return Long.compare(tb == null ? 0 : tb, ta == null ? 0 : ta);
+            }
+        });
         return out;
     }
 

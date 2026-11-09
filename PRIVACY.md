@@ -17,13 +17,24 @@ Questi dati restano sul telefono. *−minus* li usa per funzionare e nessuno, ne
 
 | Permesso di Android | Perché serve | Cosa conserva *−minus* |
 | --- | --- | --- |
-| Calendario (lettura e scrittura) | Mostrare la giornata e creare o modificare impegni e cose da fare | Niente di suo: gli eventi restano nel calendario del telefono |
+| Calendario (lettura e scrittura) | Mostrare la giornata e creare o modificare impegni e task | Niente di suo: gli eventi restano nel calendario del telefono |
 | Contatti (lettura e scrittura) | Scegliere le persone che contano e mettere loro la stella in rubrica, così il silenzio di Android le fa passare | L'elenco delle persone scelte e, per riconoscerle anche su app diverse, i loro numeri |
-| Accesso alle notifiche | Far passare subito solo chi conta e tenere da parte il resto | Titolo e testo delle notifiche trattenute: quelle in «Per te» finché non le guardi, quelle in «Altro» al massimo 7 giorni, 300 in tutto. Le ultime 40 notifiche di chat (app, nome, dove sono finite, mai il testo) per «Cosa vede −minus» |
+| Accesso alle notifiche | Far passare subito solo chi conta e tenere da parte il resto | Titolo e testo delle notifiche di «Per te», anche di chi conta, finché non le guardi, quelle in «Altro» al massimo 24 ore, 300 in tutto. Le ultime 40 notifiche di chat (app, nome, dove sono finite, mai il testo) per «Cosa vede −minus» |
 | Dati di utilizzo | La pausa prima delle app aperte fuori da *−minus*, il tempo al telefono, gli sblocchi senza scopo | I tempi e le app usate, per calcolare questi numeri |
-| Sovrapposizione ad altre app | La pillola con il tempo, sopra le app che hai scelto di frenare | Niente |
+| Sovrapposizione ad altre app | La pillola con il tempo e, durante uno scopo, il tempo che resta e il foglio quando è finito, sopra le app che hai scelto di frenare | Niente |
 | Non disturbare | Il silenzio, con le eccezioni per chi conta | Niente |
 | Vibrazione | Avvisarti quando ti scrive qualcuno che conta | Niente |
+
+**Altre cose che *−minus* tiene sul telefono, senza permessi in più:**
+
+- gli scopi che scrivi in «Pausa e scopo» (il testo, l'app, i minuti), per suggerirti le tue motivazioni: ultime 200 aperture;
+- i cercati di recente: al massimo 9, si vedono solo per 2 ore;
+- le conversazioni recenti (app, nome della persona o del gruppo, l'ora dell'ultimo messaggio e della tua ultima risposta, mai il testo), per sapere quali sono in corso: al massimo 100, dimenticate dopo 30 giorni senza messaggi;
+- le tue impostazioni, i task e la tua alternativa.
+
+Durante uno scopo, la pillola sopra l'app può mostrare quello che hai scritto («Volevi: …»): finisce anche negli screenshot e nelle condivisioni dello schermo.
+
+**Per i tre controlli** (a 2 settimane, 1 mese e 3 mesi) *−minus* conta ogni giorno tre numeri: le notifiche tenute da parte, le volte che scegli «Non ora» davanti a un'app e gli sblocchi di notte. Solo numeri, senza nomi di persone o app; li tiene al massimo 100 giorni e non li invia mai.
 
 Ogni permesso si può revocare dalle impostazioni di Android; la funzione che lo usa smette di funzionare, il resto continua. I dati di *−minus* non finiscono nel backup di Google (il backup automatico è spento) e si cancellano tutti disinstallando l'app.
 

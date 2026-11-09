@@ -216,7 +216,7 @@ public class AddActivity extends BaseActivity {
         appBtn.setBackground(U.box(this, U.SURFACE, U.BORDER, 12));
         appBtn.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pickApp(); } });
         taskOnly.addView(appBtn, U.full());
-        TextView an = U.text(this, "Toccando il task si apre l'app; la casella lo segna come fatto.", 13, U.MUTED, false);
+        TextView an = U.text(this, "Toccando il task si apre l'app; la casella lo segna come fatto.", 12, U.MUTED, false);
         an.setPadding(0, U.dp(this, 6), 0, 0);
         taskOnly.addView(an);
         c.addView(taskOnly, U.full());

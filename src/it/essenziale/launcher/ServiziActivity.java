@@ -81,7 +81,7 @@ public class ServiziActivity extends BaseActivity {
             list.addView(U.label(this, "Riconosciuti · " + l.size()));
             if (l.isEmpty()) list.addView(U.text(this, "Nessuno: cerca la tua banca o l'app IO qui sopra.", 14, U.MUTED, false));
             for (U.AppInfo a : l) row(a, true);
-            TextView n = U.text(this, "Gli SMS con un codice passano sempre, anche senza scegliere niente qui.", 13, U.MUTED, false);
+            TextView n = U.text(this, "Gli SMS con un codice passano sempre, anche senza scegliere niente qui.", 12, U.MUTED, false);
             n.setPadding(0, U.dp(this, 14), 0, U.dp(this, 24));
             list.addView(n);
         } else {

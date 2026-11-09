@@ -110,7 +110,8 @@ public class FrictionActivity extends Activity {
             purposeBox = U.col(this);
             left.addView(purposeBox, U.full());
             own = new EditText(this);
-            own.setHint("Oppure scrivilo: «messaggio a Giulia»");
+            own.setHint("Scrivilo: «messaggio a Giulia»");
+            own.setContentDescription("Per cosa ti serve? Scrivilo");
             own.setHintTextColor(U.ON_DARK_MUTED);
             own.setTextColor(U.ON_DARK);
             own.setTextSize(15);
@@ -122,8 +123,7 @@ public class FrictionActivity extends Activity {
                 public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
                 public void onTextChanged(CharSequence s, int a, int b, int c) {}
                 public void afterTextChanged(Editable s) {
-                    if (s.toString().trim().length() > 0) purpose = s.toString().trim();
-                    else if (purpose != null && !isPreset(purpose)) purpose = null;
+                    purpose = s.toString().trim().length() > 0 ? s.toString().trim() : null;
                     renderChips();
                     render();
                 }
@@ -149,7 +149,7 @@ public class FrictionActivity extends Activity {
                 alt.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         Night.count(FrictionActivity.this, Night.K_ALTS, 1);
-                        if (!demo) { Scope.notNow(FrictionActivity.this, app.pkg); Beta.add(FrictionActivity.this, Registro.PAUSE_NOT_NOW); }
+                        if (!demo) { Scope.notNow(FrictionActivity.this, app.pkg); Beta.add(FrictionActivity.this, Registro.PAUSE_NOT_NOW); Checks.add(FrictionActivity.this, Registro.PAUSE_NOT_NOW); }
                         startActivity(new Intent(FrictionActivity.this, DimActivity.class));
                         finish();
                     }
@@ -203,6 +203,27 @@ public class FrictionActivity extends Activity {
         return true;
     }
 
+    private java.util.List<String> past;
+
+    /** Le motivazioni scritte prima, dalla più recente (registro di Scope: ora|app|scopo|minuti|esito). */
+    private java.util.List<String> pastPurposes() {
+        if (past != null) return past;
+        past = new java.util.ArrayList<String>();
+        String[] lines = U.prefs(this).getString(Scope.K_LOG, "").split("\n");
+        for (int i = lines.length - 1; i >= 0; i--) {
+            String[] f = lines[i].split("\\|", -1);
+            if (f.length >= 3 && f[2].trim().length() > 0) past.add(f[2].trim());
+        }
+        return past;
+    }
+
+    private static String[] concat(String[] a, String[] b) {
+        String[] o = new String[a.length + b.length];
+        System.arraycopy(a, 0, o, 0, a.length);
+        System.arraycopy(b, 0, o, a.length, b.length);
+        return o;
+    }
+
     private boolean isPreset(String p) {
         for (String s : night ? Scopo.NIGHT_PURPOSES : Scopo.DAY_PURPOSES) if (s.equals(p)) return true;
         return false;
@@ -211,7 +232,9 @@ public class FrictionActivity extends Activity {
     private void renderChips() {
         if (purposeBox == null) return;
         purposeBox.removeAllViews();
-        String[] ps = night ? Scopo.NIGHT_PURPOSES : Scopo.DAY_PURPOSES;
+        // 0.15: solo le motivazioni che hai già scritto tu, dopo 2 lettere
+        String typed = own == null ? "" : own.getText().toString();
+        java.util.List<String> ps = Scopo.suggest(pastPurposes(), typed, concat(Scopo.DAY_PURPOSES, Scopo.NIGHT_PURPOSES));
         LinearLayout row = null;
         int used = 0;
         for (final String p : ps) {
@@ -223,10 +246,9 @@ public class FrictionActivity extends Activity {
                 used = 0;
             }
             used += p.length();
-            row.addView(chip(p, p.equals(purpose), new Runnable() {
+            row.addView(chip(p, false, new Runnable() {
                 public void run() {
-                    purpose = p;
-                    if (own != null && own.getText().length() > 0) own.setText("");
+                    if (own != null) { own.setText(p); own.setSelection(own.getText().length()); }
                     purpose = p;
                     renderChips();
                     render();
@@ -277,7 +299,7 @@ public class FrictionActivity extends Activity {
     public void onBackPressed() { notNow(); }
 
     private void notNow() {
-        if (!demo) { Scope.notNow(this, app.pkg); Beta.add(this, Registro.PAUSE_NOT_NOW); }
+        if (!demo) { Scope.notNow(this, app.pkg); Beta.add(this, Registro.PAUSE_NOT_NOW); Checks.add(this, Registro.PAUSE_NOT_NOW); }
         Intent i = new Intent(this, MainActivity.class);
         i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
         U.start(this, i);

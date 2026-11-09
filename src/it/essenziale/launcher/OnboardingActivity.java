@@ -48,6 +48,7 @@ public class OnboardingActivity extends BaseActivity {
     private boolean onlyStep;       // dalle Impostazioni: un solo passo
     private boolean who = false;    // dentro «Chi conta» (185), sopra «Cosa ti avvisa» (186)
     private boolean restricted = false;
+    private boolean splash = false, hadSplash = false; // 0.15 · 179: logo e promessa, solo al primo avvio
     private LinearLayout root, body, foot;
     private final java.util.Set<String> chosenGoals = new java.util.LinkedHashSet<String>();
 
@@ -77,7 +78,7 @@ public class OnboardingActivity extends BaseActivity {
         } else {
             // rifatta: le scelte di prima; la prima volta, come nel wireframe 180
             if (U.prefs(this).contains(Onboarding.K_GOALS)) { for (String g : Goals.ALL) if (Goals.on(this, g)) chosenGoals.add(g); }
-            else { chosenGoals.add(Goals.NOTIF); chosenGoals.add(Goals.SLEEP); }
+            else { chosenGoals.add(Goals.NOTIF); chosenGoals.add(Goals.SLEEP); splash = hadSplash = true; }
         }
         root = U.col(this);
         root.setBackgroundColor(U.BG);
@@ -255,6 +256,7 @@ public class OnboardingActivity extends BaseActivity {
     private void back() {
         if (restricted) { restricted = false; if (chain != null) { runChain(); return; } render(); return; }
         if (who) { who = false; render(); return; }
+        if (idx == 0 && hadSplash && !splash) { splash = true; render(); return; } // da 180 si torna allo splash
         if (idx == 0) { finish(); return; }
         idx--;
         render();
@@ -315,6 +317,7 @@ public class OnboardingActivity extends BaseActivity {
         body.removeAllViews();
         foot.removeAllViews();
         int s = step();
+        if (splash) { splash(); return; }
         if (restricted) { header(); restrictedGuide(); return; }
         if (s != GOALS && s != READY && s != ALT) header();
         if (who) { people(); return; } // 185 si apre da 186 e da 192
@@ -341,8 +344,11 @@ public class OnboardingActivity extends BaseActivity {
         int pos = Math.max(1, groups.indexOf(g) + 1), total = Math.max(1, groups.size());
         LinearLayout h = U.row(this);
         h.setMinimumHeight(U.dp(this, 40));
+        h.addView(smallLogo(), new LinearLayout.LayoutParams(U.dp(this, 18), U.dp(this, 18)));
         TextView t = U.text(this, "", 13, U.MUTED, false);
-        t.setText(android.text.Html.fromHtml("<b>" + (g == null ? "" : g) + "</b>" + (onlyStep ? "" : " · Passo " + pos + " di " + total)));
+        t.setPadding(U.dp(this, 8), 0, 0, 0);
+        // 0.15 · 181: «Passo 1 di 3 · Configurazione», con il logo piccolo a sinistra per tutto l'onboarding
+        t.setText(android.text.Html.fromHtml((onlyStep ? "" : "Passo " + pos + " di " + total + " · ") + "<b>" + (g == null ? "" : g) + "</b>"));
         h.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         if (!onlyStep) {
             TextView skip = U.text(this, "Salta", 13, U.MUTED, false);
@@ -516,21 +522,17 @@ public class OnboardingActivity extends BaseActivity {
     private LogoView logo; // 0.13: una sola istanza, così l'animazione non riparte a ogni scelta
 
     private void goals() {
-        View top = new View(this);
-        body.addView(top, new LinearLayout.LayoutParams(1, U.dp(this, 8)));
-        if (logo == null) logo = new LogoView(this, U.INK, U.BG);
-        if (logo.getParent() != null) ((ViewGroup) logo.getParent()).removeView(logo);
+        // 0.15 · 180: il logo resta piccolo in alto a sinistra, nella riga del passo
         LinearLayout brand = U.row(this);
-        brand.addView(logo, new LinearLayout.LayoutParams(U.dp(this, 56), U.dp(this, 56)));
-        TextView name = U.title(this, U.NAME, 36, U.INK);
+        brand.setMinimumHeight(U.dp(this, 36));
+        brand.addView(smallLogo(), new LinearLayout.LayoutParams(U.dp(this, 18), U.dp(this, 18)));
+        TextView name = U.text(this, U.NAME, 14, U.INK, true);
         name.setTypeface(U.SERIF_I);
-        name.setPadding(U.dp(this, 14), 0, 0, 0);
+        name.setPadding(U.dp(this, 8), 0, 0, 0);
         brand.addView(name);
-        LinearLayout.LayoutParams blp = U.full();
-        blp.bottomMargin = U.dp(this, 16);
-        body.addView(brand, blp);
+        body.addView(brand, U.full());
         title("Cosa vuoi cambiare?");
-        sub("−minus diventa la tua home, con la giornata sempre a vista. Poi scegli cosa vuoi in meno: ti mostriamo solo i passi che servono.");
+        sub("Scegli cosa vuoi in meno: ti mostriamo solo i passi che servono.");
         for (int i = 0; i < Goals.ALL.length; i++) {
             final String g = Goals.ALL[i];
             final boolean on = chosenGoals.contains(g);
@@ -545,6 +547,39 @@ public class OnboardingActivity extends BaseActivity {
         note("Puoi sceglierne più di uno, o nessuno. Qui non si accende niente: ogni obiettivo ha il suo passo. Le risposte restano sul telefono.");
         int steps = 1 + chosenGoals.size();
         primary("Inizia · " + steps + (steps == 1 ? " passo" : " passi"), new Runnable() { public void run() { start(); } });
+    }
+
+    private LogoView smallLogo() {
+        LogoView l = new LogoView(this, U.INK, false);
+        l.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        return l;
+    }
+
+    // ---------- 179 · Splash: logo e promessa ----------
+
+    private void splash() {
+        View top = new View(this);
+        body.addView(top, new LinearLayout.LayoutParams(1, getResources().getDisplayMetrics().heightPixels / 5));
+        if (logo == null) logo = new LogoView(this, U.INK, true); // una sola istanza: l'animazione non riparte
+        if (logo.getParent() != null) ((ViewGroup) logo.getParent()).removeView(logo);
+        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(U.dp(this, 96), U.dp(this, 96));
+        llp.gravity = Gravity.CENTER_HORIZONTAL;
+        llp.bottomMargin = U.dp(this, 10);
+        body.addView(logo, llp);
+        TextView name = U.title(this, U.NAME, 44, U.INK);
+        name.setTypeface(U.SERIF_I);
+        name.setGravity(Gravity.CENTER);
+        body.addView(name, U.full());
+        TextView promise = U.text(this, "", 22, U.INK, true);
+        promise.setText(android.text.Html.fromHtml("Il tuo smartphone. Ma <i>" + U.NAME + "</i>."));
+        promise.setGravity(Gravity.CENTER);
+        promise.setPadding(0, U.dp(this, 10), 0, 0);
+        body.addView(promise, U.full());
+        TextView free = U.text(this, "Gratis e open source · nessun dato esce dal telefono", 12, U.MUTED, false);
+        free.setGravity(Gravity.CENTER);
+        free.setPadding(0, 0, 0, U.dp(this, 10));
+        foot.addView(free, U.full());
+        primary("Inizia", new Runnable() { public void run() { splash = false; render(); } }, null, null);
     }
 
     private void start() {
@@ -595,7 +630,7 @@ public class OnboardingActivity extends BaseActivity {
 
     private void day() {
         title("La tua giornata");
-        sub("Impegni e cose da fare sempre a vista: in home e sulla schermata di blocco, senza sbloccare.");
+        sub("Impegni e task sempre a vista: in home e sulla schermata di blocco, senza sbloccare.");
         if (U.hasCalendar(this)) {
             caption("Calendari da mostrare");
             final Set<Long> shown = U.shownCalendars(this);
@@ -617,7 +652,7 @@ public class OnboardingActivity extends BaseActivity {
             String def = U.prefs(this).getString("last_cal_name", null);
             line(def != null ? def : "Scegli un calendario", null, null, "Cambia", new Runnable() { public void run() { pickCalendar(); } });
         } else {
-            LinearLayout c = card(new String[]{"Non vediamo il tuo calendario", "Senza accesso al calendario la home mostra solo le cose da fare e la sveglia."}, true);
+            LinearLayout c = card(new String[]{"Non vediamo il tuo calendario", "Senza accesso al calendario la home mostra solo i task e la sveglia."}, true);
             c.setBackground(U.box(this, U.SURFACE, U.BORDER, 14));
             TextView b = U.text(this, "Collega il calendario", 15, U.INK, true);
             b.setGravity(Gravity.CENTER);
@@ -1169,7 +1204,7 @@ public class OnboardingActivity extends BaseActivity {
             public void run() { U.prefs(OnboardingActivity.this).edit().putBoolean(Pill.K_ON, !pill).apply(); render(); }
         });
         if (pill && !Pill.canDraw(this))
-            body.addView(U.text(this, "Con l'interruttore acceso, Avanti ti porta un attimo nelle impostazioni di Android per dare il permesso.", 13, U.MUTED, false));
+            body.addView(U.text(this, "Con l'interruttore acceso, Avanti ti porta un attimo nelle impostazioni di Android per dare il permesso.", 12, U.MUTED, false));
         primary("Avanti", new Runnable() {
             public void run() {
                 List<Perm> p = new ArrayList<Perm>();

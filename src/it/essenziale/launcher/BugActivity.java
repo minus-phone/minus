@@ -50,6 +50,10 @@ public class BugActivity extends BaseActivity {
         text.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         text.setBackground(U.box(this, U.SURFACE, U.BORDER, 12));
         text.setPadding(U.dp(this, 14), U.dp(this, 12), U.dp(this, 14), U.dp(this, 12));
+        String pre = getIntent().getStringExtra("text");
+        if (pre != null) text.setText(pre);
+        String k = getIntent().getStringExtra("kind");
+        if (k != null) for (String x : KINDS) if (x.equals(k)) kind = x;
         setContentView(root);
         render();
     }

@@ -80,6 +80,9 @@ final class Pill {
     /** Chiamata o navigazione in corso (lo decide FilterService). */
     static void setPaused(boolean p) { paused = p; }
 
+    /** 0.15: chiamata o navigazione in corso: niente foglio dello scopo sopra. */
+    static boolean isPaused() { return paused; }
+
     // ---------- Aggiornamento ----------
 
     static void update(Context c) {
@@ -88,9 +91,12 @@ final class Pill {
         // 0.10: durante uno scopo la pillola mostra il tempo che resta al posto del totale (un segnale alla volta)
         String scope = Scope.pillText(a);
         if (scope != null) {
-            if (canDraw(a) && resumed == 0) show(a, scope); else hide();
+            // 0.15: durante uno scopo la pillola è quella dello scopo (wireframe 204–209)
+            hideOwn();
+            if (canDraw(a) && resumed == 0) ScopePill.show(a); else ScopePill.hide();
             return;
         }
+        ScopePill.hide();
         long start = Session.start(a);
         int min = Rules.sessionMinutes(start, now, Session.threshold(a));
         int st = Tempo.state(on(a), canDraw(a), Session.on(a), min, resumed > 0, paused, U.prefs(a).getLong(K_DOT, 0), now);
@@ -204,6 +210,11 @@ final class Pill {
     }
 
     static void hide() {
+        ScopePill.hide();
+        hideOwn();
+    }
+
+    private static void hideOwn() {
         if (view == null) return;
         try {
             WindowManager wm = (WindowManager) view.getContext().getSystemService(Context.WINDOW_SERVICE);

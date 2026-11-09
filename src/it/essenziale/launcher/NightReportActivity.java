@@ -13,7 +13,7 @@ public class NightReportActivity extends BaseActivity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
-        LinearLayout root = U.screen(this, "Una settimana di «Di notte»");
+        LinearLayout root = U.screen(this, "Rapporto della settimana");
         android.content.SharedPreferences p = U.prefs(this);
         int unlocks = p.getInt(Night.K_UNLOCKS, 0), alts = p.getInt(Night.K_ALTS, 0), opens = p.getInt(Night.K_OPENS, 0), min = p.getInt(Night.K_OPEN_MIN, 0);
         LinearLayout c = U.col(this);
@@ -37,11 +37,11 @@ public class NightReportActivity extends BaseActivity {
         LinearLayout.LayoutParams a = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         a.rightMargin = U.dp(this, 10);
         two.addView(big("Cambia qualcosa", false, new Runnable() {
-            public void run() { close(true); startActivity(new Intent(NightReportActivity.this, NightSettingsActivity.class)); finish(); }
+            public void run() { close(true); startActivity(new Intent(NightReportActivity.this, SettingsActivity.class).putExtra("area", SettingsActivity.SLEEP).putExtra("back", "Rapporto")); finish(); }
         }), a);
         two.addView(big("Spegnilo", false, new Runnable() {
             public void run() {
-                Changes.track(NightReportActivity.this, "«Di notte» spento", new String[]{Night.K_ON, Night.K_TRIAL, Night.K_REPORT_SEEN},
+                Changes.track(NightReportActivity.this, "Meno interferenze sul sonno spento", new String[]{Night.K_ON, Night.K_TRIAL, Night.K_REPORT_SEEN},
                         new Runnable() { public void run() { close(false); } },
                         new Runnable() { public void run() { finish(); } });
             }

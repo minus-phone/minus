@@ -63,7 +63,7 @@ public class StickyActivity extends BaseActivity {
             list.addView(row, U.full());
             list.addView(U.divider(this));
         }
-        TextView note = U.text(this, "«Rendi silenziosa» apre la pagina delle notifiche di quell'app in Android: scegli «Silenziosa». Wi-Fi, batteria e sveglia sono di sistema e restano.", 13, U.MUTED, false);
+        TextView note = U.text(this, "«Rendi silenziosa» apre la pagina delle notifiche di quell'app in Android: scegli «Silenziosa». Wi-Fi, batteria e sveglia sono di sistema e restano.", 12, U.MUTED, false);
         note.setPadding(0, U.dp(this, 14), 0, U.dp(this, 60));
         list.addView(note);
     }

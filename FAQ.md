@@ -36,7 +36,7 @@ Niente, finché non ci mandi tu qualcosa: una segnalazione o, se partecipi alla 
 Controlla che la persona sia in Impostazioni › Meno notifiche › Chi conta, per l'app giusta. Codici di accesso, banca, SPID e app IO passano sempre. Se non ti torna, «Cosa vede −minus» (in fondo alle Impostazioni) mostra dove è finita ogni notifica di chat.
 
 **Dove finiscono le notifiche che non passano?**
-In Notifiche, nella home: «Per te» per persone e servizi, «Altro» per il resto, che si cancella da solo dopo 7 giorni. Non suonano e non vibrano.
+In Notifiche, nella home. «Per te» tiene persone e servizi: anche quelle di chi conta, che hanno già suonato, così le ritrovi. «Altro» tiene il resto, senza suono né vibrazione, e si svuota da solo dopo 24 ore.
 
 **Non voglio filtrare le notifiche, solo una home più semplice.**
 Spegni l'obiettivo «Meno notifiche» in Impostazioni: le notifiche tornano come prima e il resto di *−minus* continua.
