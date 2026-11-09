@@ -21,7 +21,7 @@ Questi dati restano sul telefono. *−minus* li usa per funzionare e nessuno, ne
 | Contatti (lettura e scrittura) | Scegliere le persone che contano e mettere loro la stella in rubrica, così il silenzio di Android le fa passare | L'elenco delle persone scelte e, per riconoscerle anche su app diverse, i loro numeri |
 | Accesso alle notifiche | Far passare subito solo chi conta e tenere da parte il resto | Titolo e testo delle notifiche di «Per te», anche di chi conta, finché non le guardi, quelle in «Altro» al massimo 24 ore, 300 in tutto. Le ultime 40 notifiche di chat (app, nome, dove sono finite, mai il testo) per «Cosa vede −minus» |
 | Dati di utilizzo | La pausa prima delle app aperte fuori da *−minus*, il tempo al telefono, gli sblocchi senza scopo | I tempi e le app usate, per calcolare questi numeri |
-| Sovrapposizione ad altre app | La pillola con il tempo, sopra le app che hai scelto di frenare | Niente |
+| Sovrapposizione ad altre app | La pillola con il tempo e, durante uno scopo, il tempo che resta e il foglio quando è finito, sopra le app che hai scelto di frenare | Niente |
 | Non disturbare | Il silenzio, con le eccezioni per chi conta | Niente |
 | Vibrazione | Avvisarti quando ti scrive qualcuno che conta | Niente |
 

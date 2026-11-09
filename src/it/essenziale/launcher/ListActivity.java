@@ -260,7 +260,10 @@ public class ListActivity extends BaseActivity {
         r.addView(ini, new LinearLayout.LayoutParams(U.dp(this, 36), U.dp(this, 36)));
         LinearLayout txt = U.col(this);
         txt.setPadding(U.dp(this, 12), 0, U.dp(this, 8), 0);
-        txt.addView(U.text(this, name, 17, U.INK, false));
+        TextView nm = U.text(this, name, 17, U.INK, false);
+        nm.setSingleLine(true);
+        nm.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        txt.addView(nm);
         if (status != null) {
             TextView st = U.text(this, (open ? "○ " : "") + status, 13, U.MUTED, false);
             txt.addView(st);
@@ -279,7 +282,12 @@ public class ListActivity extends BaseActivity {
                 if (said.length() > 0) said.append(", ");
                 said.append(Rules.appName(code.trim()));
             }
-            r.addView(icons);
+            // 0.15: con 3 app le icone vanno sotto il nome, che così non viene schiacciato
+            if (badge.split(" · ").length >= 3) {
+                if (icons.getChildCount() > 0) ((LinearLayout.LayoutParams) icons.getChildAt(0).getLayoutParams()).leftMargin = 0;
+                icons.setPadding(0, U.dp(this, 4), 0, 0);
+                txt.addView(icons);
+            } else r.addView(icons);
             name = name + " (" + said + ")";
         }
         r.setContentDescription(name + (group ? ", gruppo" : "") + (status != null ? ", " + status : "") + ". Tieni premuto per scegliere come passano i messaggi");

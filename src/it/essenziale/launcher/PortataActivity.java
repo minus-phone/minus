@@ -96,7 +96,7 @@ public class PortataActivity extends BaseActivity {
         list.addView(picker.root, U.full());
         list.addView(U.divider(this));
         toggleRow("Ricerche recenti", "Solo ciò che hai scritto o chiesto a voce, nelle ultime 2 ore; mai le app con la pausa", SearchActivity.K_RECENT_ON, "Ricerche recenti");
-        TextView note = U.text(this, "Le app che non sono a portata si aprono scrivendone il nome. Shop e Movimenti restano in Impostazioni › App, in prova.", 13, U.MUTED, false);
+        TextView note = U.text(this, "Le app che non sono a portata si aprono scrivendone il nome nella ricerca.", 13, U.MUTED, false);
         note.setPadding(0, U.dp(this, 14), 0, U.dp(this, 90));
         list.addView(note);
     }

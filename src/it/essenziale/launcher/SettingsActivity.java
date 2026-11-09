@@ -310,7 +310,9 @@ public class SettingsActivity extends BaseActivity {
         nav("Ora di staccare", Notte.hhmm(Night.offMin(this)) + " · " + Night.leadMin(this) + " minuti prima di dormire", q, "›");
         prefToggle("Modalità sera", "Grigio, domani in home, l'alternativa in vista", Night.K_EVENING, true, "Modalità sera accesa", "Modalità sera spenta");
         nav("Chi ti raggiunge di notte", Onboarding.alwaysCount(this) + " persone che contano", to(PeopleActivity.class), "›");
-        nav("App frenate di notte", Night.nightApps(this).size() + " app", to(NightSettingsActivity.class), "›");
+        StringBuilder na = new StringBuilder();
+        for (String pk : Night.nightApps(this)) { if (na.length() > 0) na.append(", "); na.append(U.appLabel(this, pk)); }
+        nav("App frenate di notte", na.length() == 0 ? "Nessuna" : na.toString(), to(NightSettingsActivity.class), "›");
         prefToggle("Mattino tranquillo", "Fino a " + Notte.MORNING_MIN + " minuti dopo la sveglia", Night.K_MORNING, true, "Mattino tranquillo acceso", "Mattino tranquillo spento");
         row("Scala di grigi di Android", "Apri Modalità Riposo · orari " + Notte.hhmm(Night.offMin(this)) + " – " + Notte.hhmm(Night.wakeMin(this)), "↗", new Runnable() {
             public void run() { Session.openWellbeing(SettingsActivity.this); }

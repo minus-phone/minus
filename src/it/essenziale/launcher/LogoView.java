@@ -23,6 +23,16 @@ public class LogoView extends View {
     private final PathInterpolator ease = new PathInterpolator(0.6f, 0f, 0.3f, 1f);
     private long start = -1;
     private final boolean still;
+    /** 0.15 (wireframe 179–180): senza quadrato, solo i tratti; frozen = fermo sull'asterisco iniziale. */
+    private boolean bare, frozen;
+
+    /** Il segno senza quadrato: animato nello splash (179), fermo e piccolo nella riga del passo (180). */
+    public LogoView(Context c, int stroke, boolean animate) {
+        this(c, 0, stroke);
+        bare = true;
+        frozen = !animate;
+        if (frozen) setContentDescription("−minus");
+    }
 
     public LogoView(Context c, int square, int stroke) {
         super(c);
@@ -55,15 +65,16 @@ public class LogoView extends View {
     protected void onDraw(Canvas cv) {
         float w = getWidth(), h = getHeight(), s = Math.min(w, h);
         float ox = (w - s) / 2f, oy = (h - s) / 2f;
-        cv.drawRoundRect(new RectF(ox, oy, ox + s, oy + s), s * 0.22f, s * 0.22f, bg);
+        if (!bare) cv.drawRoundRect(new RectF(ox, oy, ox + s, oy + s), s * 0.22f, s * 0.22f, bg);
         long now = android.os.SystemClock.uptimeMillis();
         if (start < 0) start = now + 400; // un attimo fermo, poi si chiude
-        long t = still ? CYCLE : now - start;
-        float cx = ox + s / 2f, cy = oy + s / 2f, hw = s * 0.225f, hh = s * 0.025f;
+        long t = frozen ? 0 : still ? CYCLE : now - start;
+        // senza quadrato i tratti occupano quasi tutto il lato, come nel logo del sito
+        float cx = ox + s / 2f, cy = oy + s / 2f, hw = s * (bare ? 0.42f : 0.225f), hh = s * (bare ? 0.04f : 0.025f);
         RectF r = new RectF(cx - hw, cy - hh, cx + hw, cy + hh);
         int alpha = bar.getAlpha();
         for (int base : new int[]{0, 135, 90, 45}) {
-            for (int k = TRAIL.length; k >= 0; k--) {
+            for (int k = frozen ? 0 : TRAIL.length; k >= 0; k--) {
                 long tk = t - k * TRAIL_STEP;
                 float p = Math.max(0, Math.min(END, tk / (float) CYCLE));
                 // 3/11: pieno solo il tratto orizzontale; quelli che ruotano al 30%, scia in proporzione
@@ -76,6 +87,6 @@ public class LogoView extends View {
             }
         }
         bar.setAlpha(alpha);
-        if (!still && t < CYCLE * END + TRAIL.length * TRAIL_STEP + 50) postInvalidateOnAnimation();
+        if (!still && !frozen && t < CYCLE * END + TRAIL.length * TRAIL_STEP + 50) postInvalidateOnAnimation();
     }
 }

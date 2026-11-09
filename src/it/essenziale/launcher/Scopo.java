@@ -74,6 +74,61 @@ public final class Scopo {
         return "◷  " + label + (over < 1 ? " · tempo scaduto" : " · +" + over + " min");
     }
 
+    // ---------- 0.15 · La pillola dello scopo (wireframe 204–210) ----------
+
+    /** Secondi che la pillola resta aperta da sola (al tocco e al preavviso). */
+    public static final long OPEN_MS = 5000;
+    /** Dalla terza volta: chiusa al tocco, si riapre dopo 1 minuto; un tocco aptico ogni 5 minuti. */
+    public static final long REOPEN_MS = 60000, BUZZ_MS = 5 * 60000;
+
+    /** Pillola chiusa (204): i minuti che restano, «6'»; scaduto: «0'», poi «+4'». */
+    public static String closed(long msLeft) {
+        if (msLeft > 0) return ((msLeft + 59999) / 60000) + "'";
+        long over = -msLeft / 60000;
+        return over < 1 ? "0'" : "+" + over + "'";
+    }
+
+    /** Quanto resta dell'anello, da 1 (appena aperta) a 0 (scaduta). */
+    public static float ring(long msLeft, long totalMs) {
+        if (msLeft <= 0 || totalMs <= 0) return 0f;
+        return Math.min(1f, msLeft / (float) totalMs);
+    }
+
+    /** Pillola aperta (205, 209): «Instagram · 6 min», poi «Instagram · +4 min». */
+    public static String openTitle(String label, long msLeft) {
+        if (msLeft > 0) return label + " · " + ((msLeft + 59999) / 60000) + " min";
+        return label + " · +" + (-msLeft / 60000) + " min";
+    }
+
+    /** La riga sotto: lo scopo, oppure «Oltre il tempo che avevi scelto». */
+    public static String openLine(String purpose, long msLeft) {
+        if (msLeft <= 0) return "Oltre il tempo che avevi scelto";
+        return purpose == null || purpose.length() == 0 ? "Il tempo che hai scelto" : "Volevi: " + lower(purpose);
+    }
+
+    /** Preavviso (206): {titolo, testo, sì, no}. */
+    public static String[] warn(int lead, String purpose) {
+        return new String[]{"Tra " + lead + (lead == 1 ? " minuto" : " minuti"),
+                (purpose == null || purpose.length() == 0 ? "" : purpose + ". ") + "Hai finito?", "Sì, chiudo", "Ok"};
+    }
+
+    /** Il foglio allo scadere (207, 208): come l'avviso, ma la prima volta il pulsante dice cosa chiudi. null dalla terza. */
+    public static String[] sheet(int extensions, String label, int totalMin, String purpose) {
+        String[] t = expired(extensions, label, totalMin, purpose);
+        if (t != null && extensions == 0) t[2] = "Chiudo " + label;
+        return t;
+    }
+
+    /** Dalla terza volta (209): la pillola chiusa a mano si riapre dopo un minuto. */
+    public static boolean reopen(long collapsedAt, long now) {
+        return collapsedAt <= 0 || now - collapsedAt >= REOPEN_MS;
+    }
+
+    /** Dalla terza volta: un tocco aptico ogni 5 minuti. */
+    public static boolean buzz(long lastBuzz, long now) {
+        return now - lastBuzz >= BUZZ_MS;
+    }
+
     static String lower(String s) {
         return s.length() == 0 ? s : Character.toLowerCase(s.charAt(0)) + s.substring(1);
     }

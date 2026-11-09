@@ -104,6 +104,7 @@ final class Scope {
         if (Night.active(c)) Night.count(c, Night.K_OPEN_MIN, real);
         p.edit().remove(K_PKG).remove(K_CLS).remove(K_LABEL).remove(K_PURPOSE).remove(K_START).remove(K_END).remove(K_EXT).apply();
         H.removeCallbacks(TICK);
+        ScopePill.reset();
         try {
             NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
             nm.cancel(NOTE_ID);
@@ -150,14 +151,23 @@ final class Scope {
         int declared = total - ext * Scopo.EXTRA_MIN;
         if (!p.getBoolean(K_WARNED, false) && end - now <= Scopo.warnLead(declared) * 60000L) {
             p.edit().putBoolean(K_WARNED, true).apply();
-            alert(c, "Tra " + Scopo.warnLead(declared) + (Scopo.warnLead(declared) == 1 ? " minuto" : " minuti"),
-                    (purpose.length() > 0 ? purpose + ". " : "") + "Hai finito?", "Sì, chiudo", "Ok", ACT_OK);
+            String[] w = Scopo.warn(Scopo.warnLead(declared), purpose);
+            // 0.15: con «Mostra sopra altre app» la pillola si apre da sola (206); senza, l'avviso di Android (210)
+            if (ScopePill.usable(c)) ScopePill.warn(c, w);
+            else alert(c, w[0], w[1], w[2], w[3], ACT_OK, false);
         }
         if (!p.getBoolean(K_EXPIRED, false) && now >= end) {
             p.edit().putBoolean(K_EXPIRED, true).apply();
-            String[] t = Scopo.expired(ext, label, (int) ((now - start + 30000) / 60000L), purpose);
-            if (t != null) alert(c, t[0], t[1], t[2], t[3], ACT_MORE);
+            int total0 = (int) ((now - start + 30000) / 60000L);
+            if (ScopePill.usable(c)) {
+                String[] t = Scopo.sheet(ext, label, total0, purpose);
+                if (t != null) ScopePill.expired(c, t); // 207, 208; dalla terza volta solo la pillola aperta (209)
+            } else {
+                String[] t = Scopo.expired(ext, label, total0, purpose);
+                if (t != null) alert(c, t[0], t[1], t[2], t[3], ACT_MORE, true);
+            }
         }
+        ScopePill.tick(c);
         ongoing(c, label, purpose, end - now);
         Pill.update(c);
         H.removeCallbacks(TICK);
@@ -185,7 +195,7 @@ final class Scope {
     }
 
     /** Avviso in primo piano con una sola vibrazione breve. */
-    private static void alert(Context c, String title, String text, String close, String other, String otherAction) {
+    private static void alert(Context c, String title, String text, String close, String other, String otherAction, boolean twice) {
         try {
             Notification.Builder b = new Notification.Builder(c)
                     .setSmallIcon(Icon.createWithResource("android", android.R.drawable.ic_lock_idle_alarm))
@@ -201,7 +211,8 @@ final class Scope {
                     .addAction(new Notification.Action.Builder(null, other, broadcast(c, otherAction, 32)).build());
             ((NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE)).notify(ALERT_ID, b.build());
             Vibrator v = (Vibrator) c.getSystemService(Context.VIBRATOR_SERVICE);
-            if (v != null) v.vibrate(120);
+            // 0.15 (210): allo scadere due tocchi, come con la pillola; al preavviso uno solo
+            if (v != null) { if (twice) v.vibrate(new long[]{0, 60, 120, 60}, -1); else v.vibrate(40); }
         } catch (Exception ignored) {}
     }
 
