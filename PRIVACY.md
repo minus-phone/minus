@@ -25,6 +25,15 @@ Questi dati restano sul telefono. *−minus* li usa per funzionare e nessuno, ne
 | Non disturbare | Il silenzio, con le eccezioni per chi conta | Niente |
 | Vibrazione | Avvisarti quando ti scrive qualcuno che conta | Niente |
 
+**Altre cose che *−minus* tiene sul telefono, senza permessi in più:**
+
+- gli scopi che scrivi in «Pausa e scopo» (il testo, l'app, i minuti), per suggerirti le tue motivazioni: ultime 200 aperture;
+- i cercati di recente: al massimo 9, si vedono solo per 2 ore;
+- le conversazioni recenti (app, nome della persona o del gruppo, l'ora dell'ultimo messaggio e della tua ultima risposta, mai il testo), per sapere quali sono in corso: al massimo 100, dimenticate dopo 30 giorni senza messaggi;
+- le tue impostazioni, i task e la tua alternativa.
+
+Durante uno scopo, la pillola sopra l'app può mostrare quello che hai scritto («Volevi: …»): finisce anche negli screenshot e nelle condivisioni dello schermo.
+
 **Per i tre controlli** (a 2 settimane, 1 mese e 3 mesi) *−minus* conta ogni giorno tre numeri: le notifiche tenute da parte, le volte che scegli «Non ora» davanti a un'app e gli sblocchi di notte. Solo numeri, senza nomi di persone o app; li tiene al massimo 100 giorni e non li invia mai.
 
 Ogni permesso si può revocare dalle impostazioni di Android; la funzione che lo usa smette di funzionare, il resto continua. I dati di *−minus* non finiscono nel backup di Google (il backup automatico è spento) e si cancellano tutti disinstallando l'app.

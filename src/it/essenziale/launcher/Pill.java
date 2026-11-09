@@ -80,6 +80,9 @@ final class Pill {
     /** Chiamata o navigazione in corso (lo decide FilterService). */
     static void setPaused(boolean p) { paused = p; }
 
+    /** 0.15: chiamata o navigazione in corso: niente foglio dello scopo sopra. */
+    static boolean isPaused() { return paused; }
+
     // ---------- Aggiornamento ----------
 
     static void update(Context c) {

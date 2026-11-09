@@ -153,18 +153,17 @@ final class Scope {
             p.edit().putBoolean(K_WARNED, true).apply();
             String[] w = Scopo.warn(Scopo.warnLead(declared), purpose);
             // 0.15: con «Mostra sopra altre app» la pillola si apre da sola (206); senza, l'avviso di Android (210)
-            if (ScopePill.usable(c)) ScopePill.warn(c, w);
-            else alert(c, w[0], w[1], w[2], w[3], ACT_OK, false);
+            if (!(ScopePill.usable(c) && ScopePill.warn(c, w))) alert(c, w[0], w[1], w[2], w[3], ACT_OK, false);
         }
         if (!p.getBoolean(K_EXPIRED, false) && now >= end) {
             p.edit().putBoolean(K_EXPIRED, true).apply();
             int total0 = (int) ((now - start + 30000) / 60000L);
-            if (ScopePill.usable(c)) {
-                String[] t = Scopo.sheet(ext, label, total0, purpose);
-                if (t != null) ScopePill.expired(c, t); // 207, 208; dalla terza volta solo la pillola aperta (209)
-            } else {
-                String[] t = Scopo.expired(ext, label, total0, purpose);
-                if (t != null) alert(c, t[0], t[1], t[2], t[3], ACT_MORE, true);
+            // 207, 208; dalla terza volta solo la pillola aperta (209). Se il foglio non va (TalkBack,
+            // chiamata, un'altra app davanti, nessun permesso) resta l'avviso di Android (210)
+            String[] t = Scopo.sheet(ext, label, total0, purpose);
+            if (t != null && !(ScopePill.usable(c) && ScopePill.expired(c, t))) {
+                String[] n = Scopo.expired(ext, label, total0, purpose);
+                alert(c, n[0], n[1], n[2], n[3], ACT_MORE, true);
             }
         }
         ScopePill.tick(c);

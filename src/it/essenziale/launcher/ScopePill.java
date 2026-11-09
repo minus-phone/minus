@@ -61,21 +61,50 @@ final class ScopePill {
 
     // ---------- Eventi da Scope ----------
 
-    /** 206: il preavviso apre la pillola per 5 secondi, con un solo tocco aptico breve. */
-    static void warn(Context c, String[] text) {
+    /** Con TalkBack 5 secondi non bastano e il foglio non ferma i gesti: meglio l'avviso di Android. */
+    private static boolean talkBack(Context c) {
+        try {
+            android.view.accessibility.AccessibilityManager am = (android.view.accessibility.AccessibilityManager) c.getSystemService(Context.ACCESSIBILITY_SERVICE);
+            return am != null && am.isEnabled() && am.isTouchExplorationEnabled();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Il foglio va solo sopra l'app dello scopo: mai sopra una chiamata, la navigazione o un'altra app.
+     * Senza dati di utilizzo non si sa quale app è aperta: allora si mostra, come prima.
+     */
+    private static boolean overScopeApp(Context c) {
+        if (Pill.isPaused()) return false;
+        if (!Pill.usageGranted(c)) return true;
+        try {
+            String fg = Scope.foreground(c);
+            return fg == null || fg.equals(U.prefs(c).getString(Scope.K_PKG, ""));
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    /** 206: il preavviso apre la pillola per 5 secondi, con un solo tocco aptico breve. false = usa l'avviso di Android. */
+    static boolean warn(Context c, String[] text) {
+        if (talkBack(c) || Pill.isPaused()) return false;
         app = c.getApplicationContext();
         warnText = text;
         openUntil = System.currentTimeMillis() + Scopo.OPEN_MS;
         buzz(c, new long[]{0, 40});
         Pill.update(app);
         later(Scopo.OPEN_MS);
+        return true;
     }
 
-    /** 207 e 208: allo scadere un foglio dal basso, con due tocchi aptici. */
-    static void expired(Context c, String[] t) {
+    /** 207 e 208: allo scadere un foglio dal basso, con due tocchi aptici. false = usa l'avviso di Android. */
+    static boolean expired(Context c, String[] t) {
+        if (talkBack(c) || !overScopeApp(c)) return false;
         app = c.getApplicationContext();
         buzz(c, new long[]{0, 60, 120, 60});
         showSheet(app, t);
+        return sheet != null;
     }
 
     /** Ogni 15 secondi da Scope: dalla terza volta si riapre dopo un minuto e vibra ogni 5. */
@@ -203,13 +232,16 @@ final class ScopePill {
         if (overtime(app)) later(Scopo.REOPEN_MS);
     }
 
-    /** «Ho finito» / «Chiudo»: alla home di −minus, che chiude lo scopo (Android non lascia chiudere un'altra app). */
+    /**
+     * «Ho finito» / «Chiudo»: lo scopo si chiude subito qui, poi si torna alla home di −minus
+     * (Android non lascia chiudere un'altra app). La home si apre prima di togliere la finestra,
+     * finché la pillola è ancora visibile e Android lascia avviarla.
+     */
     private static void finish() {
-        hide();
         Intent home = new Intent(app, MainActivity.class);
-        home.putExtra("scope_done", true);
         home.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         U.start(app, home);
+        Scope.end(app, "chiusa");
     }
 
     private static void later(long ms) {
