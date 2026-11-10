@@ -1071,9 +1071,13 @@ public class OnboardingActivity extends BaseActivity {
     /** Android 13+, app installata fuori dal Play Store: i tre tocchi per sbloccare il permesso. */
     private void restrictedGuide() {
         title("Android blocca questo permesso");
-        sub("Succede alle app installate fuori dal Play Store. Si sblocca in tre tocchi, poi torni qui.");
-        String[] steps = {"Tocca «Apri Info app» qui sotto", "In alto a destra tocca ⋮, poi «Consenti impostazioni con restrizioni»",
-                "Conferma con PIN o impronta, torna indietro e tocca Avanti"};
+        sub("Succede alle app installate fuori dal Play Store. Si sblocca una volta sola, poi torni qui.");
+        // 0.15: il menu ⋮ con «Consenti impostazioni con restrizioni» compare solo dopo aver provato ad accendere
+        // l'interruttore grigio almeno una volta da questa installazione: è il passo che mancava
+        String[] steps = {"Tocca «Prova ad accenderlo» qui sotto. Nell'elenco tocca −minus anche se è grigio, poi «OK»: serve ad Android per sbloccare il menu del passo 3",
+                "Torna qui e tocca «Apri Info app»",
+                "In alto a destra tocca ⋮, poi «Consenti impostazioni con restrizioni». Su alcuni telefoni la voce è in fondo alla pagina",
+                "Conferma con PIN o impronta, torna qui e riprova: ora l'interruttore si accende"};
         for (int i = 0; i < steps.length; i++) {
             LinearLayout r = U.row(this);
             r.setPadding(0, U.dp(this, 6), 0, U.dp(this, 6));
@@ -1086,8 +1090,9 @@ public class OnboardingActivity extends BaseActivity {
             r.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             body.addView(r, U.full());
         }
-        note("Compare solo se Android segnala «Impostazione con restrizioni». Con il Play Store questo passo non c'è.");
-        primary("Apri Info app", new Runnable() { public void run() { asked.remove("notifiche"); Onboarding.openAppInfo(OnboardingActivity.this); } });
+        note("Il ⋮ non c'è? Ripeti il passo 1 e chiudi il messaggio con «OK», non con Indietro. Se ancora manca, riavvia il telefono e riprova. Con il Play Store questo passo non c'è.");
+        primary("Prova ad accenderlo", new Runnable() { public void run() { Onboarding.openListenerSettings(OnboardingActivity.this); } },
+                "Apri Info app ›", new Runnable() { public void run() { asked.remove("notifiche"); Onboarding.openAppInfo(OnboardingActivity.this); } });
     }
 
     // ---------- 187 · Quando lo sblocchi senza motivo ----------
