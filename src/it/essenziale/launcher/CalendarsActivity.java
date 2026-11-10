@@ -93,40 +93,51 @@ public class CalendarsActivity extends BaseActivity {
         }
         if (cals.isEmpty()) list.addView(U.text(this, "Nessun calendario sul telefono. Aggiungi un account Google in Impostazioni di Android › Account.", 15, U.INK, false));
 
-        // Calendario per i nuovi impegni
-        String def = U.prefs(this).getString("last_cal_name", null);
-        LinearLayout r = U.row(this);
-        r.setMinimumHeight(U.dp(this, 56));
-        r.setPadding(0, U.dp(this, 12), 0, 0);
-        TextView t = U.text(this, "Nuovi impegni: vanno in " + (def != null ? def : "(da scegliere)"), 15, U.INK, false);
-        r.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView ch = U.text(this, "cambia", 15, U.INK, true);
-        ch.setPaintFlags(ch.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
-        r.addView(ch);
-        r.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pickDefault(); } });
-        list.addView(r, U.full());
+        // Calendario per i nuovi impegni. 0.15: scelta in pagina, non in un popup; anche «solo in −minus»
+        list.addView(U.label(this, "I nuovi impegni vanno in"));
+        if (!U.canWriteCalendar(this)) {
+            TextView ask = U.text(this, "Per aggiungere impegni serve il permesso di modificare il calendario ›", 15, U.INK, false);
+            ask.setMinHeight(U.dp(this, 48));
+            ask.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            ask.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
+                requestPermissions(new String[]{android.Manifest.permission.WRITE_CALENDAR, android.Manifest.permission.READ_CALENDAR}, 41);
+            } });
+            list.addView(ask, U.full());
+        } else {
+            final long cur = U.prefs(this).getLong("last_cal", -1);
+            for (final U.Cal k : U.writableCalendars(this)) {
+                if (U.isMinusCal(k)) continue;
+                defaultRow(k.name, k.google() ? "Google · si vede anche in Google Calendar" : U.calNote(k), cur == k.id, k.id);
+            }
+            long mine = U.minusCalendar(this, false);
+            defaultRow("Nessuno: restano in −minus", "Su questo telefono, senza andare in Google Calendar", cur >= 0 && cur == mine, -2);
+        }
         TextView n = U.text(this, "Il calendario iCloud condiviso col partner arriva tramite l'account Google o con un'app di sincronizzazione.", 12, U.MUTED, false);
         n.setPadding(0, U.dp(this, 10), 0, U.dp(this, 20));
         list.addView(n);
     }
 
-    private void pickDefault() {
-        if (!U.canWriteCalendar(this)) {
-            requestPermissions(new String[]{android.Manifest.permission.WRITE_CALENDAR, android.Manifest.permission.READ_CALENDAR}, 41);
-            return;
-        }
-        final List<U.Cal> cals = U.writableCalendars(this);
-        if (cals.isEmpty()) { U.toast(this, "Nessun calendario modificabile tra quelli mostrati"); return; }
-        List<String> names = new ArrayList<String>();
-        for (U.Cal k : cals) names.add(k.name + "\n" + U.calNote(k));
-        new AlertDialog.Builder(this).setTitle("Nuovi impegni in").setItems(names.toArray(new String[0]), new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface d, int w) {
-                final U.Cal k = cals.get(w);
-                Changes.track(CalendarsActivity.this, "Nuovi impegni in " + k.name, new String[]{"last_cal", "last_cal_name"}, new Runnable() { public void run() {
-                    U.prefs(CalendarsActivity.this).edit().putLong("last_cal", k.id).putString("last_cal_name", k.name).commit();
+    /** Una riga a scelta singola; id -2 = il calendario di −minus, creato se manca. */
+    private void defaultRow(final String name, String sub, boolean on, final long id) {
+        LinearLayout r = U.row(this);
+        r.setMinimumHeight(U.dp(this, 56));
+        LinearLayout tx = U.col(this);
+        tx.addView(U.text(this, name, 15, U.INK, false));
+        tx.addView(U.text(this, sub, 12, U.MUTED, false));
+        r.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView dot = U.text(this, on ? "●" : "○", 18, U.INK, false);
+        r.addView(dot);
+        r.setContentDescription(name + (on ? ", scelto" : ""));
+        r.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                Changes.track(CalendarsActivity.this, "Nuovi impegni in " + name, new String[]{"last_cal", "last_cal_name"}, new Runnable() { public void run() {
+                    long k = id == -2 ? U.minusCalendar(CalendarsActivity.this, true) : id;
+                    if (k >= 0) U.setDefaultCalendar(CalendarsActivity.this, k, id == -2 ? U.NAME : name);
                 } }, new Runnable() { public void run() { render(); } });
             }
-        }).show();
+        });
+        list.addView(r, U.full());
+        list.addView(U.divider(this));
     }
 
     View toggle(boolean on) {

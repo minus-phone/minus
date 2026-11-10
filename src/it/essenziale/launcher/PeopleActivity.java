@@ -43,6 +43,7 @@ public class PeopleActivity extends BaseActivity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        Stars.adoptNewStars(this); // 0.15: chi ha preso la stella da poco è già tra quelli scelti
         for (Rules.Person p : Rules.people(U.cfg(this, U.K_CONTACTS, U.DEF_CONTACTS))) {
             if (p.section.equalsIgnoreCase("Sempre")) chosen.put(key(p.name), p);
             else others.add(p);
@@ -127,7 +128,8 @@ public class PeopleActivity extends BaseActivity {
             cur = getContentResolver().query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
                     new String[]{ContactsContract.CommonDataKinds.Phone.CONTACT_ID, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
                             ContactsContract.CommonDataKinds.Phone.NUMBER, ContactsContract.CommonDataKinds.Phone.TYPE},
-                    null, null, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " COLLATE LOCALIZED ASC");
+                    // 0.15: prima chi ha la stella in rubrica, poi gli altri in ordine alfabetico
+                    null, null, ContactsContract.CommonDataKinds.Phone.STARRED + " DESC, " + ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " COLLATE LOCALIZED ASC");
             while (cur != null && cur.moveToNext()) {
                 String id = cur.getString(0), name = cur.getString(1), num = cur.getString(2);
                 if (name == null || num == null) continue;
@@ -221,7 +223,7 @@ public class PeopleActivity extends BaseActivity {
         int shown = 0;
         for (final Rules.Person p : all) {
             if (filter.length() > 0 && !p.name.toLowerCase(Locale.ITALY).contains(filter)) continue;
-            if (shown++ > 300) break;
+            if (shown++ > 2000) break; // 0.15: prima erano 300, e chi stava più in basso in rubrica non si trovava
             final boolean on = chosen.containsKey(key(p.name));
             LinearLayout r = U.row(this);
             r.setMinimumHeight(U.dp(this, 52));
@@ -253,7 +255,8 @@ public class PeopleActivity extends BaseActivity {
         final List<Rules.Person> outF = out;
         // 0.6: la scelta si ritrova in Modifiche recenti
         Changes.record(this, "Persone che passano sempre: " + chosen.size(), new String[]{U.K_CONTACTS});
-        U.prefs(this).edit().putString(U.K_CONTACTS, Rules.peopleText(outF)).apply();
+        U.prefs(this).edit().putString(U.K_CONTACTS, Rules.peopleText(outF)).commit();
+        Stars.starAlways(this); // 0.15: anche scegliendole da qui prendono la stella, così squillano col silenzio
         U.toast(this, "Salvato · si ritrova in Modifiche recenti");
         finish();
     }

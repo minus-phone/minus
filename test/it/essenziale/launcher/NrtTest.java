@@ -131,6 +131,14 @@ public class NrtTest {
         eq("Notifica riassuntiva di gruppo: eliminata", lvlF(def, "com.whatsapp", 0x200), Rules.DROP);
         eq("Notifica fissa (musica, navigazione): ignorata", lvlF(def, "com.spotify.music", 0x2), Rules.IGNORE);
         eq("Maps e sveglia: lasciate stare", lvl(def, "com.google.android.apps.maps", "Gira a destra", "Maps", false), Rules.IGNORE);
+        Rules.Config sv = v03Default("Cristina");
+        for (String l : ("pkg:authenticator\npkg:deskclock\npkg:com.google.android.calendar\npkg:twofasapp\n").split("\n")) sv.services.add(l);
+        eq("Servizi 0.15: un'app di autenticazione passa per intero", lvl(sv, "com.twofasapp", "Nuovo dispositivo collegato", "2FAS", false), Rules.PASS);
+        eq("Servizi 0.15: il calendario passa", lvl(sv, "com.google.android.calendar", "Pediatra alle 9:30", "Calendar", false), Rules.PASS);
+        sv.services.add("!pkg:com.google.android.calendar");
+        check("Servizi 0.15: tolto a mano dai Servizi, il calendario non passa più sempre", lvl(sv, "com.google.android.calendar", "Pediatra alle 9:30", "Calendar", false) != Rules.PASS, null);
+        check("Servizi 0.15: riconosce wallet, sveglie, autenticazione e calendari", Rules.alwaysService("com.google.android.apps.walletnfcrel") && Rules.alwaysService("com.sec.android.app.clockpackage")
+                && Rules.alwaysService("com.azure.authenticator") && Rules.alwaysService("com.samsung.android.calendar") && !Rules.alwaysService("com.instagram.android"), null);
     }
 
     static Rules.Config v03Default(String me) {
@@ -352,6 +360,7 @@ public class NrtTest {
         check("Pausa 0.15: torni all'app entro 3 minuti, niente pausa di nuovo", Scopo.returning("ig", 1000, "ig", 1000 + 2 * m1), null);
         check("Pausa 0.15: dopo 3 minuti la pausa torna", !Scopo.returning("ig", 1000, "ig", 1000 + 3 * m1), null);
         check("Pausa 0.15: vale solo per l'app che hai aperto", !Scopo.returning("ig", 1000, "tiktok", 1000 + m1) && !Scopo.returning("", 1000, "ig", 1000), null);
+        check("Pillola 0.15: finito uno scopo, il tempo dall'ultimo sblocco tace 10 minuti", Tempo.quietAfterScope(1000, 1000 + 9 * m1) && !Tempo.quietAfterScope(1000, 1000 + 10 * m1) && !Tempo.quietAfterScope(0, 5000), null);
         check("Pillola 0.15 (209): un tocco ogni 5 minuti", !Scopo.buzz(0, 4 * m1) && Scopo.buzz(0, 5 * m1), null);
         check("Scaduto: dalla terza nessun avviso", Scopo.expired(2, "Instagram", 20, "") == null, null);
         eq("Pillola dello scopo: tempo che resta", Scopo.pill("Instagram", 5 * 60000L + 1000), "◷  Instagram · 6 min");
@@ -435,6 +444,11 @@ public class NrtTest {
         java.util.Set<String> lv = new java.util.HashSet<String>(java.util.Arrays.asList("Calcetto"));
         eq("Ricerca 0.15: prima le conversazioni in corso, poi le più recenti, poi l'ordine scelto", Cerca.byLast(nm, lt, lv).toString(), "[Calcetto, Nido, Andrea, Mamma]");
         eq("Ricerca 0.15: senza interazioni resta l'ordine scelto", Cerca.byLast(nm, new java.util.HashMap<String, Long>(), new java.util.HashSet<String>()).toString(), "[Mamma, Andrea, Calcetto, Nido]");
+        java.util.Map<Long, String> st = new java.util.LinkedHashMap<Long, String>();
+        st.put(1L, "Mamma"); st.put(2L, "Giulia Rossi"); st.put(3L, "Andrea");
+        java.util.Set<String> alw = new java.util.HashSet<String>(java.util.Arrays.asList("andrea"));
+        eq("Stelle 0.15: la prima volta nessuno viene aggiunto", Rules.newStars(null, st, alw).size(), 0);
+        eq("Stelle 0.15: solo le stelle nuove, e non chi passa già sempre", Rules.newStars(new java.util.HashSet<Long>(java.util.Arrays.asList(1L)), st, alw).toString(), "[2]");
         long h = 3600 * 1000L, t0 = 100 * h;
         List<Rules.Conv> cv = Rules.touch(new ArrayList<Rules.Conv>(), "WA", "PM Mama's Living", false, t0, true);
         check("Conversazioni 0.15: aperta dalla notifica ma senza risposta non è in corso", cv.get(0).isOpen(t0 + h) && !cv.get(0).replied(t0 + h), null);

@@ -648,9 +648,24 @@ public class OnboardingActivity extends BaseActivity {
                     }
                 });
             }
+            // 0.15: la scelta sta nel passo, non in un popup: uno dei calendari accesi, oppure solo in −minus
             caption("I nuovi impegni vanno in");
-            String def = U.prefs(this).getString("last_cal_name", null);
-            line(def != null ? def : "Scegli un calendario", null, null, "Cambia", new Runnable() { public void run() { pickCalendar(); } });
+            final long cur = U.prefs(this).getLong("last_cal", -1);
+            for (final U.Cal k : U.writableCalendars(this)) {
+                if (U.isMinusCal(k)) continue;
+                choice(k.name, k.google() ? "Google · si vede anche in Google Calendar" : U.calNote(k), cur == k.id, true, new Runnable() {
+                    public void run() { U.setDefaultCalendar(OnboardingActivity.this, k.id, k.name); render(); }
+                });
+            }
+            final long mine = U.minusCalendar(this, false);
+            choice("Nessuno: restano in −minus", "Su questo telefono, senza andare in Google Calendar", cur >= 0 && cur == mine, true, new Runnable() {
+                public void run() {
+                    long id = U.minusCalendar(OnboardingActivity.this, true);
+                    if (id < 0) { U.toast(OnboardingActivity.this, "Non riesco a creare il calendario di −minus: scegline uno dei tuoi"); return; }
+                    U.setDefaultCalendar(OnboardingActivity.this, id, U.NAME);
+                    render();
+                }
+            });
         } else {
             LinearLayout c = card(new String[]{"Non vediamo il tuo calendario", "Senza accesso al calendario la home mostra solo i task e la sveglia."}, true);
             c.setBackground(U.box(this, U.SURFACE, U.BORDER, 14));
@@ -675,19 +690,6 @@ public class OnboardingActivity extends BaseActivity {
             public void run() { U.prefs(OnboardingActivity.this).edit().putBoolean(U.K_LOCK, !lock).apply(); render(); }
         });
         primary("Avanti", new Runnable() { public void run() { next(); } });
-    }
-
-    private void pickCalendar() {
-        final List<U.Cal> cals = U.writableCalendars(this);
-        if (cals.isEmpty()) { U.toast(this, "Nessun calendario modificabile tra quelli mostrati"); return; }
-        List<String> names = new ArrayList<String>();
-        for (U.Cal k : cals) names.add(k.name + "\n" + U.calNote(k));
-        new AlertDialog.Builder(this).setTitle("I nuovi impegni vanno in").setItems(names.toArray(new String[0]), new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface d, int w) {
-                U.prefs(OnboardingActivity.this).edit().putLong("last_cal", cals.get(w).id).putString("last_cal_name", cals.get(w).name).apply();
-                render();
-            }
-        }).show();
     }
 
     // ---------- 184 · A portata ----------
@@ -1071,9 +1073,13 @@ public class OnboardingActivity extends BaseActivity {
     /** Android 13+, app installata fuori dal Play Store: i tre tocchi per sbloccare il permesso. */
     private void restrictedGuide() {
         title("Android blocca questo permesso");
-        sub("Succede alle app installate fuori dal Play Store. Si sblocca in tre tocchi, poi torni qui.");
-        String[] steps = {"Tocca «Apri Info app» qui sotto", "In alto a destra tocca ⋮, poi «Consenti impostazioni con restrizioni»",
-                "Conferma con PIN o impronta, torna indietro e tocca Avanti"};
+        sub("Succede alle app installate fuori dal Play Store. Si sblocca una volta sola, poi torni qui.");
+        // 0.15: il menu ⋮ con «Consenti impostazioni con restrizioni» compare solo dopo aver provato ad accendere
+        // l'interruttore grigio almeno una volta da questa installazione: è il passo che mancava
+        String[] steps = {"Tocca «Prova ad accenderlo» qui sotto. Nell'elenco tocca −minus anche se è grigio, poi «OK»: serve ad Android per sbloccare il menu del passo 3",
+                "Torna qui e tocca «Apri Info app»",
+                "In alto a destra tocca ⋮, poi «Consenti impostazioni con restrizioni». Su alcuni telefoni la voce è in fondo alla pagina",
+                "Conferma con PIN o impronta, torna qui e riprova: ora l'interruttore si accende"};
         for (int i = 0; i < steps.length; i++) {
             LinearLayout r = U.row(this);
             r.setPadding(0, U.dp(this, 6), 0, U.dp(this, 6));
@@ -1086,8 +1092,9 @@ public class OnboardingActivity extends BaseActivity {
             r.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             body.addView(r, U.full());
         }
-        note("Compare solo se Android segnala «Impostazione con restrizioni». Con il Play Store questo passo non c'è.");
-        primary("Apri Info app", new Runnable() { public void run() { asked.remove("notifiche"); Onboarding.openAppInfo(OnboardingActivity.this); } });
+        note("Il ⋮ non c'è? Ripeti il passo 1 e chiudi il messaggio con «OK», non con Indietro. Se ancora manca, riavvia il telefono e riprova. Con il Play Store questo passo non c'è.");
+        primary("Prova ad accenderlo", new Runnable() { public void run() { Onboarding.openListenerSettings(OnboardingActivity.this); } },
+                "Apri Info app ›", new Runnable() { public void run() { asked.remove("notifiche"); Onboarding.openAppInfo(OnboardingActivity.this); } });
     }
 
     // ---------- 187 · Quando lo sblocchi senza motivo ----------

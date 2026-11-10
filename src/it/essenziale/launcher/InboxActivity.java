@@ -112,10 +112,22 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
             list.addView(hint, U.full());
         }
         if (!U.listenerEnabled(this)) {
-            TextView w = U.text(this, "Il filtro notifiche non è attivo: aprilo da Impostazioni, la prima voce della ricerca.", 14, U.MUTED, false);
+            TextView w = U.text(this, "Il filtro notifiche non è attivo: si accende nelle impostazioni qui sotto.", 14, U.MUTED, false);
             w.setPadding(0, U.dp(this, 16), 0, 0);
             list.addView(w, U.full());
         }
+        // 0.15: da Notifiche si arriva alle sue impostazioni (chi conta, servizi, gruppi, silenzio)
+        TextView set = U.text(this, "Impostazioni delle notifiche  ›", 15, U.INK, false);
+        set.setMinHeight(U.dp(this, 48));
+        set.setGravity(Gravity.CENTER_VERTICAL);
+        set.setPadding(0, U.dp(this, 12), 0, U.dp(this, 20));
+        set.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                startActivity(new android.content.Intent(InboxActivity.this, SettingsActivity.class)
+                        .putExtra("area", SettingsActivity.NOTIF).putExtra("back", "Notifiche"));
+            }
+        });
+        list.addView(set, U.full());
     }
 
     private void style(TextView t, boolean on) {

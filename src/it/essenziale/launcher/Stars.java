@@ -14,6 +14,79 @@ public final class Stars {
     private Stars() {}
 
     static final String K_STARRED = "stars_by_minus"; // id dei contatti a cui la stella l'ha messa −minus
+    static final String K_SEEN = "stars_seen";        // 0.15: le stelle in rubrica già viste da −minus
+
+    /**
+     * 0.15: la stella vale anche al contrario. Un contatto a cui metti la stella in rubrica (anche in Google
+     * Contatti) entra tra chi passa sempre, con WhatsApp e chiamata. Le stelle che c'erano prima di questo
+     * controllo non contano: si parte da adesso. Restituisce i nomi aggiunti.
+     */
+    static java.util.List<String> adoptNewStars(Context c) {
+        java.util.List<String> added = new java.util.ArrayList<String>();
+        if (!Onboarding.hasContacts(c)) return added;
+        java.util.Map<Long, String> starred = new java.util.LinkedHashMap<Long, String>();
+        Cursor cur = null;
+        try {
+            cur = c.getContentResolver().query(ContactsContract.Contacts.CONTENT_URI,
+                    new String[]{ContactsContract.Contacts._ID, ContactsContract.Contacts.DISPLAY_NAME},
+                    ContactsContract.Contacts.STARRED + " = 1", null, null);
+            while (cur != null && cur.moveToNext()) starred.put(cur.getLong(0), cur.getString(1));
+        } catch (Exception e) {
+            return added;
+        } finally {
+            if (cur != null) cur.close();
+        }
+        String raw = U.prefs(c).getString(K_SEEN, null);
+        java.util.Set<Long> seen = null;
+        if (raw != null) {
+            seen = new java.util.HashSet<Long>();
+            for (String s : raw.split(",")) try { if (s.length() > 0) seen.add(Long.parseLong(s)); } catch (Exception ignored) {}
+        }
+        java.util.List<Rules.Person> people = Rules.people(U.cfg(c, U.K_CONTACTS, U.DEF_CONTACTS));
+        java.util.Set<String> always = new java.util.HashSet<String>();
+        for (Rules.Person p : people) if (p.section.equalsIgnoreCase("Sempre")) always.add(p.name.trim().toLowerCase(java.util.Locale.ITALY));
+        java.util.List<Long> fresh = Rules.newStars(seen, starred, always);
+        if (!fresh.isEmpty()) {
+            for (Long id : fresh) {
+                String name = starred.get(id).replace("|", "/").trim();
+                // se era tra chi aspetta o altrove, diventa «Sempre»
+                for (int i = people.size() - 1; i >= 0; i--) if (people.get(i).name.trim().equalsIgnoreCase(name)) people.remove(i);
+                Rules.Person p = new Rules.Person();
+                p.section = "Sempre";
+                p.name = name;
+                p.target = numberOf(c, id);
+                p.apps.add("WA");
+                p.apps.add("TEL");
+                people.add(0, p);
+                added.add(name);
+            }
+            Changes.record(c, "Stella in rubrica: " + android.text.TextUtils.join(", ", added) + " passa sempre", new String[]{U.K_CONTACTS});
+            U.prefs(c).edit().putString(U.K_CONTACTS, Rules.peopleText(people)).apply();
+        }
+        StringBuilder b = new StringBuilder();
+        for (Long id : starred.keySet()) b.append(id).append(',');
+        U.prefs(c).edit().putString(K_SEEN, b.toString()).apply();
+        return added;
+    }
+
+    private static String numberOf(Context c, long id) {
+        Cursor cur = null;
+        try {
+            cur = c.getContentResolver().query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    new String[]{ContactsContract.CommonDataKinds.Phone.NUMBER, ContactsContract.CommonDataKinds.Phone.TYPE},
+                    ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?", new String[]{String.valueOf(id)}, null);
+            String any = "";
+            while (cur != null && cur.moveToNext()) {
+                if (cur.getInt(1) == ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE) return cur.getString(0);
+                if (any.length() == 0 && cur.getString(0) != null) any = cur.getString(0);
+            }
+            return any;
+        } catch (Exception e) {
+            return "";
+        } finally {
+            if (cur != null) cur.close();
+        }
+    }
 
     static boolean canWrite(Context c) {
         return c.checkSelfPermission(android.Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED;

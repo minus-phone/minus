@@ -62,6 +62,13 @@ public final class Tempo {
      * Cosa mostrare: niente, il puntino o la pillola. Mai sopra Essenziale (in home c'è già la riga),
      * mai sotto la soglia (sessionMinutes = -1), mai senza permesso; il puntino dura 10 minuti dal tocco.
      */
+    /** 0.15: finito uno scopo, la pillola del tempo tace per 10 minuti: un segnale alla volta. */
+    public static final long QUIET_AFTER_SCOPE_MS = 10 * 60000L;
+
+    public static boolean quietAfterScope(long scopeEndedAt, long now) {
+        return scopeEndedAt > 0 && now - scopeEndedAt >= 0 && now - scopeEndedAt < QUIET_AFTER_SCOPE_MS;
+    }
+
     public static int state(boolean pillOn, boolean canDraw, boolean sessionOn, int sessionMinutes,
                             boolean essenzialeVisible, boolean paused, long dotUntil, long now) {
         if (!pillOn || !canDraw || !sessionOn || sessionMinutes < 0 || essenzialeVisible || paused) return HIDE;

@@ -28,11 +28,21 @@ La configurazione chiede un permesso alla volta, spiegando a cosa serve. Quello 
 
 Quando *−minus* ti porta ad «Accesso alle notifiche» e l'interruttore è grigio, oppure compare «Impostazione con restrizioni»:
 
-1. Prova comunque ad accendere l'interruttore e chiudi il messaggio: serve ad Android per mostrare l'opzione al punto 3.
+1. Prova comunque ad accendere l'interruttore: tocca *−minus* nell'elenco anche se è grigio e chiudi il messaggio con «OK». È indispensabile: finché non l'hai fatto almeno una volta dopo aver installato *−minus*, il menu del punto 3 non compare. Se reinstalli l'app, va rifatto.
 2. Vai in Impostazioni di Android › App › *−minus* (a volte «Mostra tutte le app»).
 3. Tocca il menu ⋮ in alto a destra e scegli «Consenti impostazioni con restrizioni». Su alcuni Samsung la voce è in fondo alla pagina, senza menu.
 4. Conferma con PIN, impronta o sequenza.
 5. Torna in *−minus*: la configurazione riprende da dove eri. Ora l'interruttore si accende.
+
+**Il menu ⋮ non compare?** Ripeti il punto 1 e chiudi il messaggio con «OK» (non con Indietro), poi riapri la pagina dell'app al punto 2. Se ancora non c'è, riavvia il telefono e riprova.
+
+**Ultima strada, con un computer.** Se il menu non compare proprio, si sblocca con il cavo USB e gli strumenti di Android (ADB), con il debug USB acceso nelle Opzioni sviluppatore:
+
+```
+adb shell appops set it.essenziale.launcher ACCESS_RESTRICTED_SETTINGS allow
+```
+
+Poi torna ad «Accesso alle notifiche»: l'interruttore si accende.
 
 Su Android 15 la stessa protezione vale anche per «Dati di utilizzo» e «Mostra sopra altre app». Se uno di questi è grigio, il procedimento è lo stesso e basta farlo una volta.
 

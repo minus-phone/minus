@@ -44,7 +44,7 @@ public class ServiziActivity extends BaseActivity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         LinearLayout root = U.screen(this, "Servizi");
-        TextView intro = U.text(this, "Banca, pagamenti, SPID, app IO. I loro codici e accessi passano sempre, anche con il silenzio. Il resto aspetta in Notifiche, mai in Altro.", 14, U.MUTED, false);
+        TextView intro = U.text(this, "Banca, pagamenti, SPID, app IO: i loro codici e accessi passano sempre, anche con il silenzio; il resto aspetta in Notifiche, mai in Altro. Wallet, sveglie e timer, app di autenticazione e calendario passano sempre per intero.", 14, U.MUTED, false);
         intro.setPadding(0, 0, 0, U.dp(this, 8));
         root.addView(intro);
         q = new EditText(this);

@@ -25,7 +25,8 @@ final class Scope {
     static final String K_LEVEL = "scope_pkgs";        // pacchetti con «pausa e scopo»
     static final String K_PKG = "scope_pkg", K_LABEL = "scope_label", K_CLS = "scope_cls", K_PURPOSE = "scope_purpose",
             K_START = "scope_start", K_END = "scope_end", K_EXT = "scope_ext", K_WARNED = "scope_warned", K_EXPIRED = "scope_expired",
-            K_LOG = "scope_log", K_PASSED = "scope_passed", K_PASSED_AT = "scope_passed_at";
+            K_LOG = "scope_log", K_PASSED = "scope_passed", K_PASSED_AT = "scope_passed_at",
+            K_ENDED_AT = "scope_ended_at"; // 0.15: quando è finito l'ultimo scopo (la pillola del tempo tace un po')
     static final String ACT_MORE = "it.essenziale.launcher.SCOPE_MORE", ACT_OK = "it.essenziale.launcher.SCOPE_OK";
     static final int NOTE_ID = 5, ALERT_ID = 6;
 
@@ -102,7 +103,8 @@ final class Scope {
         int real = (int) ((System.currentTimeMillis() - p.getLong(K_START, 0)) / 60000L);
         log(c, pkg, p.getString(K_PURPOSE, ""), real, how);
         if (Night.active(c)) Night.count(c, Night.K_OPEN_MIN, real);
-        p.edit().remove(K_PKG).remove(K_CLS).remove(K_LABEL).remove(K_PURPOSE).remove(K_START).remove(K_END).remove(K_EXT).apply();
+        p.edit().remove(K_PKG).remove(K_CLS).remove(K_LABEL).remove(K_PURPOSE).remove(K_START).remove(K_END).remove(K_EXT)
+                .putLong(K_ENDED_AT, System.currentTimeMillis()).apply();
         H.removeCallbacks(TICK);
         ScopePill.reset();
         try {
