@@ -360,6 +360,7 @@ public class NrtTest {
         check("Pausa 0.15: torni all'app entro 3 minuti, niente pausa di nuovo", Scopo.returning("ig", 1000, "ig", 1000 + 2 * m1), null);
         check("Pausa 0.15: dopo 3 minuti la pausa torna", !Scopo.returning("ig", 1000, "ig", 1000 + 3 * m1), null);
         check("Pausa 0.15: vale solo per l'app che hai aperto", !Scopo.returning("ig", 1000, "tiktok", 1000 + m1) && !Scopo.returning("", 1000, "ig", 1000), null);
+        check("Pillola 0.15: finito uno scopo, il tempo dall'ultimo sblocco tace 10 minuti", Tempo.quietAfterScope(1000, 1000 + 9 * m1) && !Tempo.quietAfterScope(1000, 1000 + 10 * m1) && !Tempo.quietAfterScope(0, 5000), null);
         check("Pillola 0.15 (209): un tocco ogni 5 minuti", !Scopo.buzz(0, 4 * m1) && Scopo.buzz(0, 5 * m1), null);
         check("Scaduto: dalla terza nessun avviso", Scopo.expired(2, "Instagram", 20, "") == null, null);
         eq("Pillola dello scopo: tempo che resta", Scopo.pill("Instagram", 5 * 60000L + 1000), "◷  Instagram · 6 min");

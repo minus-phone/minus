@@ -97,6 +97,8 @@ final class Pill {
             return;
         }
         ScopePill.hide();
+        // 0.15: appena finito uno scopo non parte subito la pillola del tempo dall'ultimo sblocco
+        if (Tempo.quietAfterScope(U.prefs(a).getLong(Scope.K_ENDED_AT, 0), now)) { hideOwn(); return; }
         long start = Session.start(a);
         int min = Rules.sessionMinutes(start, now, Session.threshold(a));
         int st = Tempo.state(on(a), canDraw(a), Session.on(a), min, resumed > 0, paused, U.prefs(a).getLong(K_DOT, 0), now);
@@ -120,6 +122,7 @@ final class Pill {
         if (scope != null) return scope;
         if (!Session.on(c) || !U.listenerEnabled(c)) return null;
         long start = Session.start(c), now = System.currentTimeMillis();
+        if (Tempo.quietAfterScope(U.prefs(c).getLong(Scope.K_ENDED_AT, 0), now)) return null;
         int min = Rules.sessionMinutes(start, now, Session.threshold(c));
         if (min < 0) return null;
         String label = null;
