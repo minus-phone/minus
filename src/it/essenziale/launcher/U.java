@@ -273,13 +273,21 @@ public final class U {
             "pkg:sielte\npkg:aruba\npkg:infocert\npkg:namirial\npkg:lepida\npkg:intesi\npkg:infocamere\npkg:teamsystem\npkg:spid\n" +
             "MySielte\nSielte ID\nArubaID\nAruba ID\nInfoCert ID\nNamirial ID\nLepidaID\nTIM id\nSpidItalia\nIntesi Group\nTeamSystem ID\nID InfoCamere\nEHT\n";
     static final String K_SVC_SPID = "services_spid_v1";
+    /** 0.15: wallet, sveglie e timer, app di autenticazione e calendari, di default tra i Servizi. */
+    public static final String ALWAYS_SERVICES;
+    static {
+        StringBuilder b = new StringBuilder();
+        for (String f : Rules.ALWAYS_SERVICES) b.append("pkg:").append(f).append('\n');
+        ALWAYS_SERVICES = b.toString();
+    }
+    static final String K_SVC_ALWAYS = "services_always_v1";
     public static final String K_SERVICES = "services";
     public static final String DEF_SERVICES =
             "# Servizi: banca, pagamenti, identità digitale. Mai in Altro; codici e accessi passano subito\n" +
             "pkg:bank\npkg:banca\npkg:banking\npkg:poste\npkg:pagopa\npkg:cieid\npkg:authenticator\npkg:paypal\npkg:satispay\n" +
             "pkg:revolut\npkg:fineco\npkg:intesa\npkg:unicredit\npkg:ingdirect\npkg:mediolanum\npkg:widiba\npkg:isybank\n" +
             "pkg:hype\npkg:number26\npkg:bnl\npkg:credem\npkg:bper\npkg:sella\npkg:webank\npkg:latuabanca\npkg:mps\n" +
-            "IO\nCieID\nPosteID\nBancoPosta\nSPID\nAuthenticator\nBanca\nBank\n" + SPID_SERVICES;
+            "IO\nCieID\nPosteID\nBancoPosta\nSPID\nAuthenticator\nBanca\nBank\n" + SPID_SERVICES + ALWAYS_SERVICES;
 
 
     public static Rules.Config ruleConfig(Context c) {
@@ -292,6 +300,14 @@ public final class U {
             for (String l : SPID_SERVICES.split("\n"))
                 if (l.length() > 0 && !(("\n" + cur).contains("\n" + l + "\n")) && !cur.contains("!" + l)) b.append(l).append('\n');
             sp.edit().putString(K_SERVICES, b.toString()).putBoolean(K_SVC_SPID, true).apply();
+        }
+        if (sp.contains(K_SERVICES) && !sp.getBoolean(K_SVC_ALWAYS, false)) {
+            // 0.15: come sopra, una volta: wallet, sveglie, autenticazione e calendari, se non tolti a mano
+            String cur = sp.getString(K_SERVICES, "");
+            StringBuilder b = new StringBuilder(cur.endsWith("\n") || cur.length() == 0 ? cur : cur + "\n");
+            for (String l : ALWAYS_SERVICES.split("\n"))
+                if (l.length() > 0 && !(("\n" + cur).contains("\n" + l + "\n"))) b.append(l).append('\n');
+            sp.edit().putString(K_SERVICES, b.toString()).putBoolean(K_SVC_ALWAYS, true).apply();
         }
         for (String[] r : rows(cfg(c, K_SERVICES, DEF_SERVICES))) cfg.services.add(r[0]);
         cfg.people = Rules.people(cfg(c, K_CONTACTS, DEF_CONTACTS));
@@ -772,7 +788,67 @@ public final class U {
     }
 
     /** Dove finisce un impegno salvato in quel calendario, in parole semplici (0.4.2). */
+    /** 0.15: il calendario di −minus, solo su questo telefono (account locale di Android). */
+    public static final String MINUS_CAL_ACCOUNT = "minus";
+
+    public static boolean isMinusCal(Cal k) {
+        return k != null && k.local() && MINUS_CAL_ACCOUNT.equals(k.account);
+    }
+
+    /**
+     * 0.15: l'id del calendario di −minus; con create lo crea se manca. Le cose aggiunte da −minus restano
+     * sul telefono e si vedono in −minus (e nelle app di calendario del telefono), non in Google Calendar.
+     * -1 se non c'è e non si può creare.
+     */
+    public static long minusCalendar(Context c, boolean create) {
+        if (!canWriteCalendar(c)) return -1;
+        Cursor cur = null;
+        try {
+            cur = c.getContentResolver().query(CalendarContract.Calendars.CONTENT_URI, new String[]{CalendarContract.Calendars._ID},
+                    CalendarContract.Calendars.ACCOUNT_TYPE + "=? AND " + CalendarContract.Calendars.ACCOUNT_NAME + "=?",
+                    new String[]{CalendarContract.ACCOUNT_TYPE_LOCAL, MINUS_CAL_ACCOUNT}, null);
+            if (cur != null && cur.moveToFirst()) return cur.getLong(0);
+        } catch (Exception e) {
+            return -1;
+        } finally {
+            if (cur != null) cur.close();
+        }
+        if (!create) return -1;
+        try {
+            android.net.Uri uri = CalendarContract.Calendars.CONTENT_URI.buildUpon()
+                    .appendQueryParameter(CalendarContract.CALLER_IS_SYNCADAPTER, "true")
+                    .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_NAME, MINUS_CAL_ACCOUNT)
+                    .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.ACCOUNT_TYPE_LOCAL).build();
+            android.content.ContentValues v = new android.content.ContentValues();
+            v.put(CalendarContract.Calendars.ACCOUNT_NAME, MINUS_CAL_ACCOUNT);
+            v.put(CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.ACCOUNT_TYPE_LOCAL);
+            v.put(CalendarContract.Calendars.NAME, "minus");
+            v.put(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME, NAME);
+            v.put(CalendarContract.Calendars.CALENDAR_COLOR, 0xFF1A1A1A);
+            v.put(CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL, CalendarContract.Calendars.CAL_ACCESS_OWNER);
+            v.put(CalendarContract.Calendars.OWNER_ACCOUNT, MINUS_CAL_ACCOUNT);
+            v.put(CalendarContract.Calendars.VISIBLE, 1);
+            v.put(CalendarContract.Calendars.SYNC_EVENTS, 1);
+            v.put(CalendarContract.Calendars.CALENDAR_TIME_ZONE, java.util.TimeZone.getDefault().getID());
+            android.net.Uri made = c.getContentResolver().insert(uri, v);
+            if (made == null) return -1;
+            long id = android.content.ContentUris.parseId(made);
+            // se i calendari mostrati sono scelti a mano, quello di −minus si aggiunge
+            String sel = prefs(c).getString(K_CAL_SEL, null);
+            if (sel != null && sel.length() > 0) { java.util.Set<Long> s = shownCalendars(c); s.add(id); setShownCalendars(c, s); }
+            return id;
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    /** 0.15: i nuovi impegni vanno in questo calendario (id e nome), o nel calendario di −minus. */
+    public static void setDefaultCalendar(Context c, long id, String name) {
+        prefs(c).edit().putLong("last_cal", id).putString("last_cal_name", name).apply();
+    }
+
     public static String calNote(Cal k) {
+        if (isMinusCal(k)) return "Restano in −minus e su questo telefono: non vanno in Google Calendar";
         if (k == null) return "";
         if (k.local()) return "Solo su questo telefono: non si sincronizza e non si vede in Google Calendar";
         if (!k.sync) return "Sincronizzazione spenta: gli impegni restano sul telefono finché non la riaccendi";

@@ -58,6 +58,30 @@ public final class Rules {
             "com.google.android.apps.walletnfcrel", "com.google.android.apps.maps",
             "com.google.android.deskclock", "com.android.deskclock"};
 
+    /**
+     * 0.15: Servizi che passano sempre per intero, non solo codici e accessi: wallet, sveglie e timer,
+     * app di autenticazione, calendari. Si tolgono da Impostazioni › Notifiche › Servizi.
+     */
+    public static final String[] ALWAYS_SERVICES = {
+            "walletnfcrel", "com.samsung.android.spay",
+            "deskclock", "clockpackage", "alarmclock", "fossify.clock", "simplemobiletools.clock",
+            "authenticator", "com.authy", "twofasapp", "aegis", "freeotp", "duosecurity",
+            "com.google.android.calendar", "com.android.calendar", "com.samsung.android.calendar",
+            "proton.android.calendar", "fossify.calendar", "xsoh.etar", "simplemobiletools.calendar"};
+
+    public static boolean alwaysService(String pkg) {
+        if (pkg == null) return false;
+        for (String f : ALWAYS_SERVICES) if (pkg.contains(f)) return true;
+        return false;
+    }
+
+    /** Tolta a mano dai Servizi («!pkg:pacchetto»). */
+    static boolean optedOut(List<String> services, String pkg) {
+        if (services == null || pkg == null) return false;
+        for (String s : services) if (s.trim().equalsIgnoreCase("!pkg:" + pkg)) return true;
+        return false;
+    }
+
     /** App di calendario: i loro promemoria passano sempre (0.4). */
     public static final String[] CALENDAR_PKGS = {
             "com.google.android.calendar", "com.android.calendar", "com.samsung.android.calendar",
@@ -287,12 +311,15 @@ public final class Rules {
         if (pkg.equals("android") || pkg.equals("com.android.systemui") || pkg.startsWith("com.android.providers")) return IGNORE;
         if ((n.flags & (FLAG_ONGOING_EVENT | FLAG_FOREGROUND_SERVICE | FLAG_NO_CLEAR)) != 0) return IGNORE;
         if (n.category != null) for (String c : IGNORED_CATEGORIES) if (c.equals(n.category)) return IGNORE;
-        for (String p : ALWAYS_PASS_PKGS) if (p.equals(pkg)) return IGNORE;
+        boolean out = optedOut(cfg.services, pkg);
+        for (String p : ALWAYS_PASS_PKGS) if (p.equals(pkg) && !out) return IGNORE;
 
         if ((n.flags & FLAG_GROUP_SUMMARY) != 0) return DROP;
 
         // 0.4: i promemoria del calendario passano sempre
-        if (isCalendar(pkg)) return PASS;
+        if (isCalendar(pkg) && !out) return PASS;
+        // 0.15: wallet, sveglie, autenticazione e calendari tra i Servizi passano per intero
+        if (alwaysService(pkg) && isService(pkg, n.appLabel, cfg.services)) return PASS;
 
         String title = n.title == null ? "" : n.title;
         String all = (title + " " + (n.text == null ? "" : n.text)).toLowerCase(Locale.ITALY);

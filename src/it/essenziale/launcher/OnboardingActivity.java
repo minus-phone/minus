@@ -648,9 +648,24 @@ public class OnboardingActivity extends BaseActivity {
                     }
                 });
             }
+            // 0.15: la scelta sta nel passo, non in un popup: uno dei calendari accesi, oppure solo in −minus
             caption("I nuovi impegni vanno in");
-            String def = U.prefs(this).getString("last_cal_name", null);
-            line(def != null ? def : "Scegli un calendario", null, null, "Cambia", new Runnable() { public void run() { pickCalendar(); } });
+            final long cur = U.prefs(this).getLong("last_cal", -1);
+            for (final U.Cal k : U.writableCalendars(this)) {
+                if (U.isMinusCal(k)) continue;
+                choice(k.name, k.google() ? "Google · si vede anche in Google Calendar" : U.calNote(k), cur == k.id, true, new Runnable() {
+                    public void run() { U.setDefaultCalendar(OnboardingActivity.this, k.id, k.name); render(); }
+                });
+            }
+            final long mine = U.minusCalendar(this, false);
+            choice("Nessuno: restano in −minus", "Su questo telefono, senza andare in Google Calendar", cur >= 0 && cur == mine, true, new Runnable() {
+                public void run() {
+                    long id = U.minusCalendar(OnboardingActivity.this, true);
+                    if (id < 0) { U.toast(OnboardingActivity.this, "Non riesco a creare il calendario di −minus: scegline uno dei tuoi"); return; }
+                    U.setDefaultCalendar(OnboardingActivity.this, id, U.NAME);
+                    render();
+                }
+            });
         } else {
             LinearLayout c = card(new String[]{"Non vediamo il tuo calendario", "Senza accesso al calendario la home mostra solo i task e la sveglia."}, true);
             c.setBackground(U.box(this, U.SURFACE, U.BORDER, 14));
@@ -675,19 +690,6 @@ public class OnboardingActivity extends BaseActivity {
             public void run() { U.prefs(OnboardingActivity.this).edit().putBoolean(U.K_LOCK, !lock).apply(); render(); }
         });
         primary("Avanti", new Runnable() { public void run() { next(); } });
-    }
-
-    private void pickCalendar() {
-        final List<U.Cal> cals = U.writableCalendars(this);
-        if (cals.isEmpty()) { U.toast(this, "Nessun calendario modificabile tra quelli mostrati"); return; }
-        List<String> names = new ArrayList<String>();
-        for (U.Cal k : cals) names.add(k.name + "\n" + U.calNote(k));
-        new AlertDialog.Builder(this).setTitle("I nuovi impegni vanno in").setItems(names.toArray(new String[0]), new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface d, int w) {
-                U.prefs(OnboardingActivity.this).edit().putLong("last_cal", cals.get(w).id).putString("last_cal_name", cals.get(w).name).apply();
-                render();
-            }
-        }).show();
     }
 
     // ---------- 184 · A portata ----------

@@ -131,6 +131,14 @@ public class NrtTest {
         eq("Notifica riassuntiva di gruppo: eliminata", lvlF(def, "com.whatsapp", 0x200), Rules.DROP);
         eq("Notifica fissa (musica, navigazione): ignorata", lvlF(def, "com.spotify.music", 0x2), Rules.IGNORE);
         eq("Maps e sveglia: lasciate stare", lvl(def, "com.google.android.apps.maps", "Gira a destra", "Maps", false), Rules.IGNORE);
+        Rules.Config sv = v03Default("Cristina");
+        for (String l : ("pkg:authenticator\npkg:deskclock\npkg:com.google.android.calendar\npkg:twofasapp\n").split("\n")) sv.services.add(l);
+        eq("Servizi 0.15: un'app di autenticazione passa per intero", lvl(sv, "com.twofasapp", "Nuovo dispositivo collegato", "2FAS", false), Rules.PASS);
+        eq("Servizi 0.15: il calendario passa", lvl(sv, "com.google.android.calendar", "Pediatra alle 9:30", "Calendar", false), Rules.PASS);
+        sv.services.add("!pkg:com.google.android.calendar");
+        check("Servizi 0.15: tolto a mano dai Servizi, il calendario non passa più sempre", lvl(sv, "com.google.android.calendar", "Pediatra alle 9:30", "Calendar", false) != Rules.PASS, null);
+        check("Servizi 0.15: riconosce wallet, sveglie, autenticazione e calendari", Rules.alwaysService("com.google.android.apps.walletnfcrel") && Rules.alwaysService("com.sec.android.app.clockpackage")
+                && Rules.alwaysService("com.azure.authenticator") && Rules.alwaysService("com.samsung.android.calendar") && !Rules.alwaysService("com.instagram.android"), null);
     }
 
     static Rules.Config v03Default(String me) {
