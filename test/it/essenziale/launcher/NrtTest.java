@@ -349,6 +349,9 @@ public class NrtTest {
         eq("Pillola 0.15 (208): la seconda volta", Scopo.sheet(1, "Instagram", 11, "Rispondere a un messaggio")[1], "Sei su Instagram da 11 minuti. Volevi: rispondere a un messaggio.");
         check("Pillola 0.15 (209): dalla terza volta nessun foglio", Scopo.sheet(2, "Instagram", 16, "") == null, null);
         check("Pillola 0.15 (209): chiusa a mano si riapre dopo un minuto", !Scopo.reopen(1000, 1000 + 30000) && Scopo.reopen(1000, 1000 + 60000), null);
+        check("Pausa 0.15: torni all'app entro 3 minuti, niente pausa di nuovo", Scopo.returning("ig", 1000, "ig", 1000 + 2 * m1), null);
+        check("Pausa 0.15: dopo 3 minuti la pausa torna", !Scopo.returning("ig", 1000, "ig", 1000 + 3 * m1), null);
+        check("Pausa 0.15: vale solo per l'app che hai aperto", !Scopo.returning("ig", 1000, "tiktok", 1000 + m1) && !Scopo.returning("", 1000, "ig", 1000), null);
         check("Pillola 0.15 (209): un tocco ogni 5 minuti", !Scopo.buzz(0, 4 * m1) && Scopo.buzz(0, 5 * m1), null);
         check("Scaduto: dalla terza nessun avviso", Scopo.expired(2, "Instagram", 20, "") == null, null);
         eq("Pillola dello scopo: tempo che resta", Scopo.pill("Instagram", 5 * 60000L + 1000), "◷  Instagram · 6 min");

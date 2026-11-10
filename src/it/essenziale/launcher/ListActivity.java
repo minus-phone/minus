@@ -276,7 +276,10 @@ public class ListActivity extends BaseActivity {
             for (String code : badge.split(" · ")) {
                 if (code.trim().length() == 0) continue;
                 View b = AppIcons.badge(this, AppIcons.pkgOfCode(this, code.trim()), Rules.appName(code.trim()), U.MUTED);
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                // 0.15: la misura la decide badge (18 dp); con WRAP_CONTENT l'icona usciva alla sua misura piena
+                LinearLayout.LayoutParams lp = b.getLayoutParams() instanceof LinearLayout.LayoutParams
+                        ? (LinearLayout.LayoutParams) b.getLayoutParams()
+                        : new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                 lp.leftMargin = U.dp(this, 6);
                 icons.addView(b, lp);
                 if (said.length() > 0) said.append(", ");

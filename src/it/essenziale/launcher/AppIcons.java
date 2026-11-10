@@ -98,6 +98,7 @@ final class AppIcons {
         }
         ImageView v = new ImageView(c);
         v.setImageDrawable(d);
+        v.setScaleType(ImageView.ScaleType.FIT_CENTER);
         v.setContentDescription(name);
         v.setPadding(U.dp(c, 4), 0, U.dp(c, 4), 0);
         v.setLayoutParams(new LinearLayout.LayoutParams(U.dp(c, 26), U.dp(c, 18)));
