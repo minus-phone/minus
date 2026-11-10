@@ -180,7 +180,9 @@ public class SearchActivity extends BaseActivity {
                 for (int k = i; k < i + 3; k++) {
                     LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
                     if (k < i + 2) lp.rightMargin = U.dp(this, 14);
-                    if (k >= pt.size()) { line.addView(new View(this), lp); continue; }
+                    // 0.15: la cella vuota ha altezza 0. Con WRAP_CONTENT una View vuota prende tutta l'altezza
+                    // disponibile: con 5 app la seconda riga diventava altissima e spingeva giù persone e gruppi
+                    if (k >= pt.size()) { lp.height = 0; line.addView(new View(this), lp); continue; }
                     final String[] a = pt.get(k);
                     final boolean pz = paused.contains(a[0]);
                     line.addView(gridCell(a[1] + (pz ? " · pausa" : ""), new Runnable() { public void run() { tapped = true; openApp(a[0], a[1]); } }), lp);
