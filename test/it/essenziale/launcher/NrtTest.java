@@ -440,6 +440,11 @@ public class NrtTest {
         check("Conversazioni 0.15: aperta dalla notifica ma senza risposta non è in corso", cv.get(0).isOpen(t0 + h) && !cv.get(0).replied(t0 + h), null);
         Rules.wrote(cv, "WA", "PM Mama's Living", false, t0 + h);
         check("Conversazioni 0.15: con una tua risposta è in corso", cv.get(0).replied(t0 + 2 * h), null);
+        List<Rules.Conv> cv2 = Rules.touch(new ArrayList<Rules.Conv>(), "WA", "Marta", false, t0, true);
+        check("Elenco 0.15: aperta da una notifica, resta 2 ore", cv2.get(0).listed(t0 + h) && !cv2.get(0).listed(t0 + 3 * h), null);
+        List<Rules.Conv> cv3 = Rules.touch(new ArrayList<Rules.Conv>(), "WA", "Luca", false, t0, false);
+        check("Elenco 0.15: solo un messaggio arrivato, non entra", !cv3.get(0).listed(t0 + 60000), null);
+        check("Elenco 0.15: avviata da te o con risposta, resta 12 ore", cv.get(0).listed(t0 + 6 * h), null);
         check("Conversazioni 0.15: dopo 12 ore dalla risposta non più", !cv.get(0).replied(t0 + 14 * h), null);
         eq("Conversazioni 0.15: la risposta si salva e si rilegge", Rules.convs(Rules.convsText(cv, t0 + 2 * h)).get(0).mine, t0 + h);
         eq("Conversazioni 0.15: le righe vecchie (5 campi) si leggono ancora", Rules.convs("WA | Anna | persona | 5 | 6\n").get(0).mine, 0L);

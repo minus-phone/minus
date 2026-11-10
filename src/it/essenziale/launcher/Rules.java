@@ -65,6 +65,8 @@ public final class Rules {
 
     /** Quanto resta aperta una conversazione dopo che le hai scritto (0.4). */
     public static final long OPEN_MS = 12L * 3600 * 1000;
+    /** 0.15: una conversazione solo aperta da una notifica resta nell'elenco della Ricerca 2 ore. */
+    public static final long SEEN_MS = 2L * 3600 * 1000;
 
     static final String[] IGNORED_CATEGORIES = {"call", "alarm", "navigation", "transport", "progress", "service", "sys"};
 
@@ -382,6 +384,15 @@ public final class Rules {
         public boolean isOpen(long now) { return until > now; }
         /** 0.15: aperta e con una tua risposta nelle ultime 12 ore: è una conversazione in corso, non solo una notifica. */
         public boolean replied(long now) { return mine > 0 && mine + OPEN_MS > now && isOpen(now); }
+        /**
+         * 0.15: nell'elenco della Ricerca: avviata da te o con una tua risposta nelle ultime 12 ore, oppure
+         * aperta da una notifica nelle ultime 2 ore. Mai solo perché è arrivato un messaggio.
+         */
+        public boolean listed(long now) {
+            if (replied(now)) return true;
+            long opened = until > 0 ? until - OPEN_MS : 0;
+            return opened > 0 && now - opened >= 0 && now - opened < SEEN_MS;
+        }
         public String line() {
             return code + " | " + name.replace("|", "/") + " | " + (group ? "gruppo" : "persona") + " | " + last + " | " + until + " | " + mine;
         }

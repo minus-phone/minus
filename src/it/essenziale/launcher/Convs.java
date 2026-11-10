@@ -55,6 +55,11 @@ public final class Convs {
         save(c, Rules.touch(load(c), code, name, group, time, true));
     }
 
+    /** 0.15: l'hai avviata tu da −minus (ricerca, persone, voce): conta come una tua risposta. */
+    public static void started(Context c, String code, String name, Boolean group) {
+        wrote(c, code, name, group, System.currentTimeMillis());
+    }
+
     /** 0.15: le hai scritto davvero (la tua risposta è nella notifica, o un messaggio a voce). */
     public static synchronized void wrote(Context c, String code, String name, Boolean group, long time) {
         if (code == null || name == null || Rules.groupName(name).length() < 2) return;

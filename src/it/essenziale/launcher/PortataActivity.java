@@ -75,7 +75,7 @@ public class PortataActivity extends BaseActivity {
             public void onClick(View v) { startActivity(SettingsActivity.peopleIntent(PortataActivity.this, "A portata")); }
         });
         list.addView(link, U.full());
-        toggleRow("Conversazioni attive", "Quelle a cui hai risposto nelle ultime 12 ore: le 3 più recenti", SearchActivity.K_ACTIVE_ON, "Conversazioni attive");
+        toggleRow("Conversazioni attive", "Avviate da te o con una tua risposta (12 ore), aperte da una notifica (2 ore): le 3 più recenti", SearchActivity.K_ACTIVE_ON, "Conversazioni attive");
 
         // 0.11: le app in una sola vista, con la ricerca tra tutte (wireframe 161)
         if (picker == null) {

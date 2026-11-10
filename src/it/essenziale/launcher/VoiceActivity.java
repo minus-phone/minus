@@ -201,8 +201,7 @@ public class VoiceActivity extends BaseActivity {
         cta(text == null ? "Apri la chat" : "Apri e invia", new Runnable() {
             public void run() {
                 if (ListActivity.contact(VoiceActivity.this, app, p.target, text)) {
-                    if (text != null) Convs.wrote(VoiceActivity.this, app, p.name, false, System.currentTimeMillis());
-                    else Convs.open(VoiceActivity.this, app, p.name, false);
+                    Convs.started(VoiceActivity.this, app, p.name, false); // 0.15: avviata da te, a voce
                     SearchActivity.remember(VoiceActivity.this, "person", p.name, p.name);
                     finish();
                 }

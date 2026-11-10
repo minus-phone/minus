@@ -340,7 +340,7 @@ public class ListActivity extends BaseActivity {
         if (e.person != null) {
             // un gruppo salvato tra le persone (senza numero né username): provo con l'ultima notifica
             boolean noTarget = e.person.target.replaceAll("[^0-9]", "").length() < 6 && !e.person.target.trim().matches("@?[A-Za-z][A-Za-z0-9_]{3,}");
-            if (noTarget) for (String a : e.person.apps) if (Convs.openChat(this, a, e.person.name)) { Convs.open(this, a, e.person.name, null); return; }
+            if (noTarget) for (String a : e.person.apps) if (Convs.openChat(this, a, e.person.name)) { Convs.started(this, a, e.person.name, null); return; }
             choose(e.person);
             return;
         }
@@ -361,7 +361,7 @@ public class ListActivity extends BaseActivity {
             if (ok && e.group) U.toast(this, "Cerca «" + e.name + "» nell'app. Dal prossimo messaggio del gruppo, −minus lo apre direttamente");
             else if (!ok) U.toast(this, "Non riesco ad aprire questa conversazione");
         }
-        if (ok) Convs.open(this, e.code, e.name, e.group);
+        if (ok) Convs.started(this, e.code, e.name, e.group);
     }
 
     /** Scheda: come passano i suoi messaggi. */
@@ -511,14 +511,14 @@ public class ListActivity extends BaseActivity {
     private void choose(final Rules.Person p) {
         if (p.apps.size() <= 1) {
             String a = p.apps.isEmpty() ? "WA" : p.apps.get(0);
-            if (openPerson(p, a)) Convs.open(this, a, p.name, false);
+            if (openPerson(p, a)) Convs.started(this, a, p.name, false);
             return;
         }
         final String[] names = new String[p.apps.size()];
         for (int i = 0; i < names.length; i++) names[i] = Rules.appName(p.apps.get(i));
         new AlertDialog.Builder(this).setTitle(p.name).setItems(names, new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface d, int w) {
-                if (openPerson(p, p.apps.get(w))) Convs.open(ListActivity.this, p.apps.get(w), p.name, false);
+                if (openPerson(p, p.apps.get(w))) Convs.started(ListActivity.this, p.apps.get(w), p.name, false);
             }
         }).show();
     }
