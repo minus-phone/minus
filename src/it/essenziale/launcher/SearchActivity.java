@@ -180,7 +180,9 @@ public class SearchActivity extends BaseActivity {
                 for (int k = i; k < i + 3; k++) {
                     LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
                     if (k < i + 2) lp.rightMargin = U.dp(this, 14);
-                    if (k >= pt.size()) { line.addView(new View(this), lp); continue; }
+                    // 0.15: la cella vuota ha altezza 0. Con WRAP_CONTENT una View vuota prende tutta l'altezza
+                    // disponibile: con 5 app la seconda riga diventava altissima e spingeva giù persone e gruppi
+                    if (k >= pt.size()) { lp.height = 0; line.addView(new View(this), lp); continue; }
                     final String[] a = pt.get(k);
                     final boolean pz = paused.contains(a[0]);
                     line.addView(gridCell(a[1] + (pz ? " · pausa" : ""), new Runnable() { public void run() { tapped = true; openApp(a[0], a[1]); } }), lp);
@@ -200,12 +202,13 @@ public class SearchActivity extends BaseActivity {
         List<Rules.Conv> cs = new ArrayList<Rules.Conv>();
         if (U.prefs(this).getBoolean(K_ACTIVE_ON, true)) {
             long now = System.currentTimeMillis();
-            // 0.15: solo le conversazioni in corso, cioè a cui hai risposto: le notifiche restano in Per te
+            // 0.15: solo le conversazioni che hai avviato, a cui hai risposto o che hai aperto da una notifica:
+            // quelle non ancora aperte restano in Per te
             for (Rules.Conv c : Convs.load(this))
-                if (c.replied(now) && !Rules.isCallTitle(c.name) && !fixedKeys.contains(Cerca.norm(Rules.groupName(c.name)))
+                if (c.listed(now) && !Rules.isCallTitle(c.name) && !fixedKeys.contains(Cerca.norm(Rules.groupName(c.name)))
                         && (c.group || java.util.Collections.disjoint(fixedNums, Nums.forConv(this, c.name)))) cs.add(c);
             Collections.sort(cs, new Comparator<Rules.Conv>() {
-                public int compare(Rules.Conv a, Rules.Conv b) { return Long.compare(Math.max(b.last, b.mine), Math.max(a.last, a.mine)); }
+                public int compare(Rules.Conv a, Rules.Conv b) { return Long.compare(Rules.touched(b), Rules.touched(a)); }
             });
         }
         blocks.add(sectionLabel("Persone e gruppi"));
@@ -255,7 +258,7 @@ public class SearchActivity extends BaseActivity {
                         || (!c.group && !nums.isEmpty() && !java.util.Collections.disjoint(nums, Nums.forConv(this, c.name)));
                 if (!same) continue;
                 t = Math.max(t, Rules.touched(c));
-                if (c.replied(now)) live.add(f[0]);
+                if (c.listed(now)) live.add(f[0]);
             }
             last.put(f[0], t);
         }
@@ -685,7 +688,7 @@ public class SearchActivity extends BaseActivity {
             ok = U.launchPkg(this, U.chatPkg(this, h.code));
             if (ok && h.group) U.toast(this, "Cerca «" + h.name + "» nell'app: −minus apre il gruppo direttamente dal prossimo messaggio");
         }
-        if (ok) { Convs.open(this, h.code, h.name, h.group); remember("person", h.name, h.name); }
+        if (ok) { Convs.started(this, h.code, h.name, h.group); remember("person", h.name, h.name); }
         else U.toast(this, "Non riesco ad aprire questa conversazione");
     }
 
@@ -720,7 +723,7 @@ public class SearchActivity extends BaseActivity {
             ok = ListActivity.contact(this, app, t, null);
         }
         if (ok) {
-            if (!"TEL".equals(app) && !"MAIL".equals(app)) Convs.open(this, app, name, false);
+            if (!"TEL".equals(app) && !"MAIL".equals(app)) Convs.started(this, app, name, false);
             remember("person", name, name);
         }
     }

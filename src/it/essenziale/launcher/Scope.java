@@ -72,7 +72,7 @@ final class Scope {
     }
 
     static boolean recentlyPassed(Context c, String pkg) {
-        return pkg.equals(U.prefs(c).getString(K_PASSED, "")) && System.currentTimeMillis() - U.prefs(c).getLong(K_PASSED_AT, 0) < 15000L;
+        return Scopo.returning(U.prefs(c).getString(K_PASSED, ""), U.prefs(c).getLong(K_PASSED_AT, 0), pkg, System.currentTimeMillis());
     }
 
     static void start(Context c, String pkg, String cls, String label, String purpose, int minutes) {
@@ -279,6 +279,10 @@ final class Scope {
                 boolean own = fg.equals(c.getPackageName());
                 // uno scopo scaduto finisce quando lasci l'app
                 if (prev != null && activeFor(c, prev) && !own && U.prefs(c).getBoolean(K_EXPIRED, false)) end(c, "chiusa");
+                // 0.15: esci un attimo dall'app che hai aperto dopo la pausa (un messaggio, una notifica): il tempo per
+                // tornare senza rifarla parte da quando la lasci. Tornare a −minus invece vuol dire che hai finito.
+                if (own) U.prefs(c).edit().remove(K_PASSED).apply();
+                else if (prev != null && prev.equals(U.prefs(c).getString(K_PASSED, ""))) passed(c, prev);
                 if (!own && !activeFor(c, fg) && !recentlyPassed(c, fg) && level(c, fg) != Scopo.NONE) {
                     Intent i = new Intent(c, FrictionActivity.class);
                     i.putExtra("pkg", fg);

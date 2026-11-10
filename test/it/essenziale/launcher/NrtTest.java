@@ -349,6 +349,9 @@ public class NrtTest {
         eq("Pillola 0.15 (208): la seconda volta", Scopo.sheet(1, "Instagram", 11, "Rispondere a un messaggio")[1], "Sei su Instagram da 11 minuti. Volevi: rispondere a un messaggio.");
         check("Pillola 0.15 (209): dalla terza volta nessun foglio", Scopo.sheet(2, "Instagram", 16, "") == null, null);
         check("Pillola 0.15 (209): chiusa a mano si riapre dopo un minuto", !Scopo.reopen(1000, 1000 + 30000) && Scopo.reopen(1000, 1000 + 60000), null);
+        check("Pausa 0.15: torni all'app entro 3 minuti, niente pausa di nuovo", Scopo.returning("ig", 1000, "ig", 1000 + 2 * m1), null);
+        check("Pausa 0.15: dopo 3 minuti la pausa torna", !Scopo.returning("ig", 1000, "ig", 1000 + 3 * m1), null);
+        check("Pausa 0.15: vale solo per l'app che hai aperto", !Scopo.returning("ig", 1000, "tiktok", 1000 + m1) && !Scopo.returning("", 1000, "ig", 1000), null);
         check("Pillola 0.15 (209): un tocco ogni 5 minuti", !Scopo.buzz(0, 4 * m1) && Scopo.buzz(0, 5 * m1), null);
         check("Scaduto: dalla terza nessun avviso", Scopo.expired(2, "Instagram", 20, "") == null, null);
         eq("Pillola dello scopo: tempo che resta", Scopo.pill("Instagram", 5 * 60000L + 1000), "◷  Instagram · 6 min");
@@ -437,6 +440,11 @@ public class NrtTest {
         check("Conversazioni 0.15: aperta dalla notifica ma senza risposta non è in corso", cv.get(0).isOpen(t0 + h) && !cv.get(0).replied(t0 + h), null);
         Rules.wrote(cv, "WA", "PM Mama's Living", false, t0 + h);
         check("Conversazioni 0.15: con una tua risposta è in corso", cv.get(0).replied(t0 + 2 * h), null);
+        List<Rules.Conv> cv2 = Rules.touch(new ArrayList<Rules.Conv>(), "WA", "Marta", false, t0, true);
+        check("Elenco 0.15: aperta da una notifica, resta 2 ore", cv2.get(0).listed(t0 + h) && !cv2.get(0).listed(t0 + 3 * h), null);
+        List<Rules.Conv> cv3 = Rules.touch(new ArrayList<Rules.Conv>(), "WA", "Luca", false, t0, false);
+        check("Elenco 0.15: solo un messaggio arrivato, non entra", !cv3.get(0).listed(t0 + 60000), null);
+        check("Elenco 0.15: avviata da te o con risposta, resta 12 ore", cv.get(0).listed(t0 + 6 * h), null);
         check("Conversazioni 0.15: dopo 12 ore dalla risposta non più", !cv.get(0).replied(t0 + 14 * h), null);
         eq("Conversazioni 0.15: la risposta si salva e si rilegge", Rules.convs(Rules.convsText(cv, t0 + 2 * h)).get(0).mine, t0 + h);
         eq("Conversazioni 0.15: le righe vecchie (5 campi) si leggono ancora", Rules.convs("WA | Anna | persona | 5 | 6\n").get(0).mine, 0L);

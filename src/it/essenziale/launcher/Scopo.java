@@ -129,6 +129,14 @@ public final class Scopo {
         return now - lastBuzz >= BUZZ_MS;
     }
 
+    /** 0.15: dopo la pausa puoi uscire un attimo (un messaggio, una notifica) e tornare senza rifarla. */
+    public static final long RETURN_MS = 3 * 60000;
+
+    /** Torni entro 3 minuti all'app che hai aperto passando la pausa (il tempo parte da quando l'hai lasciata)? */
+    public static boolean returning(String passedPkg, long passedAt, String pkg, long now) {
+        return pkg != null && pkg.equals(passedPkg) && now - passedAt >= 0 && now - passedAt < RETURN_MS;
+    }
+
     static String lower(String s) {
         return s.length() == 0 ? s : Character.toLowerCase(s.charAt(0)) + s.substring(1);
     }
