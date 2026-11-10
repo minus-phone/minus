@@ -293,6 +293,9 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         registerReceiver(tick, new android.content.IntentFilter(Intent.ACTION_TIME_TICK));
         appsCache = null;
         query.clearFocus();
+        // 0.15: una stella nuova in rubrica fa passare sempre quella persona
+        java.util.List<String> starred = Stars.adoptNewStars(this);
+        if (!starred.isEmpty()) U.toast(this, android.text.TextUtils.join(", ", starred) + ": stella in rubrica, ora passa sempre");
         root.requestFocus();
         refresh();
     }

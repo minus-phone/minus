@@ -443,6 +443,11 @@ public class NrtTest {
         java.util.Set<String> lv = new java.util.HashSet<String>(java.util.Arrays.asList("Calcetto"));
         eq("Ricerca 0.15: prima le conversazioni in corso, poi le più recenti, poi l'ordine scelto", Cerca.byLast(nm, lt, lv).toString(), "[Calcetto, Nido, Andrea, Mamma]");
         eq("Ricerca 0.15: senza interazioni resta l'ordine scelto", Cerca.byLast(nm, new java.util.HashMap<String, Long>(), new java.util.HashSet<String>()).toString(), "[Mamma, Andrea, Calcetto, Nido]");
+        java.util.Map<Long, String> st = new java.util.LinkedHashMap<Long, String>();
+        st.put(1L, "Mamma"); st.put(2L, "Giulia Rossi"); st.put(3L, "Andrea");
+        java.util.Set<String> alw = new java.util.HashSet<String>(java.util.Arrays.asList("andrea"));
+        eq("Stelle 0.15: la prima volta nessuno viene aggiunto", Rules.newStars(null, st, alw).size(), 0);
+        eq("Stelle 0.15: solo le stelle nuove, e non chi passa già sempre", Rules.newStars(new java.util.HashSet<Long>(java.util.Arrays.asList(1L)), st, alw).toString(), "[2]");
         long h = 3600 * 1000L, t0 = 100 * h;
         List<Rules.Conv> cv = Rules.touch(new ArrayList<Rules.Conv>(), "WA", "PM Mama's Living", false, t0, true);
         check("Conversazioni 0.15: aperta dalla notifica ma senza risposta non è in corso", cv.get(0).isOpen(t0 + h) && !cv.get(0).replied(t0 + h), null);

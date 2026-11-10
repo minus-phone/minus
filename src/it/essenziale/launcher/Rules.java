@@ -111,6 +111,21 @@ public final class Rules {
     }
 
     /** Una persona in Conversazioni. apps: codici WA, TG, SMS, TEL, MAIL (anche più d'uno). */
+    /**
+     * 0.15: contatti che hanno preso la stella in rubrica dopo l'ultimo controllo e non sono ancora tra chi
+     * passa sempre: −minus li aggiunge. seen = le stelle già viste; null la prima volta (nessuno: si parte da qui).
+     */
+    public static List<Long> newStars(java.util.Set<Long> seen, Map<Long, String> starred, java.util.Set<String> alwaysNames) {
+        List<Long> out = new ArrayList<Long>();
+        if (seen == null) return out;
+        for (Map.Entry<Long, String> e : starred.entrySet()) {
+            if (seen.contains(e.getKey()) || e.getValue() == null) continue;
+            if (alwaysNames.contains(e.getValue().trim().toLowerCase(Locale.ITALY))) continue;
+            out.add(e.getKey());
+        }
+        return out;
+    }
+
     public static class Person {
         public String section = "", name = "", target = "";
         public List<String> apps = new ArrayList<String>();
