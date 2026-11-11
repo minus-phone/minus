@@ -369,6 +369,7 @@ public final class U {
         cfg.groups = groupRules(c);
         cfg.groupDest = groupDest(c);
         cfg.open = prefs(c).getBoolean(K_OPEN_ON, true) ? Convs.openMap(c) : null;
+        cfg.replied = prefs(c).getBoolean(K_OPEN_ON, true) ? Rules.repliedMap(Convs.load(c), System.currentTimeMillis()) : null;
         cfg.now = System.currentTimeMillis();
         return cfg;
     }
