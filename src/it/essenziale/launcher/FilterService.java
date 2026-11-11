@@ -195,6 +195,7 @@ public class FilterService extends NotificationListenerService implements Store.
         Rules.Note note = new Rules.Note();
         note.pkg = sbn.getPackageName();
         note.ownPkg = getPackageName();
+        note.fresh = U.isFreshApp(this, note.pkg);
         note.category = n.category;
         note.flags = n.flags;
         String[] tt = titleAndText(n);

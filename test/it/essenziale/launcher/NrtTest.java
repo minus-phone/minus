@@ -133,6 +133,17 @@ public class NrtTest {
         eq("Maps e sveglia: lasciate stare", lvl(def, "com.google.android.apps.maps", "Gira a destra", "Maps", false), Rules.IGNORE);
         Rules.Config sv = v03Default("Cristina");
         for (String l : ("pkg:authenticator\npkg:deskclock\npkg:com.google.android.calendar\npkg:twofasapp\n").split("\n")) sv.services.add(l);
+        Rules.Config ap = v03Default("Cristina");
+        Rules.Note nn = new Rules.Note();
+        nn.pkg = "it.pediatra.app"; nn.ownPkg = OWN; nn.title = "Promemoria visita"; nn.text = "Domani alle 10"; nn.appLabel = "Pediatra";
+        nn.fresh = true;
+        eq("App nuove 0.15: senza scelta vanno in Per te, mai in Altro", Rules.decide(nn, ap), Rules.WAITING);
+        ap.appChoice.put("it.pediatra.app", Rules.APP_ALWAYS);
+        eq("App nuove 0.15: «passano sempre»", Rules.decide(nn, ap), Rules.PASS);
+        ap.appChoice.put("it.pediatra.app", Rules.APP_OTHER);
+        eq("App nuove 0.15: «in Altro»", Rules.decide(nn, ap), Rules.OTHER);
+        nn.text = "Il tuo codice è 482913";
+        eq("App nuove 0.15: un codice passa comunque", Rules.decide(nn, ap), Rules.PASS);
         eq("Servizi 0.15: un'app di autenticazione passa per intero", lvl(sv, "com.twofasapp", "Nuovo dispositivo collegato", "2FAS", false), Rules.PASS);
         eq("Servizi 0.15: il calendario passa", lvl(sv, "com.google.android.calendar", "Pediatra alle 9:30", "Calendar", false), Rules.PASS);
         sv.services.add("!pkg:com.google.android.calendar");

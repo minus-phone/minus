@@ -270,6 +270,8 @@ public final class Rules {
         public String pkg = "", ownPkg = "", category, title = "", text = "", appLabel = "";
         public int flags;
         public boolean group;
+        /** 0.15: app installata dopo l'arrivo di questa funzione, e senza ancora una scelta */
+        public boolean fresh;
     }
 
     public static class Config {
@@ -285,7 +287,11 @@ public final class Rules {
         public Map<String, String> groupDest;
         /** 0.12.2: app di servizio (banca, pagamenti, identità digitale) */
         public List<String> services = new ArrayList<String>();
+        /** 0.15: la scelta per un'app: pacchetto -> "sempre" | "attesa" | "altro" */
+        public Map<String, String> appChoice = new java.util.HashMap<String, String>();
     }
+
+    public static final String APP_ALWAYS = "sempre", APP_WAITING = "attesa", APP_OTHER = "altro";
 
     public static final String DEST_NOTIF = "notifiche", DEST_OTHER = "altro";
 
@@ -350,6 +356,16 @@ public final class Rules {
             if (looksLikeCode(all)) return PASS;
             if (body.length() == 0) return PASS;
             if (service && ACCESS.matcher(all).find()) return PASS;
+        }
+
+        // 0.15: le app che non sono chat seguono la scelta fatta per loro; un'app nuova senza scelta va in Per te,
+        // dove −minus chiede cosa farne (mai in Altro senza che tu lo sappia)
+        if (chatCode(pkg) == null) {
+            String ch = cfg.appChoice == null ? null : cfg.appChoice.get(pkg);
+            if (APP_ALWAYS.equals(ch)) return PASS;
+            if (APP_WAITING.equals(ch)) return WAITING;
+            if (APP_OTHER.equals(ch) && !(sms || service)) return OTHER;
+            if (ch == null && n.fresh) return WAITING;
         }
 
         // 1. Persone del gruppo "Sempre", solo nei messaggi diretti e solo dalle app scelte per loro

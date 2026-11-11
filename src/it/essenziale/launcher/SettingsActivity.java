@@ -231,7 +231,11 @@ public class SettingsActivity extends BaseActivity {
         nav("Scegli dalla rubrica chi conta", "Anche con il silenzio, con la stella in rubrica", to(PeopleActivity.class), "›");
         nav("Gruppi", "App per app: quali passano sempre", to(GroupsActivity.class), "›");
         int sv = ServiziActivity.installed(this).size();
-        nav("Servizi", sv + " riconosciuti · banca, SPID, app IO: codici e accessi passano sempre", to(ServiziActivity.class), "›");
+        nav("Servizi", sv + " riconosciuti · banca, SPID, IO, salute, scuola: codici e accessi passano sempre", to(ServiziActivity.class), "›");
+        int ac = U.appChoices(this).size();
+        row("Notifiche delle app", ac == 0 ? "Per ogni app: passano sempre, in Per te o in Altro" : ac + (ac == 1 ? " app con una scelta" : " app con una scelta"), "›", new Runnable() {
+            public void run() { AppChoice.list(SettingsActivity.this, new Runnable() { public void run() { render(); } }); }
+        });
         final boolean open = U.prefs(this).getBoolean(U.K_OPEN_ON, true);
         toggle("Conversazioni aperte", "Se rispondi a qualcuno, ti avvisa per 12 ore. Gruppi 1 ora, mai di notte", open, new Runnable() {
             public void run() {
