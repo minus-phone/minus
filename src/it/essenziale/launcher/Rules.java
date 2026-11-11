@@ -280,6 +280,8 @@ public final class Rules {
         public Map<String, String> groups;
         /** Conversazioni aperte (0.4): chiave convKey(codice app, nome) -> scadenza in ms. */
         public Map<String, Long> open;
+        /** 0.15: conversazioni a cui hai scritto (non solo aperte): chiave -> scadenza. Per i gruppi conta solo questo. */
+        public Map<String, Long> replied;
         public long now;
         /** 0.6: dove vanno i gruppi in silenzio, per app: codice (WA, TG) -> "notifiche" | "altro" */
         public Map<String, String> groupDest;
@@ -318,6 +320,20 @@ public final class Rules {
         if (code == null) return false;
         Long until = cfg.open.get(convKey(code, title));
         return until != null && until > cfg.now;
+    }
+
+    static boolean isReplied(Config cfg, String pkg, String title) {
+        if (cfg.replied == null || cfg.replied.isEmpty()) return false;
+        String code = chatCode(pkg);
+        if (code == null) return false;
+        Long until = cfg.replied.get(convKey(code, title));
+        return until != null && until > cfg.now;
+    }
+
+    public static Map<String, Long> repliedMap(List<Conv> list, long now) {
+        Map<String, Long> m = new java.util.HashMap<String, Long>();
+        for (Conv c : list) if (c.replied(now)) m.put(c.key(), c.mine + OPEN_MS);
+        return m;
     }
 
     public static int decide(Note n, Config cfg) {
@@ -365,7 +381,10 @@ public final class Rules {
 
         // 0.4: conversazioni aperte, cioè a cui hai scritto nelle ultime 12 ore.
         // 0.6: un gruppo in cui scrivi passa anche se è in silenzio (il silenzio è il default dei gruppi)
-        if (isOpen(cfg, pkg, title)) {
+        // 0.15: un gruppo passa solo se gli hai scritto, non se hai solo aperto la sua notifica; e mai se l'hai
+        // messo in silenzio dopo (mettendolo in silenzio la conversazione si chiude)
+        boolean openNow = n.group && cfg.replied != null ? isReplied(cfg, pkg, title) : isOpen(cfg, pkg, title);
+        if (openNow) {
             boolean waits = false;
             if (!n.group) {
                 String t = groupName(title).toLowerCase(Locale.ITALY);
@@ -391,6 +410,9 @@ public final class Rules {
             // In silenzio va in Notifiche (contato) o in Altro (non contato), a scelta per ogni app.
             String rule = cfg.groups == null ? null : cfg.groups.get(groupName(title).toLowerCase(Locale.ITALY));
             if ("sempre".equals(rule)) return PASS;
+            // 0.15: la scelta per quel gruppo vince su quella per l'app
+            if ("altro".equals(rule)) return OTHER;
+            if ("notifiche".equals(rule)) return WAITING;
             String code = chatCode(pkg);
             String dest = cfg.groupDest == null || code == null ? null : cfg.groupDest.get(code);
             if (DEST_NOTIF.equals(dest)) return WAITING;
