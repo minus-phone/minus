@@ -95,7 +95,7 @@ public class SettingsActivity extends BaseActivity {
     private void editAlternative() {
         final android.widget.EditText e = new android.widget.EditText(this);
         e.setText(U.prefs(this).getString(Night.K_ALT, ""));
-        e.setHint("Leggere qualche pagina");
+        e.setHint("Esempio: Leggere qualche pagina");
         e.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         android.widget.FrameLayout f = new android.widget.FrameLayout(this);
         f.setPadding(U.dp(this, 20), U.dp(this, 8), U.dp(this, 20), 0);
@@ -231,7 +231,11 @@ public class SettingsActivity extends BaseActivity {
         nav("Scegli dalla rubrica chi conta", "Anche con il silenzio, con la stella in rubrica", to(PeopleActivity.class), "›");
         nav("Gruppi", "App per app: quali passano sempre", to(GroupsActivity.class), "›");
         int sv = ServiziActivity.installed(this).size();
-        nav("Servizi", sv + " riconosciuti · banca, SPID, app IO: codici e accessi passano sempre", to(ServiziActivity.class), "›");
+        nav("Servizi", sv + " riconosciuti · banca, SPID, IO, salute, scuola: codici e accessi passano sempre", to(ServiziActivity.class), "›");
+        int ac = U.appChoices(this).size();
+        row("Notifiche delle app", ac == 0 ? "Per ogni app: passano sempre, in Per te o in Altro" : ac + (ac == 1 ? " app con una scelta" : " app con una scelta"), "›", new Runnable() {
+            public void run() { AppChoice.list(SettingsActivity.this, new Runnable() { public void run() { render(); } }); }
+        });
         final boolean open = U.prefs(this).getBoolean(U.K_OPEN_ON, true);
         toggle("Conversazioni aperte", "Se rispondi a qualcuno, ti avvisa per 12 ore. Gruppi 1 ora, mai di notte", open, new Runnable() {
             public void run() {
@@ -308,7 +312,10 @@ public class SettingsActivity extends BaseActivity {
         Intent q = new Intent(this, OnboardingActivity.class).putExtra("only", OnboardingActivity.SLEEP);
         nav("Quando dormi", "Sveglia " + Notte.hhmm(Night.wakeMin(this)) + " · " + hours(Night.sleepMin(this)) + " ore", q, "›");
         nav("Ora di staccare", Notte.hhmm(Night.offMin(this)) + " · " + Night.leadMin(this) + " minuti prima di dormire", q, "›");
-        prefToggle("Modalità sera", "Grigio, domani in home, l'alternativa in vista", Night.K_EVENING, true, "Modalità sera accesa", "Modalità sera spenta");
+        int preMin = ((Night.offMin(this) - Serale.PREWARN_MIN) % 1440 + 1440) % 1440;
+        nav("Avviso e consiglio della sera", (Sera.prewarnOn(this) ? "Preavviso alle " + Notte.hhmm(preMin) : "Senza preavviso")
+                + (Sera.tipOn(this) ? " · consiglio della settimana" : ""), to(SeraActivity.class), "›");
+        prefToggle("Modalità sera", "Grigio e domani in home", Night.K_EVENING, true, "Modalità sera accesa", "Modalità sera spenta");
         nav("Chi ti raggiunge di notte", Onboarding.alwaysCount(this) + " persone che contano", to(PeopleActivity.class), "›");
         StringBuilder na = new StringBuilder();
         for (String pk : Night.nightApps(this)) { if (na.length() > 0) na.append(", "); na.append(U.appLabel(this, pk)); }

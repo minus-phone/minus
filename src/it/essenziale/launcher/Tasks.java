@@ -21,6 +21,7 @@ public final class Tasks {
         public boolean done;
         public long doneAt;
         public long order;    // 0.15: ordine scelto nella giornata (0 = non scelto: per scadenza)
+        public boolean urgent; // E001: urgente, sempre con una scadenza
     }
 
     /** 0.15: i completati restano per la vista settimana, nel giorno in cui sono stati spuntati. */
@@ -42,6 +43,7 @@ public final class Tasks {
                 t.app = o.optString("app", "");
                 if (t.app.length() == 0) t.app = null;
                 t.order = o.optLong("order");
+                t.urgent = o.optBoolean("urgent");
                 // 0.15: i completati restano 35 giorni, per la vista settimana
                 if (t.done && t.doneAt < System.currentTimeMillis() - KEEP_DONE_MS) continue;
                 out.add(t);
@@ -59,6 +61,7 @@ public final class Tasks {
                 o.put("done", t.done); o.put("doneAt", t.doneAt);
                 if (t.app != null) o.put("app", t.app);
                 if (t.order != 0) o.put("order", t.order);
+                if (t.urgent) o.put("urgent", true);
                 a.put(o);
             }
         } catch (Exception ignored) {}
@@ -67,10 +70,15 @@ public final class Tasks {
 
     public static synchronized void add(Context c, String title, long due) { add(c, title, due, null); }
 
-    public static synchronized void add(Context c, String title, long due, String app) {
+    public static synchronized void add(Context c, String title, long due, String app) { add(c, title, due, app, false); }
+
+    /** E001: urgente vuol dire con una scadenza: senza data diventa oggi. */
+    public static synchronized void add(Context c, String title, long due, String app, boolean urgent) {
         List<Task> list = all(c);
         Task t = new Task();
         t.app = app;
+        t.urgent = urgent;
+        if (urgent) due = Urgenti.dueWhenUrgent(due, U.startOfDay(0));
         t.id = String.valueOf(System.currentTimeMillis());
         t.title = title;
         t.due = due;
@@ -82,6 +90,36 @@ public final class Tasks {
         List<Task> list = all(c);
         for (Task t : list) if (t.id.equals(id)) { t.done = done; t.doneAt = done ? System.currentTimeMillis() : 0; }
         save(c, list);
+    }
+
+    /** E001: segna urgente (senza data diventa oggi) o non più urgente. */
+    public static synchronized void setUrgent(Context c, String id, boolean urgent) {
+        List<Task> list = all(c);
+        for (Task t : list) if (t.id.equals(id)) { t.urgent = urgent; if (urgent) t.due = Urgenti.dueWhenUrgent(t.due, U.startOfDay(0)); }
+        save(c, list);
+    }
+
+    public static int group(Task t) { return Urgenti.group(t.due, t.urgent, U.startOfDay(0)); }
+
+    /** E001: i task da fare della home, nell'ordine: urgenti di oggi, oggi, urgenti della settimana, scaduti, senza scadenza. */
+    public static List<Task> home(Context c) {
+        List<Task> out = new ArrayList<Task>();
+        for (Task t : all(c)) if (!t.done && Urgenti.inHome(group(t))) out.add(t);
+        sort(out);
+        return out;
+    }
+
+    /** E001 (blocco): quanti task oggi, quanti urgenti nei prossimi 7 giorni. */
+    public static int[] counts(Context c) {
+        int today = 0, urgent = 0;
+        long t0 = U.startOfDay(0);
+        for (Task t : all(c)) {
+            if (t.done) continue;
+            int g = group(t);
+            if (Urgenti.isToday(g)) today++;
+            if (t.urgent && t.due >= t0 && t.due < t0 + 7 * Urgenti.DAY) urgent++;
+        }
+        return new int[]{today, urgent};
     }
 
     public static synchronized void delete(Context c, String id) {
@@ -157,6 +195,9 @@ public final class Tasks {
         Collections.sort(l, new Comparator<Task>() {
             public int compare(Task a, Task b) {
                 if (a.done != b.done) return a.done ? 1 : -1;
+                // E001: prima il gruppo (urgenti di oggi, oggi, urgenti della settimana, scaduti, senza scadenza)
+                int ga = group(a), gb = group(b);
+                if (ga != gb) return ga < gb ? -1 : 1;
                 // 0.15: l'ordine scelto prima; i task nuovi (senza ordine) dopo, per scadenza
                 long oa = a.order == 0 ? Long.MAX_VALUE : a.order, ob = b.order == 0 ? Long.MAX_VALUE : b.order;
                 if (oa != ob) return oa < ob ? -1 : 1;

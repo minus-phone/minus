@@ -72,7 +72,7 @@ public class PeopleActivity extends BaseActivity {
 
         search = new EditText(this);
         search.setHint("Cerca in rubrica");
-        search.setHintTextColor(U.MUTED);
+        search.setHintTextColor(U.HINT);
         search.setTextColor(U.INK);
         search.setTextSize(16);
         search.setSingleLine(true);

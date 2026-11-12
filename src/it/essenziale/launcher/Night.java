@@ -76,9 +76,10 @@ final class Night {
         return on(c) && Notte.inWindow(m, Notte.bedMin(wakeMin(c), sleepMin(c)), wakeMin(c));
     }
 
-    /** Modalità sera (195): da quando è ora di staccare, home scura con domani e l'alternativa. */
+    /** Modalità sera (195): da quando è ora di staccare, home scura con domani e il consiglio della settimana. */
     static boolean evening(Context c) {
         if (!on(c) || !Notte.SCHED.equals(mode(c)) || !p(c).getBoolean(K_EVENING, true)) return false;
+        if (Sera.snoozed(c)) return false; // E002: «Ancora 15 min», una volta a sera
         Calendar k = Calendar.getInstance();
         int m = k.get(Calendar.HOUR_OF_DAY) * 60 + k.get(Calendar.MINUTE);
         return Notte.inWindow(m, offMin(c), wakeMin(c));

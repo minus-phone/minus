@@ -25,6 +25,20 @@ public class WeekActivity extends BaseActivity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         LinearLayout root = U.screen(this, "Settimana");
+        // 0.15: «Torna a questa settimana» a destra del titolo, solo fuori dalla settimana attuale
+        View title = root.getChildAt(1);
+        root.removeView(title);
+        LinearLayout tr = U.row(this);
+        tr.setGravity(Gravity.BOTTOM);
+        tr.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        backToNow = U.text(this, "Torna a questa settimana", 14, U.INK, false);
+        backToNow.setPaintFlags(backToNow.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        backToNow.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+        backToNow.setMinHeight(U.dp(this, 44));
+        backToNow.setPadding(U.dp(this, 12), 0, 0, 0);
+        backToNow.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { week = 0; render(); } });
+        tr.addView(backToNow);
+        root.addView(tr, U.full());
         // 0.6: niente + in alto; ogni giorno ha il suo +
         // ‹  19 – 25 ottobre  ›
         LinearLayout nav = U.row(this);
@@ -42,12 +56,6 @@ public class WeekActivity extends BaseActivity {
         next.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { week++; render(); } });
         nav.addView(next, new LinearLayout.LayoutParams(U.dp(this, 48), U.dp(this, 48)));
         root.addView(nav, U.full());
-        backToNow = U.text(this, "Torna a questa settimana", 14, U.INK, false);
-        backToNow.setPaintFlags(backToNow.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
-        backToNow.setGravity(Gravity.CENTER);
-        backToNow.setMinHeight(U.dp(this, 44));
-        backToNow.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { week = 0; render(); } });
-        root.addView(backToNow, U.full());
 
         ScrollView sv = new ScrollView(this);
         list = U.col(this);
@@ -82,7 +90,7 @@ public class WeekActivity extends BaseActivity {
         int base = week * 7;
         java.text.SimpleDateFormat fd = new java.text.SimpleDateFormat("d MMM", java.util.Locale.ITALY);
         range.setText(fd.format(new java.util.Date(U.startOfDay(base))) + " – " + fd.format(new java.util.Date(U.startOfDay(base + 6))));
-        backToNow.setVisibility(week == 0 ? View.INVISIBLE : View.VISIBLE);
+        backToNow.setVisibility(week == 0 ? View.GONE : View.VISIBLE);
         updated.setText("Aggiornato alle " + U.hhmm(System.currentTimeMillis()) + " · si aggiorna a ogni modifica");
         // 0.15: i task senza scadenza in alto, dove si vedono (prima stavano in fondo e si perdevano)
         if (week == 0) {
@@ -112,12 +120,21 @@ public class WeekActivity extends BaseActivity {
             });
             head.addView(plus, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
             list.addView(head, U.full());
+            // 0.15: da fare con scadenza quel giorno (oggi anche gli scaduti), più i completati in quel giorno
+            List<Tasks.Task> tasks = new java.util.ArrayList<Tasks.Task>();
+            if (d == 0) { for (Tasks.Task k : Tasks.forToday(this, false, false)) tasks.add(k); }
+            else if (d > 0) tasks.addAll(Tasks.forDay(this, day));
+            // E001: in ogni giorno gli urgenti vanno in cima, prima degli impegni
+            for (Tasks.Task k : tasks) if (k.urgent) list.addView(taskRow(k));
             List<U.Event> ev = U.events(this, day, U.startOfDay(d + 1));
             for (final U.Event e : ev) {
                 LinearLayout r = U.row(this);
                 r.setMinimumHeight(U.dp(this, 40));
                 r.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) { U.openEvent(WeekActivity.this, e); }
+                });
+                r.setOnLongClickListener(new View.OnLongClickListener() { // 0.15: Modifica impegno, Elimina impegno
+                    public boolean onLongClick(View v) { Menu.event(WeekActivity.this, e); return true; }
                 });
                 TextView t = U.text(this, e.allDay ? "giorno" : U.hhmm(e.begin), 14, U.MUTED, false);
                 t.setTypeface(U.SERIF);
@@ -128,15 +145,11 @@ public class WeekActivity extends BaseActivity {
                 ti.setEllipsize(TextUtils.TruncateAt.END);
                 r.addView(ti, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
                 if (e.repeats()) r.addView(U.text(this, "↻", 13, U.MUTED, false));
-                r.addView(U.text(this, "  ›", 16, U.MUTED, false));
                 list.addView(r);
             }
-            // 0.15: da fare con scadenza quel giorno (oggi anche gli scaduti), più i completati in quel giorno
-            List<Tasks.Task> tasks = new java.util.ArrayList<Tasks.Task>();
-            if (d == 0) { for (Tasks.Task k : Tasks.forToday(this, false, false)) tasks.add(k); }
-            else if (d > 0) tasks.addAll(Tasks.forDay(this, day));
+            for (Tasks.Task k : tasks) if (!k.urgent) list.addView(taskRow(k));
             tasks.addAll(Tasks.doneOn(this, day));
-            for (Tasks.Task k : tasks) list.addView(taskRow(k));
+            for (Tasks.Task k : tasks) if (k.done) list.addView(taskRow(k));
             if (ev.isEmpty() && tasks.isEmpty()) {
                 TextView n = U.text(this, "Niente in programma", 14, U.MUTED, false);
                 n.setPadding(0, 0, 0, U.dp(this, 6));
@@ -150,17 +163,24 @@ public class WeekActivity extends BaseActivity {
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 40));
         LinearLayout w = U.row(this);
-        w.setMinimumWidth(U.dp(this, 64));
+        w.setMinimumWidth(U.dp(this, 30));
         w.setMinimumHeight(U.dp(this, 44));
         w.setGravity(Gravity.CENTER_VERTICAL);
-        w.addView(U.checkbox(this, k.done, U.INK), new LinearLayout.LayoutParams(U.dp(this, 16), U.dp(this, 16)));
+        w.addView(U.checkbox(this, k.done, U.INK), new LinearLayout.LayoutParams(U.dp(this, 18), U.dp(this, 18)));
         r.addView(w);
+        r.setMinimumHeight(U.dp(this, 44));
         TextView ti = U.text(this, k.title, 15, k.done ? U.BORDER : U.INK, false);
+        if (k.urgent && !k.done) ti.setText(U.bang(k.title));
+        if (Tasks.overdue(k)) ti.setTypeface(android.graphics.Typeface.create(ti.getTypeface(), android.graphics.Typeface.ITALIC));
         if (k.done) ti.setPaintFlags(ti.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
         ti.setSingleLine(true);
         ti.setEllipsize(TextUtils.TruncateAt.END);
         r.addView(ti, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        if (Tasks.overdue(k)) r.addView(U.text(this, "scaduto", 12, U.ALERT, true));
+        if (Tasks.overdue(k)) {
+            TextView sc = U.text(this, "Scaduto", 12, U.MUTED, true);
+            sc.setTypeface(android.graphics.Typeface.create(U.SANS_B, android.graphics.Typeface.ITALIC));
+            r.addView(sc);
+        }
         View.OnClickListener toggle = new View.OnClickListener() {
             public void onClick(View v) { Tasks.setDone(WeekActivity.this, k.id, !k.done); render(); }
         };

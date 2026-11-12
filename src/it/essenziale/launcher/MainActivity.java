@@ -98,16 +98,18 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         head.addView(headL, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         sessionView = U.text(this, "", 13, U.MUTED, false); // tempo dall'ultimo sblocco, solo oltre la soglia
         // Notifiche ›: un accesso, senza contare; sotto, «N per te» solo se ce ne sono. Altro non si conta mai
-        LinearLayout nb = U.col(this);
+        // 0.15: «Notifiche» e il pallino con il numero sulla stessa riga
+        LinearLayout nb = U.row(this);
         nb.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         nb.setMinimumHeight(U.dp(this, 56));
         nb.setPadding(U.dp(this, 8), 0, 0, 0);
         notifBtn = U.text(this, "Notifiche", 15, U.INK, false); // 0.13.1: senza ›, per stare accanto a «Oggi / Settimana»
         notifBtn.setGravity(Gravity.END);
         nb.addView(notifBtn);
-        notifCount = U.text(this, "", 12, U.MUTED, false);
-        notifCount.setGravity(Gravity.END);
-        nb.addView(notifCount);
+        notifCount = U.badge(this, U.INK, U.BADGE);
+        LinearLayout.LayoutParams nclp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, U.dp(this, 22));
+        nclp.leftMargin = U.dp(this, 8);
+        nb.addView(notifCount, nclp);
         nb.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { startActivity(new Intent(MainActivity.this, InboxActivity.class)); }
         });
@@ -215,7 +217,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         field.setPadding(U.dp(this, 22), U.dp(this, 6), U.dp(this, 6), U.dp(this, 6));
         query = new EditText(this);
         query.setHint("Cerca, chiedi o di' un comando");
-        query.setHintTextColor(U.MUTED);
+        query.setHintTextColor(U.HINT);
         query.setTextColor(U.INK);
         query.setTextSize(17);
         query.setTypeface(U.SANS);
@@ -438,22 +440,20 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     private void buildToday() {
         // 0.6: sotto la data solo il tempo dall'ultimo sblocco; la sveglia sta in Domani
         String sl = Pill.homeText(this);
-        sessionView.setText(sl == null ? "" : sl);
+        sessionView.setText(sl == null ? "" : U.brand(sl));
         sessionView.setTextColor(U.BG);
         sessionView.setBackground(U.box(this, U.INK, 0, 16));
-        sessionWrap.setContentDescription(sl == null ? null : "Al telefono: " + sl.replace("●", "").replace("◷", "").trim() + ". Tocca per le impostazioni del tempo.");
+        sessionWrap.setContentDescription(sl == null ? null : sl.startsWith("Tra ") ? sl
+                : "Al telefono: " + sl.replace("●", "").replace("◷", "").trim() + ". Tocca per le impostazioni del tempo.");
         sessionWrap.setVisibility(sl == null ? View.INVISIBLE : View.VISIBLE);
         today.removeAllViews();
         evening = Night.evening(this);
         if (evening && U.hourNow() >= 12) {
-            // 195: la sera domani prende il posto di oggi, con l'alternativa in vista
+            // 195: la sera domani prende il posto di oggi. E002: al posto di «Invece di scorrere» l'avviso
+            // dell'ora di staccare (se il telefono era bloccato) e il consiglio della settimana
             todayEmpty = true;
-            LinearLayout c = U.col(this);
-            c.setPadding(U.dp(this, 14), U.dp(this, 12), U.dp(this, 14), U.dp(this, 12));
-            c.setBackground(U.box(this, U.SURFACE, U.LINE, 14));
-            c.addView(U.label(this, "Invece di scorrere"));
-            c.addView(U.text(this, Night.alternative(this), 16, U.INK, false));
-            today.addView(c, U.full());
+            View card = seraCard();
+            if (card != null) today.addView(card, U.full());
             return;
         }
         if (!U.hasCalendar(this)) {
@@ -476,11 +476,48 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         }
         // 0.15: prima i task da fare, nell'ordine scelto; i completati sbiaditi fino allo sblocco successivo,
         // oppure, da 3 in su, tutti in un elenco chiuso «n task completati» che resta
+        // E001: «TASK» in ordine di scadenza: urgenti di oggi, oggi, urgenti della settimana, scaduti, senza scadenza
         List<Tasks.Task> tasks = Tasks.forToday(this, true, true);
-        final List<Tasks.Task> todo = new java.util.ArrayList<Tasks.Task>();
+        final List<Tasks.Task> todo = Tasks.home(this);
         List<Tasks.Task> doneToday = new java.util.ArrayList<Tasks.Task>();
-        for (Tasks.Task t : tasks) if (t.done) doneToday.add(t); else todo.add(t);
-        for (Tasks.Task t : todo) today.addView(taskRow(t, 16, true, todo));
+        for (Tasks.Task t : tasks) if (t.done) doneToday.add(t);
+        if (!todo.isEmpty() || !doneToday.isEmpty()) {
+            if (!ev.isEmpty()) {
+                View line = new View(this); // una linea piena separa gli eventi dai task
+                line.setBackgroundColor(U.LINE);
+                LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.max(1, U.dp(this, 1)));
+                llp.topMargin = U.dp(this, 12);
+                today.addView(line, llp);
+            }
+            TextView th = U.label(this, "Task");
+            th.setTextSize(11 * U.textScale);
+            th.setPadding(0, U.dp(this, 12), 0, U.dp(this, 2));
+            today.addView(th);
+        }
+        boolean anyToday = false, split = false;
+        int urgentToday = 0;
+        for (Tasks.Task t : todo) {
+            int g = Tasks.group(t);
+            if (Urgenti.isToday(g)) anyToday = true;
+            else if (anyToday && !split) {
+                split = true; // una linea più corta, rientrata, separa i task di oggi dagli altri
+                View line = new View(this);
+                line.setBackgroundColor(U.LINE);
+                LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.max(1, U.dp(this, 1)));
+                llp.setMargins(U.dp(this, 30), U.dp(this, 4), 0, U.dp(this, 4));
+                today.addView(line, llp);
+            }
+            if (g == Urgenti.URG_TODAY) urgentToday++;
+            List<Tasks.Task> same = new java.util.ArrayList<Tasks.Task>();
+            for (Tasks.Task x : todo) if (Tasks.group(x) == g) same.add(x);
+            today.addView(taskRow(t, 16, true, same));
+        }
+        String many = Urgenti.tooMany(urgentToday);
+        if (many != null) {
+            TextView m = U.text(this, many, 13, U.MUTED, false);
+            m.setPadding(0, U.dp(this, 6), 0, U.dp(this, 6));
+            today.addView(m);
+        }
         long lastUnlock = Tasks.lastUnlock(this), midnight = U.startOfDay(0);
         boolean acc = Ordine.accordion(doneToday.size());
         int doneShown = 0;
@@ -498,6 +535,51 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         todayEmpty = ev.isEmpty() && todo.isEmpty() && doneShown == 0;
         if (todayEmpty && U.hasCalendar(this))
             today.addView(U.text(this, all.isEmpty() ? "Niente in programma oggi" : "Niente più in programma oggi", 16, U.MUTED, false));
+    }
+
+    /** E002: «È l'ora di staccare» con «Va bene» e «Ancora 15 min»; dopo «Va bene» resta il solo consiglio. */
+    private View seraCard() {
+        boolean pending = Sera.pending(this);
+        String tip = Sera.tip(this);
+        if (!pending && tip == null) return null;
+        LinearLayout c = U.col(this);
+        c.setPadding(U.dp(this, 16), U.dp(this, 14), U.dp(this, 16), U.dp(this, 14));
+        c.setBackground(U.box(this, U.SURFACE, U.LINE, 14));
+        if (pending) {
+            TextView t = U.text(this, "È l'ora di staccare", 20, U.INK, false);
+            t.setTypeface(U.SERIF_M);
+            c.addView(t);
+            TextView l = U.text(this, Sera.alarmLine(this), 15, U.MUTED, false);
+            l.setPadding(0, U.dp(this, 4), 0, 0);
+            c.addView(l);
+        }
+        if (tip != null) {
+            TextView tl = U.label(this, "Consiglio della settimana");
+            tl.setTextSize(11 * U.textScale);
+            if (!pending) tl.setPadding(0, 0, 0, U.dp(this, 4));
+            c.addView(tl);
+            c.addView(U.text(this, tip, 16, U.INK, false));
+        }
+        if (pending) {
+            LinearLayout btns = U.row(this);
+            btns.setPadding(0, U.dp(this, 12), 0, 0);
+            TextView ok = U.text(this, "Va bene", 15, U.BG, true);
+            ok.setGravity(Gravity.CENTER);
+            ok.setBackground(U.box(this, U.INK, 0, 22));
+            ok.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { Sera.ack(MainActivity.this); buildToday(); } });
+            LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(0, U.dp(this, 44), 1f);
+            blp.rightMargin = U.dp(this, 8);
+            btns.addView(ok, blp);
+            if (Sera.canSnooze(this)) {
+                TextView more = U.text(this, "Ancora 15 min", 15, U.INK, true);
+                more.setGravity(Gravity.CENTER);
+                more.setBackground(U.box(this, U.BG, U.INK, 22));
+                more.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { Sera.snooze(MainActivity.this); recreate(); } });
+                btns.addView(more, new LinearLayout.LayoutParams(0, U.dp(this, 44), 1f));
+            }
+            c.addView(btns, U.full());
+        }
+        return c;
     }
 
     private void buildTomorrow() {
@@ -548,6 +630,9 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         r.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { U.openEvent(MainActivity.this, e); }
         });
+        r.setOnLongClickListener(new View.OnLongClickListener() { // 0.15: Modifica impegno, Elimina impegno
+            public boolean onLongClick(View v) { Menu.event(MainActivity.this, e); return true; }
+        });
         int color = past ? U.MUTED : U.INK;
         TextView time = U.text(this, e.allDay ? "giorno" : U.hhmm(e.begin), sp - 1, strong ? U.INK : U.MUTED, strong);
         time.setTypeface(strong ? U.SERIF_M : U.SERIF);
@@ -563,27 +648,42 @@ public class MainActivity extends BaseActivity implements Store.Listener {
 
     private View taskRow(final Tasks.Task t, float sp, boolean showDue, final List<Tasks.Task> scope) {
         LinearLayout r = U.row(this);
-        r.setMinimumHeight(U.dp(this, 40));
+        r.setMinimumHeight(U.dp(this, 44));
         LinearLayout boxWrap = U.row(this);
-        boxWrap.setMinimumWidth(U.dp(this, 64));
+        boxWrap.setMinimumWidth(U.dp(this, 30)); // E001: casella più vicina al titolo
         boxWrap.addView(U.checkbox(this, t.done, U.INK), new LinearLayout.LayoutParams(U.dp(this, 18), U.dp(this, 18)));
         r.addView(boxWrap);
+        int g = Tasks.group(t);
+        boolean late = !t.done && g == Urgenti.OVERDUE;
+        LinearLayout col = U.col(this);
+        col.setPadding(0, 0, U.dp(this, 8), 0);
+        String lab = t.done || !showDue ? null
+                : Urgenti.label(g, new java.text.SimpleDateFormat("EEE", Locale.ITALY).format(new java.util.Date(t.due)));
+        if (lab != null) {
+            // E001: «entro gio» in grassetto, «Scaduto» in grassetto corsivo, «senza scadenza» normale; niente «oggi»
+            TextView l = U.text(this, lab, 11.5f, U.MUTED, false);
+            int style = g == Urgenti.URG_WEEK ? android.graphics.Typeface.BOLD
+                    : late ? android.graphics.Typeface.BOLD_ITALIC : android.graphics.Typeface.NORMAL;
+            l.setTypeface(android.graphics.Typeface.create(l.getTypeface(), style));
+            l.setIncludeFontPadding(false);
+            col.addView(l);
+        }
         // 0.15: i completati in un grigio meno contrastato (almeno 3:1 sullo sfondo), barrati
-        TextView title = U.text(this, t.title, sp, t.done ? U.BORDER : U.INK, false);
+        TextView title = U.text(this, "", sp, t.done ? U.BORDER : U.INK, false);
+        title.setText(t.urgent && !t.done ? U.bang(t.title) : t.title);
+        if (late) title.setTypeface(android.graphics.Typeface.create(title.getTypeface(), android.graphics.Typeface.ITALIC));
         if (t.done) title.setPaintFlags(title.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
         title.setSingleLine(true);
         title.setEllipsize(TextUtils.TruncateAt.END);
-        r.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        if (t.done) r.setContentDescription(t.title + ", completato. Tocca per riaprirlo");
-        if (showDue) {
-            String due = Tasks.dueLabel(t);
-            if (due.length() > 0) r.addView(U.text(this, due, 12, Tasks.overdue(t) ? U.ALERT : U.MUTED, Tasks.overdue(t)));
-        }
+        col.addView(title, U.full());
+        r.addView(col, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        String spoken = (t.urgent && !t.done ? "Urgente: " : "") + t.title + (lab != null ? ", " + lab : "");
+        r.setContentDescription(t.done ? t.title + ", completato. Tocca per riaprirlo" : spoken);
         View.OnClickListener toggle = new View.OnClickListener() {
             public void onClick(View v) { Tasks.setDone(MainActivity.this, t.id, !t.done); refresh(); }
         };
         if (t.app != null && !t.done && U.installed(this, t.app)) {
-            // 0.13: il task apre la sua app; la casella resta per segnarlo fatto
+            // 0.13: il task apre la sua app; la casella resta per segnarlo fatto. E001: l'app sta a destra
             final String label = U.appLabel(this, t.app);
             TextView open = U.text(this, label + " ›", 13, U.MUTED, false);
             open.setPadding(U.dp(this, 10), 0, 0, 0);
@@ -591,7 +691,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
             boxWrap.setMinimumHeight(U.dp(this, 44));
             boxWrap.setOnClickListener(toggle);
             boxWrap.setContentDescription("Segna fatto: " + t.title);
-            r.setContentDescription(t.title + ", apri " + label);
+            r.setContentDescription(spoken + ", apri " + label);
             r.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) { if (!U.launchPkg(MainActivity.this, t.app)) U.toast(MainActivity.this, "Non riesco ad aprire " + label); }
             });
@@ -602,23 +702,17 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         return r;
     }
 
-    /** 0.15: con un tocco lungo si sposta il task nella giornata, come in Keep; o si elimina. */
+    /** 0.15: con un tocco lungo si sposta il task nella giornata, come in Keep; E001: «! Urgente»; o si elimina. */
     private void taskMenu(final Tasks.Task t, final List<Tasks.Task> scope) {
-        final java.util.List<String> opts = new java.util.ArrayList<String>();
         int at = -1;
         if (scope != null) for (int i = 0; i < scope.size(); i++) if (scope.get(i).id.equals(t.id)) at = i;
-        if (at > 0) opts.add("Sposta su");
-        if (at >= 0 && at < scope.size() - 1) opts.add("Sposta giù");
-        opts.add("Elimina");
-        new AlertDialog.Builder(this).setTitle(t.title)
-                .setItems(opts.toArray(new String[0]), new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface d, int w) {
-                        String o = opts.get(w);
-                        if ("Sposta su".equals(o)) { Tasks.move(MainActivity.this, scope, t.id, -1); refresh(); }
-                        else if ("Sposta giù".equals(o)) { Tasks.move(MainActivity.this, scope, t.id, 1); refresh(); }
-                        else confirmDelete(t);
-                    }
-                }).show();
+        Menu m = new Menu(this, t.title);
+        if (at > 0) m.item("Sposta su", false, new Runnable() { public void run() { Tasks.move(MainActivity.this, scope, t.id, -1); refresh(); } });
+        if (at >= 0 && at < scope.size() - 1) m.item("Sposta giù", false, new Runnable() { public void run() { Tasks.move(MainActivity.this, scope, t.id, 1); refresh(); } });
+        if (!t.done) m.toggle(U.bang("Urgente"), "Urgente", t.urgent, new Runnable() {
+            public void run() { Tasks.setUrgent(MainActivity.this, t.id, !t.urgent); refresh(); }
+        });
+        m.item("Elimina task", true, new Runnable() { public void run() { confirmDelete(t); } }).show();
     }
 
     private void confirmDelete(final Tasks.Task t) {
@@ -636,7 +730,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         boolean on = U.listenerEnabled(this);
         filterOff.setVisibility(on ? View.GONE : View.VISIBLE);
         int n = on ? Store.count(this, Store.WAITING) : 0;
-        notifCount.setText(n == 0 ? "" : n + " per te");
+        notifCount.setText(n == 0 ? "" : String.valueOf(n));
         notifCount.setVisibility(n == 0 ? View.GONE : View.VISIBLE);
         notifBox.setContentDescription(n == 0 ? "Notifiche" : "Notifiche, " + n + " per te");
         // 0.10: una riga sola alla volta. Prima la fine della prova di «Di notte», poi la configurazione

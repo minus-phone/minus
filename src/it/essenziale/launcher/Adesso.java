@@ -77,6 +77,7 @@ final class Adesso {
         box.addView(lab);
         if (t != null) {
             TextView title = U.text(c, t.title, 18, ink, true);
+            if (t.urgent) title.setText(U.bang(t.title)); // E001: propone prima un urgente
             title.setPadding(0, U.dp(c, 6), 0, 0);
             box.addView(title, U.full());
             String due = t.due == U.startOfDay(0) ? "da oggi" : "da " + U.dayLabel(t.due).toLowerCase(Locale.ITALY);

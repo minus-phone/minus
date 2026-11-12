@@ -72,10 +72,14 @@ public final class U {
         BORDER = Color.parseColor(d ? "#6E6D68" : "#8A877F"); // 0.11: almeno 3:1 su fondo e campi (WCAG 1.4.11)
         TRACK_OFF = Color.parseColor(d ? "#6E6D68" : "#8A877F");
         ALERT = Color.parseColor(d ? "#E39A72" : "#A4461C");
+        URGENT = Color.parseColor(d ? "#F2766B" : "#B3261E");   // E001: il «!» rosso, l'unico rosso
+        HINT = Color.parseColor(d ? "#6F6E69" : "#AAA79F");     // segnaposto dei campi, più chiari del testo
+        BADGE = Color.parseColor(d ? "#3A3935" : "#DEDBD1");    // pallino con il numero accanto a «Notifiche»
         if (changed) themeStamp++;
         return changed;
     }
     public static int ALERT = Color.parseColor("#A4461C"); // scaduto, contrasto AA su BG (chiaro e scuro)
+    public static int URGENT = Color.parseColor("#B3261E"), HINT = Color.parseColor("#AAA79F"), BADGE = Color.parseColor("#DEDBD1");
     public static final int DARK = Color.parseColor("#121211");
     public static final int ON_DARK = Color.parseColor("#E9E7E1");
     public static final int ON_DARK_MUTED = Color.parseColor("#A19F98");
@@ -205,6 +209,40 @@ public final class U {
         return sw;
     }
 
+    /** 0.15: una riga con un'etichetta e l'interruttore a destra (Tutto il giorno, ! Urgente). */
+    public static LinearLayout switchRow(Context c, CharSequence label, String spoken, boolean on, View.OnClickListener l) {
+        LinearLayout r = row(c);
+        r.setMinimumHeight(dp(c, 48));
+        TextView t = text(c, "", 16, INK, false);
+        t.setText(label);
+        r.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        r.addView(toggle(c, on), new LinearLayout.LayoutParams(dp(c, 48), dp(c, 28)));
+        r.setContentDescription(spoken + ", interruttore, " + (on ? "acceso" : "spento"));
+        r.setOnClickListener(l);
+        return r;
+    }
+
+    /** 0.15: il pallino grigio chiaro con un numero (accanto a «Notifiche», «TASK»). */
+    public static TextView badge(Context c, int fg, int bg) {
+        TextView t = text(c, "", 12, fg, false);
+        t.setGravity(Gravity.CENTER);
+        t.setMinWidth(dp(c, 22));
+        t.setMinimumWidth(dp(c, 22));
+        t.setHeight(dp(c, 22));
+        t.setPadding(dp(c, 6), 0, dp(c, 6), 0);
+        t.setIncludeFontPadding(false);
+        t.setBackground(box(c, bg, 0, 11));
+        return t;
+    }
+
+    /** E001: «! Urgente» con il punto esclamativo rosso e in grassetto. */
+    public static CharSequence bang(String text) {
+        android.text.SpannableString s = new android.text.SpannableString("!  " + text);
+        s.setSpan(new android.text.style.ForegroundColorSpan(URGENT), 0, 1, 0);
+        s.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, 1, 0);
+        return s;
+    }
+
     // ---------- Configurazione ----------
     public static SharedPreferences prefs(Context c) {
         return c.getSharedPreferences("essenziale", Context.MODE_PRIVATE);
@@ -281,14 +319,59 @@ public final class U {
         ALWAYS_SERVICES = b.toString();
     }
     static final String K_SVC_ALWAYS = "services_always_v1";
+    /**
+     * 0.15: salute, famiglia e scuola tra i Servizi: i loro codici e accessi passano subito e il resto aspetta
+     * in Per te, mai in Altro. Nomi delle app e frammenti del pacchetto.
+     */
+    public static final String HEALTH_SERVICES =
+            "Salute\nSanità\nSanitario\nFascicolo\nMedico\nPediatra\nFarmacia\nOspedale\nMioDottore\nDoctolib\nPaginemediche\n" +
+            "Salutile\nTuoTempo\nASL\nATS\nFSE\nClasseViva\nArgo DidUP\nArgo Famiglia\nRegistro elettronico\nSpaggiari\n" +
+            "pkg:salute\npkg:sanita\npkg:fse\npkg:pediatr\npkg:farmac\npkg:spaggiari\npkg:classeviva\npkg:argosoft\n";
+    static final String K_SVC_HEALTH = "services_health_v1";
+    /** 0.15: scelte per app (pacchetto | sempre/attesa/altro) e da quando le app installate sono «nuove». */
+    public static final String K_APP_CHOICE = "app_choice", K_NEW_APPS_SINCE = "new_apps_since";
     public static final String K_SERVICES = "services";
     public static final String DEF_SERVICES =
             "# Servizi: banca, pagamenti, identità digitale. Mai in Altro; codici e accessi passano subito\n" +
             "pkg:bank\npkg:banca\npkg:banking\npkg:poste\npkg:pagopa\npkg:cieid\npkg:authenticator\npkg:paypal\npkg:satispay\n" +
             "pkg:revolut\npkg:fineco\npkg:intesa\npkg:unicredit\npkg:ingdirect\npkg:mediolanum\npkg:widiba\npkg:isybank\n" +
             "pkg:hype\npkg:number26\npkg:bnl\npkg:credem\npkg:bper\npkg:sella\npkg:webank\npkg:latuabanca\npkg:mps\n" +
-            "IO\nCieID\nPosteID\nBancoPosta\nSPID\nAuthenticator\nBanca\nBank\n" + SPID_SERVICES + ALWAYS_SERVICES;
+            "IO\nCieID\nPosteID\nBancoPosta\nSPID\nAuthenticator\nBanca\nBank\n" + SPID_SERVICES + ALWAYS_SERVICES + HEALTH_SERVICES;
 
+
+    public static java.util.Map<String, String> appChoices(Context c) {
+        java.util.Map<String, String> m = new java.util.LinkedHashMap<String, String>();
+        for (String[] r : rows(prefs(c).getString(K_APP_CHOICE, ""))) if (r.length >= 2) m.put(r[0].trim(), r[1].trim());
+        return m;
+    }
+
+    public static void setAppChoice(Context c, String pkg, String choice) {
+        java.util.Map<String, String> m = appChoices(c);
+        if (choice == null) m.remove(pkg); else m.put(pkg, choice);
+        StringBuilder b = new StringBuilder("# pacchetto | sempre, attesa o altro\n");
+        for (java.util.Map.Entry<String, String> e : m.entrySet()) b.append(e.getKey()).append(" | ").append(e.getValue()).append('\n');
+        prefs(c).edit().putString(K_APP_CHOICE, b.toString()).apply();
+    }
+
+    /**
+     * 0.15: un'app installata dopo −minus, che non è una chat e non ha ancora una scelta. Le app che
+     * avevi già prima di −minus non contano: le loro notifiche seguono le regole di sempre.
+     */
+    public static boolean isFreshApp(Context c, String pkg) {
+        if (pkg == null || Rules.chatCode(pkg) != null || pkg.equals(c.getPackageName())) return false;
+        SharedPreferences sp = prefs(c);
+        long since = sp.getLong(K_NEW_APPS_SINCE, 0);
+        if (since == 0) {
+            try { since = c.getPackageManager().getPackageInfo(c.getPackageName(), 0).firstInstallTime; } catch (Exception e) { since = System.currentTimeMillis(); }
+            sp.edit().putLong(K_NEW_APPS_SINCE, since).apply();
+        }
+        if (appChoices(c).containsKey(pkg)) return false;
+        try {
+            return c.getPackageManager().getPackageInfo(pkg, 0).firstInstallTime > since;
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
     public static Rules.Config ruleConfig(Context c) {
         Rules.Config cfg = new Rules.Config();
@@ -309,12 +392,22 @@ public final class U {
                 if (l.length() > 0 && !(("\n" + cur).contains("\n" + l + "\n"))) b.append(l).append('\n');
             sp.edit().putString(K_SERVICES, b.toString()).putBoolean(K_SVC_ALWAYS, true).apply();
         }
+        if (sp.contains(K_SERVICES) && !sp.getBoolean(K_SVC_HEALTH, false)) {
+            // 0.15: come sopra, una volta: salute, famiglia e scuola
+            String cur = sp.getString(K_SERVICES, "");
+            StringBuilder b = new StringBuilder(cur.endsWith("\n") || cur.length() == 0 ? cur : cur + "\n");
+            for (String l : HEALTH_SERVICES.split("\n"))
+                if (l.length() > 0 && !(("\n" + cur).contains("\n" + l + "\n"))) b.append(l).append('\n');
+            sp.edit().putString(K_SERVICES, b.toString()).putBoolean(K_SVC_HEALTH, true).apply();
+        }
         for (String[] r : rows(cfg(c, K_SERVICES, DEF_SERVICES))) cfg.services.add(r[0]);
+        cfg.appChoice = appChoices(c);
         cfg.people = Rules.people(cfg(c, K_CONTACTS, DEF_CONTACTS));
         for (String[] r : rows(cfg(c, K_WAITING_APPS, DEF_WAITING_APPS))) cfg.waitingApps.add(r[0]);
         cfg.groups = groupRules(c);
         cfg.groupDest = groupDest(c);
         cfg.open = prefs(c).getBoolean(K_OPEN_ON, true) ? Convs.openMap(c) : null;
+        cfg.replied = prefs(c).getBoolean(K_OPEN_ON, true) ? Rules.repliedMap(Convs.load(c), System.currentTimeMillis()) : null;
         cfg.now = System.currentTimeMillis();
         return cfg;
     }
@@ -1224,6 +1317,13 @@ public final class U {
             if (on) c.getContentResolver().registerContentObserver(CalendarContract.CONTENT_URI, true, o);
             else c.getContentResolver().unregisterContentObserver(o);
         } catch (Exception ignored) {}
+    }
+
+    public static long startOfDayOf(long t) {
+        Calendar k = Calendar.getInstance();
+        k.setTimeInMillis(t);
+        k.set(Calendar.HOUR_OF_DAY, 0); k.set(Calendar.MINUTE, 0); k.set(Calendar.SECOND, 0); k.set(Calendar.MILLISECOND, 0);
+        return k.getTimeInMillis();
     }
 
     public static long startOfDay(int offsetDays) {

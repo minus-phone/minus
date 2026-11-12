@@ -195,6 +195,7 @@ public class FilterService extends NotificationListenerService implements Store.
         Rules.Note note = new Rules.Note();
         note.pkg = sbn.getPackageName();
         note.ownPkg = getPackageName();
+        note.fresh = U.isFreshApp(this, note.pkg);
         note.category = n.category;
         note.flags = n.flags;
         String[] tt = titleAndText(n);
@@ -395,6 +396,7 @@ public class FilterService extends NotificationListenerService implements Store.
             if (!sessionLive) { Pill.hide(); return; }
             Pill.setPaused(sessionPaused());
             Pill.update(FilterService.this);
+            Sera.tick(FilterService.this, Pill.minusFront()); // E002: l'avviso all'ora di staccare
             handler.postDelayed(this, 30000L);
         }
     };

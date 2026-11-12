@@ -100,6 +100,21 @@ public final class Store {
         notifyChanged();
     }
 
+    /** 0.15: un gruppo messo «in silenzio, in Altro»: le sue notifiche già in Per te passano in Altro. */
+    public static void moveGroup(Context c, String name) {
+        synchronized (Store.class) {
+            List<Item> items = load(c);
+            long now = System.currentTimeMillis();
+            for (Item it : items) {
+                if (it.level != WAITING || it.title == null) continue;
+                String g = Rules.groupName(Rules.groupTitle(it.title));
+                if (g.equalsIgnoreCase(name) || Rules.groupName(it.title).equalsIgnoreCase(name)) { it.level = OTHER; it.time = now; }
+            }
+            save(c, items);
+        }
+        notifyChanged();
+    }
+
     public static void clearLevel(Context c, int level) {
         synchronized (Store.class) {
             List<Item> items = load(c);

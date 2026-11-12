@@ -32,7 +32,8 @@ public class LockActivity extends Activity {
 
     private static final int MAX_ROWS = 4;
 
-    private TextView clock, date, notif, torchBtn, alarm;
+    private TextView clock, date, notif, notifN, torchBtn, alarm;
+    private LinearLayout notifRow;
     private LinearLayout next, todo;
     private final Handler handler = new Handler();
     private boolean torchOn = false;
@@ -59,11 +60,31 @@ public class LockActivity extends Activity {
         root.setBackgroundColor(U.DARK);
         root.setPadding(U.dp(this, 28), U.dp(this, 36), U.dp(this, 28), U.dp(this, 20));
 
+        // E001: ora e data a sinistra, «Notifiche» con il numero in alto a destra, come in home
+        LinearLayout top = U.row(this);
+        top.setGravity(Gravity.TOP);
+        LinearLayout tl = U.col(this);
         clock = U.text(this, "", 56, U.ON_DARK, false);
         clock.setTypeface(U.SERIF);
-        root.addView(clock);
+        tl.addView(clock);
         date = U.text(this, "", 16, U.ON_DARK_MUTED, false);
-        root.addView(date);
+        tl.addView(date);
+        top.addView(tl, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        notifRow = U.row(this);
+        notifRow.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+        notifRow.setMinimumHeight(U.dp(this, 48));
+        notifRow.setPadding(U.dp(this, 8), U.dp(this, 10), 0, 0);
+        notif = U.text(this, "Notifiche", 15, U.ON_DARK, false);
+        notifRow.addView(notif);
+        notifN = U.badge(this, U.ON_DARK, 0xFF3A3935);
+        LinearLayout.LayoutParams nlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, U.dp(this, 22));
+        nlp.leftMargin = U.dp(this, 8);
+        notifRow.addView(notifN, nlp);
+        notifRow.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { unlockThen(new Intent(LockActivity.this, InboxActivity.class)); }
+        });
+        top.addView(notifRow);
+        root.addView(top, U.full());
         // 0.5.1: prossima sveglia entro 24 ore, sotto la data
         alarm = U.text(this, "", 15, U.ON_DARK_MUTED, false);
         alarm.setPadding(0, U.dp(this, 6), 0, 0);
@@ -82,12 +103,6 @@ public class LockActivity extends Activity {
         todo = U.col(this);
         root.addView(todo, U.full());
 
-        notif = U.text(this, "", 16, U.ON_DARK, false);
-        notif.setPadding(0, U.dp(this, 14), 0, 0);
-        notif.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { unlockThen(new Intent(LockActivity.this, InboxActivity.class)); }
-        });
-        root.addView(notif);
 
         View spacer = new View(this);
         root.addView(spacer, new LinearLayout.LayoutParams(1, 0, 1f));
@@ -208,23 +223,44 @@ public class LockActivity extends Activity {
             if (tom.size() > room) next.addView(more(tom.size() - room));
         }
 
+        // E001: sul blocco i task non si leggono. «TASK» porta due numeri: i task di oggi e, col «!»,
+        // gli urgenti dei prossimi 7 giorni. Un tocco chiede lo sblocco e apre la home sui task
         todo.removeAllViews();
-        if (!tasks.isEmpty()) {
-            todo.addView(darkLabel("Task"));
-            int max = MAX_ROWS - 1;
-            for (int i = 0; i < tasks.size() && i < max; i++) {
-                Tasks.Task t = tasks.get(i);
-                todo.addView(row("☐", t.title, Tasks.dueLabel(t), false));
+        int[] k = Tasks.counts(this);
+        if (k[0] > 0 || k[1] > 0) {
+            LinearLayout tr = U.row(this);
+            tr.setMinimumHeight(U.dp(this, 44));
+            tr.setPadding(0, U.dp(this, 10), 0, 0);
+            TextView tl = darkLabel("Task");
+            tl.setPadding(0, 0, U.dp(this, 10), 0);
+            tr.addView(tl);
+            if (k[0] > 0) {
+                TextView a = U.badge(this, U.ON_DARK, 0xFF3A3935);
+                a.setText(String.valueOf(k[0]));
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, U.dp(this, 22));
+                lp.rightMargin = U.dp(this, 8);
+                tr.addView(a, lp);
             }
-            if (tasks.size() > max) todo.addView(more(tasks.size() - max));
+            if (k[1] > 0) {
+                TextView b = U.badge(this, U.ON_DARK, 0xFF3A3935);
+                android.text.SpannableString bs = new android.text.SpannableString("! " + k[1]);
+                bs.setSpan(new android.text.style.ForegroundColorSpan(0xFFF2766B), 0, 1, 0);
+                bs.setSpan(new android.text.style.StyleSpan(Typeface.BOLD), 0, 1, 0);
+                b.setText(bs);
+                tr.addView(b, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, U.dp(this, 22)));
+            }
+            tr.setContentDescription("Task: " + k[0] + " oggi" + (k[1] > 0 ? ", " + k[1] + " urgenti questa settimana" : "") + ". Sblocca e apri la home sui task");
+            tr.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) { unlockThen(new Intent(LockActivity.this, MainActivity.class).putExtra("tasks", true)); }
+            });
+            todo.addView(tr, U.full());
         }
 
-        if (U.listenerEnabled(this)) {
-            int n = Store.count(this, Store.WAITING);
-            // 0.5.1: senza notifiche non scrivo niente
-            notif.setText(n == 1 ? "1 notifica" : n + " notifiche");
-            notif.setVisibility(n == 0 ? View.GONE : View.VISIBLE);
-        } else notif.setVisibility(View.GONE);
+        int n = U.listenerEnabled(this) ? Store.count(this, Store.WAITING) : 0;
+        notifRow.setVisibility(U.listenerEnabled(this) ? View.VISIBLE : View.GONE);
+        notifN.setText(String.valueOf(n));
+        notifN.setVisibility(n == 0 ? View.GONE : View.VISIBLE);
+        notifRow.setContentDescription(n == 0 ? "Notifiche" : "Notifiche, " + n + " per te");
     }
 
     private View eventRow(final U.Event e, boolean strong) {

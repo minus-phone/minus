@@ -96,7 +96,7 @@ public class ListActivity extends BaseActivity {
     private android.widget.EditText searchField() {
         android.widget.EditText search = new android.widget.EditText(this);
         search.setHint("Cerca una persona o un gruppo");
-        search.setHintTextColor(U.MUTED);
+        search.setHintTextColor(U.HINT);
         search.setTextColor(U.INK);
         search.setTextSize(16);
         search.setSingleLine(true);

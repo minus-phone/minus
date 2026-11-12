@@ -23,6 +23,8 @@ public final class VoiceParser {
         public String type = ASK, raw = "";
         public String person, app, text, target;
         public boolean personKnown;
+        /** E001: «task urgente …» */
+        public boolean urgent;
         /** giorni da oggi (-1 = non detto) */
         public int day = -1, fromDay = -1;
         /** minuti dalla mezzanotte (-1 = non detto) */
@@ -39,6 +41,9 @@ public final class VoiceParser {
     public static Cmd parse(String said, List<String> knownNames, Calendar now) {
         Cmd c = new Cmd();
         String orig = norm(said == null ? "" : said);
+        // E001: scritto, un «!» all'inizio rende il task urgente per oggi
+        String bang = Urgenti.bang(orig);
+        if (bang != null) orig = "task urgente " + bang;
         c.raw = orig;
         String s = orig.toLowerCase(Locale.ITALY);
         if (s.length() == 0) return c;
@@ -114,9 +119,13 @@ public final class VoiceParser {
             c.target = cleanTitle(origTail(orig, rest), true);
             return c;
         }
+        // E001: «urgente pagare la mensa», «aggiungi un task urgente …»
+        if ((rest = after(s, "urgente ")) != null) s = "task urgente " + rest;
         if ((rest = after(s, "aggiungi un task ", "aggiungi task ", "nuovo task ", "crea un task ", "crea task ", "aggiungi alla lista ",
                 "aggiungi da fare ", "da fare ", "ricordami di ", "aggiungi un promemoria ", "promemoria ", "task ")) != null) {
             c.type = TASK_ADD;
+            String r2 = after(rest, "urgente ", "urgenti ");
+            if (r2 != null) { c.urgent = true; rest = r2; }
             fillTitleAndWhen(c, orig, rest, now, false);
             return c;
         }

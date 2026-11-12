@@ -51,7 +51,7 @@ public class ContainerActivity extends BaseActivity {
 
         EditText search = new EditText(this);
         search.setHint("Cerca tra le app");
-        search.setHintTextColor(U.MUTED);
+        search.setHintTextColor(U.HINT);
         search.setTextColor(U.INK);
         search.setTextSize(16);
         search.setSingleLine(true);

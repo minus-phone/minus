@@ -24,6 +24,22 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         LinearLayout root = U.screen(this, "Notifiche");
+        // 0.15: ⚙ a destra del titolo, 26: le impostazioni delle notifiche
+        View title = root.getChildAt(1);
+        root.removeView(title);
+        LinearLayout tr = U.row(this);
+        tr.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView gear = U.text(this, "⚙", 26, U.INK, false);
+        gear.setGravity(Gravity.CENTER);
+        gear.setContentDescription("Impostazioni delle notifiche");
+        gear.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                startActivity(new android.content.Intent(InboxActivity.this, SettingsActivity.class)
+                        .putExtra("area", SettingsActivity.NOTIF).putExtra("back", "Notifiche"));
+            }
+        });
+        tr.addView(gear, new LinearLayout.LayoutParams(U.dp(this, 48), U.dp(this, 48)));
+        root.addView(tr, U.full());
 
         LinearLayout tabs = U.row(this);
         tabs.setBackground(U.box(this, U.CHIP, 0, 24));
@@ -92,6 +108,14 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
             list.addView(d, U.full());
         }
         List<Store.Item> items = Store.load(this);
+        // 0.15: un'app nuova (installata dopo −minus) arriva qui, mai in Altro, con una domanda una volta sola
+        if (level == Store.WAITING) {
+            java.util.Set<String> asked = new java.util.LinkedHashSet<String>();
+            for (Store.Item it : items) if (it.level == Store.WAITING && !asked.contains(it.pkg) && U.isFreshApp(this, it.pkg)) {
+                asked.add(it.pkg);
+                list.addView(askCard(it.pkg, it.app), U.full());
+            }
+        }
         int shown = 0;
         for (final Store.Item it : items) {
             if (it.level != level) continue;
@@ -133,6 +157,41 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
     private void style(TextView t, boolean on) {
         t.setBackground(on ? U.box(this, U.INK, 0, 20) : null);
         t.setTextColor(on ? U.BG : U.INK);
+    }
+
+    /** 0.15: «Nuova app: le sue notifiche?» con le tre scelte. */
+    private View askCard(final String pkg, final String app) {
+        LinearLayout c = U.col(this);
+        c.setPadding(U.dp(this, 14), U.dp(this, 12), U.dp(this, 14), U.dp(this, 12));
+        c.setBackground(U.box(this, U.SURFACE, U.INK, 14));
+        c.addView(U.text(this, "Nuova app · " + app, 15, U.INK, true));
+        TextView q = U.text(this, "Le sue notifiche? Si cambia in Impostazioni › Meno notifiche › Notifiche delle app.", 12, U.MUTED, false);
+        q.setPadding(0, U.dp(this, 2), 0, U.dp(this, 8));
+        c.addView(q);
+        String[][] opts = {{Rules.APP_ALWAYS, "Passano sempre"}, {Rules.APP_WAITING, "Restano qui"}, {Rules.APP_OTHER, "In Altro"}};
+        LinearLayout row = U.row(this);
+        for (final String[] o : opts) {
+            TextView t = U.text(this, o[1], 13, U.INK, false);
+            t.setGravity(Gravity.CENTER);
+            t.setMinHeight(U.dp(this, 44));
+            t.setPadding(U.dp(this, 10), 0, U.dp(this, 10), 0);
+            t.setBackground(U.box(this, U.BG, U.INK, 22));
+            t.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    Changes.track(InboxActivity.this, app + ": " + o[1].toLowerCase(java.util.Locale.ITALY), new String[]{U.K_APP_CHOICE},
+                            new Runnable() { public void run() { U.setAppChoice(InboxActivity.this, pkg, o[0]); } },
+                            new Runnable() { public void run() { render(); } });
+                }
+            });
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            lp.rightMargin = U.dp(this, 6);
+            row.addView(t, lp);
+        }
+        c.addView(row, U.full());
+        LinearLayout wrap = U.col(this);
+        wrap.setPadding(0, U.dp(this, 4), 0, U.dp(this, 10));
+        wrap.addView(c, U.full());
+        return wrap;
     }
 
     private View itemView(final Store.Item it) {
@@ -178,6 +237,11 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
         if (Rules.chatCode(it.pkg) != null && !TextUtils.isEmpty(it.title)) {
             r.setOnLongClickListener(new View.OnLongClickListener() {
                 public boolean onLongClick(View v) { Pass.sheet(InboxActivity.this, it.pkg, it.title, new Runnable() { public void run() { render(); } }); return true; }
+            });
+        } else if (Rules.chatCode(it.pkg) == null) {
+            // 0.15: per le altre app si sceglie dove vanno le sue notifiche
+            r.setOnLongClickListener(new View.OnLongClickListener() {
+                public boolean onLongClick(View v) { AppChoice.ask(InboxActivity.this, it.pkg, it.app, new Runnable() { public void run() { render(); } }); return true; }
             });
         }
         return r;

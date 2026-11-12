@@ -47,7 +47,9 @@ public class AddActivity extends BaseActivity {
     private long instBegin, instEnd;
 
     private EditText title, note;
-    private TextView tabEvent, tabTask, whenLabel, fromBtn, toBtn, calBtn, repeatBtn, allDayBox;
+    private TextView tabEvent, tabTask, whenLabel, fromBtn, toBtn, calBtn, repeatBtn;
+    private LinearLayout allDayWrap, urgentWrap;
+    private boolean urgent;
     private LinearLayout chips, eventOnly, times, tabs, calBlock, taskOnly;
     private TextView appBtn;
     private String taskApp;
@@ -133,7 +135,7 @@ public class AddActivity extends BaseActivity {
         title.setBackground(null);
         title.setTextSize(16);
         title.setTextColor(U.INK);
-        title.setHintTextColor(U.MUTED);
+        title.setHintTextColor(U.HINT);
         title.setSingleLine(true);
         title.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         tf.addView(title, new LinearLayout.LayoutParams(0, U.dp(this, 50), 1f));
@@ -150,17 +152,11 @@ public class AddActivity extends BaseActivity {
         chips = U.row(this);
         c.addView(chips, U.full());
 
+        // E001: «! Urgente» sotto la scadenza, solo per i task
+        urgentWrap = U.col(this);
+        c.addView(urgentWrap, U.full());
+
         eventOnly = U.col(this);
-        LinearLayout ad = U.row(this);
-        ad.setMinimumHeight(U.dp(this, 44));
-        ad.setPadding(0, U.dp(this, 8), 0, 0);
-        allDayBox = U.checkbox(this, allDay, U.INK);
-        ad.addView(allDayBox, new LinearLayout.LayoutParams(U.dp(this, 20), U.dp(this, 20)));
-        TextView adl = U.text(this, "Tutto il giorno", 15, U.INK, false);
-        adl.setPadding(U.dp(this, 10), 0, 0, 0);
-        ad.addView(adl);
-        ad.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { allDay = !allDay; render(); } });
-        eventOnly.addView(ad, U.full());
 
         times = U.row(this);
         times.setPadding(0, U.dp(this, 2), 0, 0);
@@ -177,6 +173,9 @@ public class AddActivity extends BaseActivity {
         times.addView(fcol, fl);
         times.addView(tcol, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         eventOnly.addView(times, U.full());
+        // 0.15: «Tutto il giorno» è un interruttore, sotto «Dalle / Alle»
+        allDayWrap = U.col(this);
+        eventOnly.addView(allDayWrap, U.full());
 
         eventOnly.addView(U.label(this, "Ripeti"));
         repeatBtn = field();
@@ -196,7 +195,7 @@ public class AddActivity extends BaseActivity {
         note.setTextSize(15);
         note.setTextColor(U.INK);
         note.setHint("Facoltative");
-        note.setHintTextColor(U.MUTED);
+        note.setHintTextColor(U.HINT);
         note.setBackground(U.box(this, U.SURFACE, U.BORDER, 12));
         note.setPadding(U.dp(this, 14), U.dp(this, 10), U.dp(this, 14), U.dp(this, 10));
         note.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
@@ -233,14 +232,7 @@ public class AddActivity extends BaseActivity {
         fromBtn.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pickTime(true); } });
         toBtn.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pickTime(false); } });
         calBtn.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pickCalendar(); } });
-        repeatBtn.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                Intent i = new Intent(AddActivity.this, RepeatActivity.class);
-                i.putExtra("rule", rec.toRule(startMillis()));
-                i.putExtra("start", startMillis());
-                startActivityForResult(i, REQ_REPEAT);
-            }
-        });
+        repeatBtn.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pickRepeat(); } });
 
         if (editing()) {
             // Inviti, promemoria, fusi orari, colori: restano all'app di calendario.
@@ -284,6 +276,7 @@ public class AddActivity extends BaseActivity {
 
         setContentView(root);
         render();
+        if (editing() && in.getBooleanExtra("ask_delete", false)) askDelete(); // 0.15: dal tocco lungo «Elimina impegno»
     }
 
     static long dayStart(long t) {
@@ -334,7 +327,7 @@ public class AddActivity extends BaseActivity {
         tabEvent.setTextColor(isEvent ? U.BG : U.INK);
         tabTask.setBackground(!isEvent ? U.box(this, U.INK, 0, 20) : null);
         tabTask.setTextColor(!isEvent ? U.BG : U.INK);
-        title.setHint(isEvent ? "Es. Pediatra" : "Es. Prenotare vaccino");
+        title.setHint(isEvent ? "Esempio: Pediatra" : "Esempio: Pagare la retta del nido");
         whenLabel.setText(isEvent ? "GIORNO" : "SCADENZA");
         eventOnly.setVisibility(isEvent ? View.VISIBLE : View.GONE);
         if (taskOnly != null) {
@@ -343,9 +336,19 @@ public class AddActivity extends BaseActivity {
             appBtn.setContentDescription("Si apre con: " + (taskApp == null ? "nessuna app" : U.appLabel(this, taskApp)));
         }
         times.setVisibility(allDay ? View.GONE : View.VISIBLE);
-        allDayBox.setText(allDay ? "✓" : "");
-        allDayBox.setTextColor(U.BG);
-        allDayBox.setBackground(allDay ? U.box(this, U.INK, 0, 4) : U.box(this, 0, U.INK, 4));
+        allDayWrap.removeAllViews();
+        allDayWrap.addView(U.switchRow(this, "Tutto il giorno", "Tutto il giorno", allDay, new View.OnClickListener() {
+            public void onClick(View v) { allDay = !allDay; render(); }
+        }), U.full());
+        urgentWrap.removeAllViews();
+        urgentWrap.setVisibility(isEvent ? View.GONE : View.VISIBLE);
+        urgentWrap.addView(U.switchRow(this, U.bang("Urgente"), "Urgente", urgent, new View.OnClickListener() {
+            public void onClick(View v) {
+                urgent = !urgent;
+                if (urgent && day == 0) day = U.startOfDay(0); // urgente vuol dire con una scadenza
+                render();
+            }
+        }), U.full());
 
         chips.removeAllViews();
         boolean custom = day != 0 && day != U.startOfDay(0) && day != U.startOfDay(1);
@@ -373,7 +376,8 @@ public class AddActivity extends BaseActivity {
         t.setBackground(on ? U.box(this, U.INK, 0, 21) : U.box(this, U.BG, U.LINE, 21));
         t.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                if (value == -1) pickDate(); else { day = value; render(); }
+                if (value == -1) pickDate();
+                else { day = value; if (day == 0) urgent = false; render(); }
             }
         });
         LinearLayout.LayoutParams lp = U.wrap();
@@ -464,13 +468,37 @@ public class AddActivity extends BaseActivity {
                 }).show();
     }
 
+    /** 0.15: «Ripeti» è una selezione di sistema, al posto della pagina. */
+    private void pickRepeat() {
+        final String[] names = {"Mai", "Ogni giorno", "Ogni settimana", "Ogni mese", "Ogni anno"};
+        final int[] freqs = {Rec.NONE, Rec.DAILY, Rec.WEEKLY, Rec.MONTHLY, Rec.YEARLY};
+        int sel = -1;
+        if (rec.custom == null && rec.interval == 1 && rec.end == Rec.END_NEVER
+                && (rec.freq != Rec.WEEKLY || rec.days == 0 || Integer.bitCount(rec.days) == 1))
+            for (int i = 0; i < freqs.length; i++) if (freqs[i] == rec.freq) sel = i;
+        new AlertDialog.Builder(this).setTitle("Ripeti")
+                .setSingleChoiceItems(names, sel, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        Rec r = new Rec();
+                        r.freq = freqs[w];
+                        rec = r;
+                        d.dismiss();
+                        render();
+                    }
+                })
+                .setNegativeButton("Annulla", null)
+                .show();
+    }
+
     // ---------- Salva ----------
 
     private void save() {
         final String t = title.getText().toString().trim();
         if (t.length() == 0) { U.toast(this, "Scrivi un titolo"); return; }
         if (!isEvent) {
-            Tasks.add(this, t, day, taskApp);
+            // E001: un «!» all'inizio rende il task urgente
+            String b = Urgenti.bang(t);
+            Tasks.add(this, b != null ? b : t, day, taskApp, urgent || b != null);
             U.toast(this, "Task aggiunto");
             finish();
             return;

@@ -270,6 +270,8 @@ public final class Rules {
         public String pkg = "", ownPkg = "", category, title = "", text = "", appLabel = "";
         public int flags;
         public boolean group;
+        /** 0.15: app installata dopo l'arrivo di questa funzione, e senza ancora una scelta */
+        public boolean fresh;
     }
 
     public static class Config {
@@ -280,12 +282,18 @@ public final class Rules {
         public Map<String, String> groups;
         /** Conversazioni aperte (0.4): chiave convKey(codice app, nome) -> scadenza in ms. */
         public Map<String, Long> open;
+        /** 0.15: conversazioni a cui hai scritto (non solo aperte): chiave -> scadenza. Per i gruppi conta solo questo. */
+        public Map<String, Long> replied;
         public long now;
         /** 0.6: dove vanno i gruppi in silenzio, per app: codice (WA, TG) -> "notifiche" | "altro" */
         public Map<String, String> groupDest;
         /** 0.12.2: app di servizio (banca, pagamenti, identità digitale) */
         public List<String> services = new ArrayList<String>();
+        /** 0.15: la scelta per un'app: pacchetto -> "sempre" | "attesa" | "altro" */
+        public Map<String, String> appChoice = new java.util.HashMap<String, String>();
     }
+
+    public static final String APP_ALWAYS = "sempre", APP_WAITING = "attesa", APP_OTHER = "altro";
 
     public static final String DEST_NOTIF = "notifiche", DEST_OTHER = "altro";
 
@@ -320,6 +328,20 @@ public final class Rules {
         return until != null && until > cfg.now;
     }
 
+    static boolean isReplied(Config cfg, String pkg, String title) {
+        if (cfg.replied == null || cfg.replied.isEmpty()) return false;
+        String code = chatCode(pkg);
+        if (code == null) return false;
+        Long until = cfg.replied.get(convKey(code, title));
+        return until != null && until > cfg.now;
+    }
+
+    public static Map<String, Long> repliedMap(List<Conv> list, long now) {
+        Map<String, Long> m = new java.util.HashMap<String, Long>();
+        for (Conv c : list) if (c.replied(now)) m.put(c.key(), c.mine + OPEN_MS);
+        return m;
+    }
+
     public static int decide(Note n, Config cfg) {
         String pkg = n.pkg;
         if (pkg.equals(n.ownPkg)) return IGNORE;
@@ -352,6 +374,16 @@ public final class Rules {
             if (service && ACCESS.matcher(all).find()) return PASS;
         }
 
+        // 0.15: le app che non sono chat seguono la scelta fatta per loro; un'app nuova senza scelta va in Per te,
+        // dove −minus chiede cosa farne (mai in Altro senza che tu lo sappia)
+        if (chatCode(pkg) == null) {
+            String ch = cfg.appChoice == null ? null : cfg.appChoice.get(pkg);
+            if (APP_ALWAYS.equals(ch)) return PASS;
+            if (APP_WAITING.equals(ch)) return WAITING;
+            if (APP_OTHER.equals(ch) && !(sms || service)) return OTHER;
+            if (ch == null && n.fresh) return WAITING;
+        }
+
         // 1. Persone del gruppo "Sempre", solo nei messaggi diretti e solo dalle app scelte per loro
         if (!n.group) {
             String t = title.toLowerCase(Locale.ITALY);
@@ -365,7 +397,10 @@ public final class Rules {
 
         // 0.4: conversazioni aperte, cioè a cui hai scritto nelle ultime 12 ore.
         // 0.6: un gruppo in cui scrivi passa anche se è in silenzio (il silenzio è il default dei gruppi)
-        if (isOpen(cfg, pkg, title)) {
+        // 0.15: un gruppo passa solo se gli hai scritto, non se hai solo aperto la sua notifica; e mai se l'hai
+        // messo in silenzio dopo (mettendolo in silenzio la conversazione si chiude)
+        boolean openNow = n.group && cfg.replied != null ? isReplied(cfg, pkg, title) : isOpen(cfg, pkg, title);
+        if (openNow) {
             boolean waits = false;
             if (!n.group) {
                 String t = groupName(title).toLowerCase(Locale.ITALY);
@@ -391,6 +426,9 @@ public final class Rules {
             // In silenzio va in Notifiche (contato) o in Altro (non contato), a scelta per ogni app.
             String rule = cfg.groups == null ? null : cfg.groups.get(groupName(title).toLowerCase(Locale.ITALY));
             if ("sempre".equals(rule)) return PASS;
+            // 0.15: la scelta per quel gruppo vince su quella per l'app
+            if ("altro".equals(rule)) return OTHER;
+            if ("notifiche".equals(rule)) return WAITING;
             String code = chatCode(pkg);
             String dest = cfg.groupDest == null || code == null ? null : cfg.groupDest.get(code);
             if (DEST_NOTIF.equals(dest)) return WAITING;
