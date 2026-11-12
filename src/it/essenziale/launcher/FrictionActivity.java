@@ -112,7 +112,7 @@ public class FrictionActivity extends Activity {
             own = new EditText(this);
             own.setHint("Scrivilo: «messaggio a Giulia»");
             own.setContentDescription("Per cosa ti serve? Scrivilo");
-            own.setHintTextColor(U.ON_DARK_MUTED);
+            own.setHintTextColor(0xFF6F6E69);
             own.setTextColor(U.ON_DARK);
             own.setTextSize(15);
             own.setSingleLine(true);

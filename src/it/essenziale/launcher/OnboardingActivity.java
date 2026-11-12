@@ -859,7 +859,7 @@ public class OnboardingActivity extends BaseActivity {
         } else {
             final EditText q = new EditText(this);
             q.setHint("Cerca in rubrica");
-            q.setHintTextColor(U.MUTED);
+            q.setHintTextColor(U.HINT);
             q.setTextColor(U.INK);
             q.setTextSize(15);
             q.setSingleLine(true);
@@ -1230,7 +1230,7 @@ public class OnboardingActivity extends BaseActivity {
 
     private void sleep() {
         title("Quando dormi");
-        sub("Ogni giorno ti avviso quando è il momento di staccare.");
+        sub("Ogni sera ti avviso quando è il momento di staccare.");
         final android.content.SharedPreferences p = U.prefs(this);
         if (!p.contains(Night.K_WAKE)) {
             int a = Night.alarmMin(this);
@@ -1255,7 +1255,7 @@ public class OnboardingActivity extends BaseActivity {
         final int lead = Night.leadMin(this);
         LinearLayout c = card(new String[]{"Vai a dormire alle " + Notte.hhmm(Notte.bedMin(wake, Night.sleepMin(this))),
                 "Ora di staccare: " + Notte.hhmm(Night.offMin(this)), lead + " minuti prima · cambiala",
-                "Da quell'ora −minus va in grigio, mostra domani in home e frena le app scelte per la notte."}, false);
+                "Da quell'ora −minus va in grigio e mostra domani in home. Te lo dice con un avviso, insieme al consiglio della settimana."}, false);
         ((TextView) c.getChildAt(1)).setTextSize(17);
         ((TextView) c.getChildAt(1)).setTextColor(U.INK);
         ((TextView) c.getChildAt(1)).setTypeface(U.SANS_B);
@@ -1272,7 +1272,12 @@ public class OnboardingActivity extends BaseActivity {
                         }).show();
             }
         });
-        ((TextView) c.getChildAt(3)).setText(U.brand("Da quell'ora −minus va in grigio, mostra domani in home e frena le app scelte per la notte."));
+        ((TextView) c.getChildAt(3)).setText(U.brand("Da quell'ora −minus va in grigio e mostra domani in home. Te lo dice con un avviso, insieme al consiglio della settimana."));
+        // E002: il preavviso, acceso di default; nessun passo in più
+        final boolean pre = Sera.prewarnOn(this);
+        line("Avvisami 10 minuti prima", "Una riga, senza suoni", pre, null, new Runnable() {
+            public void run() { p.edit().putBoolean(Sera.K_PREWARN, !pre).apply(); render(); }
+        });
         line("Facoltativo: tutto il telefono in grigio", "In Android, Modalità Riposo, stessi orari: " + Notte.hhmm(Night.offMin(this)) + " – " + Notte.hhmm(wake), null, "Apri", new Runnable() {
             public void run() { Session.openWellbeing(OnboardingActivity.this); }
         });
@@ -1345,8 +1350,8 @@ public class OnboardingActivity extends BaseActivity {
         altField = new EditText(this);
         String cur = U.prefs(this).getString(Night.K_ALT, "");
         altField.setText(cur);
-        altField.setHint("Leggere qualche pagina");
-        altField.setHintTextColor(U.MUTED);
+        altField.setHint("Esempio: Leggere qualche pagina");
+        altField.setHintTextColor(U.HINT);
         altField.setTextColor(U.INK);
         altField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         altField.setBackground(U.box(this, U.SURFACE, U.INK, 12));

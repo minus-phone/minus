@@ -46,7 +46,7 @@ public class BugActivity extends BaseActivity {
         text.setMinLines(4);
         text.setGravity(Gravity.TOP);
         text.setTextColor(U.INK);
-        text.setHintTextColor(U.MUTED);
+        text.setHintTextColor(U.HINT);
         text.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         text.setBackground(U.box(this, U.SURFACE, U.BORDER, 12));
         text.setPadding(U.dp(this, 14), U.dp(this, 12), U.dp(this, 14), U.dp(this, 12));

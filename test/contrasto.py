@@ -12,8 +12,8 @@ def L(h):
 def cr(a, b):
     a, b = L(a), L(b); return (max(a, b) + .05) / (min(a, b) + .05)
 # (primo piano, sfondo, minimo): testo 4.5, componenti e bordi dei campi 3
-PAIRS = [(f, b, 4.5) for f in ('INK', 'MUTED', 'ALERT') for b in ('BG', 'SURFACE', 'CHIP')] + \
-        [('BG', 'INK', 4.5), ('BORDER', 'BG', 3), ('BORDER', 'SURFACE', 3), ('TRACK_OFF', 'BG', 3)]
+PAIRS = [(f, b, 4.5) for f in ('INK', 'MUTED', 'ALERT', 'URGENT') for b in ('BG', 'SURFACE', 'CHIP')] + \
+        [('BG', 'INK', 4.5), ('BORDER', 'BG', 3), ('BORDER', 'SURFACE', 3), ('TRACK_OFF', 'BG', 3), ('INK', 'BADGE', 4.5)]
 bad = 0
 for th, t in T.items():
     for f, b, m in PAIRS:

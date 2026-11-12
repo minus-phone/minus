@@ -11,5 +11,7 @@ public class ScopeReceiver extends BroadcastReceiver {
         String a = i.getAction();
         if (Scope.ACT_MORE.equals(a)) Scope.extend(c);
         else if (Scope.ACT_OK.equals(a)) Scope.cancelAlert(c);
+        else if (Sera.ACT_OK.equals(a)) Sera.ack(c);       // E002: «Va bene»
+        else if (Sera.ACT_MORE.equals(a)) Sera.snooze(c);  // E002: «Ancora 15 min»
     }
 }

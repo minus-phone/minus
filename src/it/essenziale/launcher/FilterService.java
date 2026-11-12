@@ -396,6 +396,7 @@ public class FilterService extends NotificationListenerService implements Store.
             if (!sessionLive) { Pill.hide(); return; }
             Pill.setPaused(sessionPaused());
             Pill.update(FilterService.this);
+            Sera.tick(FilterService.this, Pill.minusFront()); // E002: l'avviso all'ora di staccare
             handler.postDelayed(this, 30000L);
         }
     };

@@ -77,6 +77,9 @@ final class Pill {
         H.postDelayed(new Runnable() { public void run() { update(a); } }, 800);
     }
 
+    /** E002: −minus è davanti (la home mostra l'avviso da sé). */
+    static boolean minusFront() { return resumed > 0; }
+
     /** Chiamata o navigazione in corso (lo decide FilterService). */
     static void setPaused(boolean p) { paused = p; }
 
@@ -97,6 +100,9 @@ final class Pill {
             return;
         }
         ScopePill.hide();
+        // E002: 10 minuti prima dell'ora di staccare, la stessa riga della home sulla pillola chiusa
+        String pre = Sera.prewarn(a);
+        if (pre != null && canDraw(a) && resumed == 0 && !paused) { show(a, pre); return; }
         // 0.15: appena finito uno scopo non parte subito la pillola del tempo dall'ultimo sblocco
         if (Tempo.quietAfterScope(U.prefs(a).getLong(Scope.K_ENDED_AT, 0), now)) { hideOwn(); return; }
         long start = Session.start(a);
@@ -120,6 +126,8 @@ final class Pill {
     static String homeText(Context c) {
         String scope = Scope.pillText(c);
         if (scope != null) return scope;
+        String pre = Sera.prewarn(c); // E002: il preavviso al posto della pillola del tempo
+        if (pre != null) return pre;
         if (!Session.on(c) || !U.listenerEnabled(c)) return null;
         long start = Session.start(c), now = System.currentTimeMillis();
         if (Tempo.quietAfterScope(U.prefs(c).getLong(Scope.K_ENDED_AT, 0), now)) return null;
@@ -202,9 +210,10 @@ final class Pill {
                 view.setMaxWidth(U.dp(a, 300));
                 view.setMinHeight(U.dp(a, 32));
                 view.setPadding(U.dp(a, 14), 0, U.dp(a, 14), 0);
-                view.setText(text.startsWith("◷") ? text : "●  " + text);
+                boolean pre = text.startsWith("Tra ");
+                view.setText(text.startsWith("◷") || pre ? U.brand(text) : "●  " + text);
                 view.setBackground(U.box(a, U.INK, 0, 16));
-                view.setContentDescription("Al telefono da " + text + ". Tocca per ridurlo per 10 minuti.");
+                view.setContentDescription(pre ? text : "Al telefono da " + text + ". Tocca per ridurlo per 10 minuti.");
             }
             view.requestLayout();
         } catch (Exception ignored) {

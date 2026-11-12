@@ -68,6 +68,8 @@ public class NrtTest {
         controlli();
         ordine();
         stessaPersona();
+        urgenti();
+        serale();
         System.out.println("\nTotale: " + pass + " superati, " + fail + " falliti");
         FileWriter w = new FileWriter(a.length > 0 ? a[0] : "nrt-report.md");
         w.write("# Essenziale 0.6 · NRT automatico\n\nSuperati: " + pass + " · Falliti: " + fail + "\n");
@@ -805,5 +807,61 @@ public class NrtTest {
         sv.add("pkg:com.miapp.casa");
         check("0.13: un'app aggiunta a mano è un servizio", Rules.isService("com.miapp.casa", "Casa", sv), null);
         check("Codice: 6 cifre sì, data no", Rules.looksLikeCode("codice 123456") && !Rules.looksLikeCode("il 12/10/2026") && !Rules.looksLikeCode("alle 16:30"), null);
+    }
+
+    static void urgenti() {
+        sec("E001 · Task urgenti");
+        long D = Urgenti.DAY, t0 = 100 * D;
+        eq("Urgente oggi in cima", Urgenti.group(t0, true, t0), Urgenti.URG_TODAY);
+        eq("Oggi, non urgente", Urgenti.group(t0, false, t0), Urgenti.TODAY);
+        eq("Urgente giovedì: urgenti della settimana", Urgenti.group(t0 + 2 * D, true, t0), Urgenti.URG_WEEK);
+        eq("Non urgente giovedì: resta in Settimana", Urgenti.group(t0 + 2 * D, false, t0), Urgenti.LATER);
+        eq("Urgente tra 8 giorni: fuori dalla settimana", Urgenti.group(t0 + 8 * D, true, t0), Urgenti.LATER);
+        eq("Scaduto, anche se urgente", Urgenti.group(t0 - D, true, t0), Urgenti.OVERDUE);
+        eq("Senza scadenza", Urgenti.group(0, false, t0), Urgenti.UNDATED);
+        check("Ordine: urgenti di oggi < oggi < urgenti settimana < scaduti < senza scadenza",
+                Urgenti.URG_TODAY < Urgenti.TODAY && Urgenti.TODAY < Urgenti.URG_WEEK && Urgenti.URG_WEEK < Urgenti.OVERDUE && Urgenti.OVERDUE < Urgenti.UNDATED, null);
+        eq("Etichetta «entro gio»", Urgenti.label(Urgenti.URG_WEEK, "gio"), "entro gio");
+        eq("Etichetta «Scaduto»", Urgenti.label(Urgenti.OVERDUE, "lun"), "Scaduto");
+        eq("Etichetta «senza scadenza»", Urgenti.label(Urgenti.UNDATED, ""), "senza scadenza");
+        eq("Niente «oggi»", Urgenti.label(Urgenti.TODAY, "mer"), null);
+        eq("Urgente senza data diventa oggi", Urgenti.dueWhenUrgent(0, t0), t0);
+        eq("Urgente con data la tiene", Urgenti.dueWhenUrgent(t0 + D, t0), t0 + D);
+        eq("«! pagare la mensa»", Urgenti.bang("! pagare la mensa"), "pagare la mensa");
+        eq("«!!pagare»", Urgenti.bang("!!pagare"), "pagare");
+        eq("Senza «!» niente", Urgenti.bang("pagare la mensa"), null);
+        eq("Solo «!» niente", Urgenti.bang("!"), null);
+        eq("3 urgenze: nessuna riga", Urgenti.tooMany(3), null);
+        check("4 urgenze: la riga grigia", "4 urgenze oggi: scegline una per iniziare, le altre aspettano.".equals(Urgenti.tooMany(4)), null);
+        java.util.Calendar now = java.util.Calendar.getInstance();
+        VoiceParser.Cmd c = VoiceParser.parse("task urgente pagare la mensa entro venerdì", new java.util.ArrayList<String>(), now);
+        check("Voce: «task urgente … entro venerdì» è un task urgente con un giorno", VoiceParser.TASK_ADD.equals(c.type) && c.urgent && c.day >= 0 && "pagare la mensa".equalsIgnoreCase(c.text), c.toString());
+        c = VoiceParser.parse("! pagare la mensa", new java.util.ArrayList<String>(), now);
+        check("Scritto: «! pagare la mensa» è un task urgente", VoiceParser.TASK_ADD.equals(c.type) && c.urgent && "pagare la mensa".equalsIgnoreCase(c.text), c.toString());
+        c = VoiceParser.parse("task comprare il latte", new java.util.ArrayList<String>(), now);
+        check("Un task normale non è urgente", VoiceParser.TASK_ADD.equals(c.type) && !c.urgent, c.toString());
+    }
+
+    static void serale() {
+        sec("E002 · Avviso e consiglio della sera");
+        eq("26 consigli", Serale.TIPS.length, 26);
+        check("Preavviso alle 22:35 per staccare alle 22:45", Serale.prewarn(22 * 60 + 35, 22 * 60 + 45), null);
+        check("Niente preavviso alle 22:34", !Serale.prewarn(22 * 60 + 34, 22 * 60 + 45), null);
+        check("Niente preavviso all'ora di staccare", !Serale.prewarn(22 * 60 + 45, 22 * 60 + 45), null);
+        check("Preavviso a cavallo della mezzanotte (staccare alle 0:05)", Serale.prewarn(23 * 60 + 58, 5), null);
+        eq("Mancano 7 minuti", Serale.minutesTo(22 * 60 + 38, 22 * 60 + 45), 7);
+        eq("Testo del preavviso", Serale.prewarnText(10), "Tra 10 minuti −minus passa alla sera");
+        eq("Testo dell'ultimo minuto", Serale.prewarnText(1), "Tra un minuto −minus passa alla sera");
+        eq("Schermo spento: in home allo sblocco", Serale.where(false, false, true, true), Serale.HOME);
+        eq("−minus davanti: in home", Serale.where(true, true, false, true), Serale.HOME);
+        eq("App frenata: la pillola", Serale.where(true, false, true, true), Serale.PILL);
+        eq("App frenata senza permesso di disegnare: la notifica", Serale.where(true, false, true, false), Serale.NOTIF);
+        eq("App non frenata: la notifica silenziosa", Serale.where(true, false, false, true), Serale.NOTIF);
+        eq("5 gennaio 1970 è la settimana 0", Serale.week(4), 0L);
+        eq("Domenica 11 gennaio 1970 è ancora la settimana 0", Serale.week(10), 0L);
+        eq("Lunedì 12 gennaio 1970 è la settimana 1", Serale.week(11), 1L);
+        eq("Prima settimana: il consiglio 1", Serale.tipIndex(2900, 2900), 0);
+        eq("Dopo 26 settimane il giro ricomincia", Serale.tipIndex(2926, 2900), 0);
+        eq("Settimana 27: il consiglio 2", Serale.tipIndex(2927, 2900), 1);
     }
 }

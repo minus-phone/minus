@@ -56,7 +56,7 @@ public class ServiziActivity extends BaseActivity {
         q.setPadding(U.dp(this, 16), U.dp(this, 10), U.dp(this, 16), U.dp(this, 10));
         q.setMinHeight(U.dp(this, 48));
         q.setTextColor(U.INK);
-        q.setHintTextColor(U.MUTED);
+        q.setHintTextColor(U.HINT);
         q.setBackground(U.box(this, U.SURFACE, U.BORDER, 24));
         q.addTextChangedListener(new TextWatcher() {
             public void beforeTextChanged(CharSequence s, int st, int c, int af) {}

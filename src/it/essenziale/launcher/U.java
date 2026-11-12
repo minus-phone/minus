@@ -72,10 +72,14 @@ public final class U {
         BORDER = Color.parseColor(d ? "#6E6D68" : "#8A877F"); // 0.11: almeno 3:1 su fondo e campi (WCAG 1.4.11)
         TRACK_OFF = Color.parseColor(d ? "#6E6D68" : "#8A877F");
         ALERT = Color.parseColor(d ? "#E39A72" : "#A4461C");
+        URGENT = Color.parseColor(d ? "#F2766B" : "#B3261E");   // E001: il «!» rosso, l'unico rosso
+        HINT = Color.parseColor(d ? "#6F6E69" : "#AAA79F");     // segnaposto dei campi, più chiari del testo
+        BADGE = Color.parseColor(d ? "#3A3935" : "#DEDBD1");    // pallino con il numero accanto a «Notifiche»
         if (changed) themeStamp++;
         return changed;
     }
     public static int ALERT = Color.parseColor("#A4461C"); // scaduto, contrasto AA su BG (chiaro e scuro)
+    public static int URGENT = Color.parseColor("#B3261E"), HINT = Color.parseColor("#AAA79F"), BADGE = Color.parseColor("#DEDBD1");
     public static final int DARK = Color.parseColor("#121211");
     public static final int ON_DARK = Color.parseColor("#E9E7E1");
     public static final int ON_DARK_MUTED = Color.parseColor("#A19F98");
@@ -203,6 +207,40 @@ public final class U {
         knob.setBackground(box(c, BG, 0, 10));
         sw.addView(knob, new LinearLayout.LayoutParams(dp(c, 20), dp(c, 20)));
         return sw;
+    }
+
+    /** 0.15: una riga con un'etichetta e l'interruttore a destra (Tutto il giorno, ! Urgente). */
+    public static LinearLayout switchRow(Context c, CharSequence label, String spoken, boolean on, View.OnClickListener l) {
+        LinearLayout r = row(c);
+        r.setMinimumHeight(dp(c, 48));
+        TextView t = text(c, "", 16, INK, false);
+        t.setText(label);
+        r.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        r.addView(toggle(c, on), new LinearLayout.LayoutParams(dp(c, 48), dp(c, 28)));
+        r.setContentDescription(spoken + ", interruttore, " + (on ? "acceso" : "spento"));
+        r.setOnClickListener(l);
+        return r;
+    }
+
+    /** 0.15: il pallino grigio chiaro con un numero (accanto a «Notifiche», «TASK»). */
+    public static TextView badge(Context c, int fg, int bg) {
+        TextView t = text(c, "", 12, fg, false);
+        t.setGravity(Gravity.CENTER);
+        t.setMinWidth(dp(c, 22));
+        t.setMinimumWidth(dp(c, 22));
+        t.setHeight(dp(c, 22));
+        t.setPadding(dp(c, 6), 0, dp(c, 6), 0);
+        t.setIncludeFontPadding(false);
+        t.setBackground(box(c, bg, 0, 11));
+        return t;
+    }
+
+    /** E001: «! Urgente» con il punto esclamativo rosso e in grassetto. */
+    public static CharSequence bang(String text) {
+        android.text.SpannableString s = new android.text.SpannableString("!  " + text);
+        s.setSpan(new android.text.style.ForegroundColorSpan(URGENT), 0, 1, 0);
+        s.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, 1, 0);
+        return s;
     }
 
     // ---------- Configurazione ----------
@@ -1279,6 +1317,13 @@ public final class U {
             if (on) c.getContentResolver().registerContentObserver(CalendarContract.CONTENT_URI, true, o);
             else c.getContentResolver().unregisterContentObserver(o);
         } catch (Exception ignored) {}
+    }
+
+    public static long startOfDayOf(long t) {
+        Calendar k = Calendar.getInstance();
+        k.setTimeInMillis(t);
+        k.set(Calendar.HOUR_OF_DAY, 0); k.set(Calendar.MINUTE, 0); k.set(Calendar.SECOND, 0); k.set(Calendar.MILLISECOND, 0);
+        return k.getTimeInMillis();
     }
 
     public static long startOfDay(int offsetDays) {

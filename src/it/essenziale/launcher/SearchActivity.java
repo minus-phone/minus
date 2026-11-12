@@ -84,7 +84,7 @@ public class SearchActivity extends BaseActivity {
         field.setPadding(U.dp(this, 16), U.dp(this, 2), U.dp(this, 6), U.dp(this, 2));
         query = new EditText(this);
         query.setHint("Cerca persone, app o chiedi");
-        query.setHintTextColor(U.MUTED);
+        query.setHintTextColor(U.HINT);
         query.setTextColor(U.INK);
         query.setTextSize(16);
         query.setBackground(null);

@@ -79,7 +79,7 @@ final class PortataPicker {
 
     void render() {
         q.setTextColor(U.INK);
-        q.setHintTextColor(U.MUTED);
+        q.setHintTextColor(U.HINT);
         String query = q.getText().toString().trim();
         q.setBackground(U.box(a, U.SURFACE, query.length() > 0 ? U.INK : U.BORDER, 24));
         list.removeAllViews();

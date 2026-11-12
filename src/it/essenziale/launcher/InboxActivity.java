@@ -24,6 +24,22 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         LinearLayout root = U.screen(this, "Notifiche");
+        // 0.15: ⚙ a destra del titolo, 26: le impostazioni delle notifiche
+        View title = root.getChildAt(1);
+        root.removeView(title);
+        LinearLayout tr = U.row(this);
+        tr.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView gear = U.text(this, "⚙", 26, U.INK, false);
+        gear.setGravity(Gravity.CENTER);
+        gear.setContentDescription("Impostazioni delle notifiche");
+        gear.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                startActivity(new android.content.Intent(InboxActivity.this, SettingsActivity.class)
+                        .putExtra("area", SettingsActivity.NOTIF).putExtra("back", "Notifiche"));
+            }
+        });
+        tr.addView(gear, new LinearLayout.LayoutParams(U.dp(this, 48), U.dp(this, 48)));
+        root.addView(tr, U.full());
 
         LinearLayout tabs = U.row(this);
         tabs.setBackground(U.box(this, U.CHIP, 0, 24));

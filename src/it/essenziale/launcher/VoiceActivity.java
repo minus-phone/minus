@@ -275,13 +275,14 @@ public class VoiceActivity extends BaseActivity {
     }
 
     private void taskAdd() {
-        head("TASK", "Nuovo task");
+        head("TASK", cmd.urgent ? "Nuovo task urgente" : "Nuovo task");
         line("Task", cmd.text);
-        line("Scadenza", dayText(cmd.day));
-        hint("Comparirà tra i task di oggi.");
+        // E001: urgente vuol dire con una scadenza: senza data diventa oggi
+        line("Scadenza", cmd.urgent && cmd.day < 0 ? dayText(0) : dayText(cmd.day));
+        hint(cmd.urgent ? "Comparirà in cima ai task, con il «!»." : "Comparirà tra i task di oggi.");
         cta("Aggiungi", new Runnable() {
             public void run() {
-                Tasks.add(VoiceActivity.this, cmd.text, cmd.day < 0 ? 0 : U.startOfDay(cmd.day));
+                Tasks.add(VoiceActivity.this, cmd.text, cmd.day < 0 ? 0 : U.startOfDay(cmd.day), null, cmd.urgent);
                 U.toast(VoiceActivity.this, "Task aggiunto");
                 finish();
             }
