@@ -242,7 +242,7 @@ public class ContainerActivity extends BaseActivity {
         for (String[] r : rows) if (r[0].length() > 0) s.add(r[0]);
         s.add("Conti"); s.add("Investimenti"); s.add("Altro");
         final String[] items = s.toArray(new String[0]);
-        new AlertDialog.Builder(this).setTitle("In quale sezione?").setItems(items, new DialogInterface.OnClickListener() {
+        U.dlg(this).setTitle("In quale sezione?").setItems(items, new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface d, int w) {
                 // la nuova voce va in fondo alla sua sezione
                 int at = rows.size();

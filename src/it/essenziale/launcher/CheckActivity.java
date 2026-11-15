@@ -158,7 +158,7 @@ public class CheckActivity extends BaseActivity {
 
     private void askOff() {
         String next = Checks.dueLabel(this, Controlli.next(n));
-        new AlertDialog.Builder(this).setTitle("Niente più controlli?")
+        U.dlg(this).setTitle("Niente più controlli?")
                 .setMessage("Il prossimo sarebbe il " + next + ". Se cambi idea, lo annulli da Impostazioni › Modifiche recenti.")
                 .setPositiveButton("Sì, niente più controlli", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface d, int w) {

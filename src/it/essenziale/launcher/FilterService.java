@@ -165,6 +165,7 @@ public class FilterService extends NotificationListenerService implements Store.
         it.text = tt[1];
         it.time = sbn.getPostTime();
         it.level = level;
+        it.shortcut = Store.shortcutId(n);
         if (TextUtils.isEmpty(it.title) && TextUtils.isEmpty(it.text)) { cancelNotification(sbn.getKey()); return; }
         Store.put(this, it, n.contentIntent);
         if (live) { Beta.add(this, Registro.NOTIF_WAIT); Checks.add(this, Registro.NOTIF_WAIT); }
@@ -185,6 +186,7 @@ public class FilterService extends NotificationListenerService implements Store.
             it.text = tt[1];
             it.time = sbn.getPostTime();
             it.level = Store.WAITING;
+            it.shortcut = Store.shortcutId(n);
             Store.put(this, it, n.contentIntent);
         } catch (Exception ignored) {}
     }

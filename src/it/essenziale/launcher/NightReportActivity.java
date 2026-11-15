@@ -20,7 +20,7 @@ public class NightReportActivity extends BaseActivity {
         c.setPadding(U.dp(this, 16), U.dp(this, 12), U.dp(this, 16), U.dp(this, 12));
         c.setBackground(U.box(this, U.SURFACE, U.LINE, 14));
         c.addView(U.text(this, "Di notte hai preso il telefono " + unlocks + (unlocks == 1 ? " volta" : " volte"), 15, U.INK, false));
-        c.addView(U.text(this, alts + (alts == 1 ? " volta" : " volte") + " hai scelto la tua alternativa", 15, U.INK, false));
+        c.addView(U.text(this, "Di notte hai scelto la tua alternativa " + alts + (alts == 1 ? " volta" : " volte"), 15, U.INK, false));
         c.addView(U.text(this, opens == 0 ? "Non hai aperto app con la pausa" : opens + (opens == 1 ? " volta" : " volte") + " hai aperto un'app con la pausa, in tutto " + min + " min", 15, U.INK, false));
         LinearLayout.LayoutParams clp = U.full();
         clp.topMargin = U.dp(this, 10);

@@ -36,7 +36,7 @@ public class ListActivity extends BaseActivity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         int mode = getIntent().getIntExtra(EXTRA_MODE, MODE_CONTACTS);
-        String title = mode == MODE_CONTACTS ? "Conversazioni" : mode == MODE_SHOP ? "Shop" : "Movimenti";
+        String title = mode == MODE_CONTACTS ? "Persone e gruppi" : mode == MODE_SHOP ? "Shop" : "Movimenti";
         if (getIntent().getStringExtra("title") != null) title = getIntent().getStringExtra("title"); // 0.7: da Impostazioni
         LinearLayout root = U.screen(this, title);
         this.mode = mode;
@@ -179,8 +179,11 @@ public class ListActivity extends BaseActivity {
     }
 
     /** Il modo in cui passano i suoi messaggi: 0 sempre, 1 finché vi scrivete, 2 aspettano in Notifiche. */
-    private static int modeOf(Entry e) {
-        if (e.group) return Rules.groupAlways(e.groupRule) ? 0 : 1; // 0.6: gruppi «Passa sempre» o «In silenzio»
+    private static int modeOf(android.content.Context c, Entry e) {
+        if (e.group) { // 0.16: gruppi «Passa sempre», «In Per te», «In Altro»
+            if (Rules.groupAlways(e.groupRule)) return 0;
+            return "in Altro".equals(Pass.state(c, true, e.groupRule, e.code, null, 0, 1)) ? 2 : 1;
+        }
         if (e.person == null) return 1;
         if (e.person.section.equalsIgnoreCase("Sempre")) return 0;
         if (e.person.section.equalsIgnoreCase("Attesa")) return 2;
@@ -193,27 +196,16 @@ public class ListActivity extends BaseActivity {
         for (final Entry e : entries()) {
             if (filter.length() > 0 && !low(e.name).contains(filter)) continue;
             shown++;
-            int m = modeOf(e);
-            String status = null;
-            if (e.until > now && m != 0) status = "aperta · " + Convs.until(e.until);
-            else if (m == 2) status = "aspetta in Notifiche";
-            else if (m == 0) status = "passa sempre";
-            else if (e.group) status = "in silenzio";
+            String status = Pass.state(this, e.group, e.groupRule, e.code, e.person, e.until, now);
+            if (status == null) status = "in Per te";
             String badge;
             if (e.person != null && e.person.apps.size() > 0) {
                 StringBuilder b = new StringBuilder();
                 for (String a : e.person.apps) { if (b.length() > 0) b.append(" · "); b.append(a); }
                 badge = b.toString();
             } else badge = e.code;
-            View r = convRow(e.name, e.group, status, status != null && status.startsWith("aperta"), badge);
-            // 0.6.1: un pulsante visibile per scegliere come passa (prima solo tenendo premuto)
-            TextView more = U.text(this, "⋯", 20, U.INK, false);
-            more.setGravity(Gravity.CENTER);
-            more.setContentDescription("Come passano i messaggi di " + e.name);
-            more.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View v) { sheet(e); }
-            });
-            ((LinearLayout) r).addView(more, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
+            // 0.16: le app sotto il nome, lo stato a destra come link: il tocco apre come passano
+            View r = convRow(e.name, e.group, status, badge, new Runnable() { public void run() { sheet(e); } });
             r.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) { openEntry(e); }
             });
@@ -243,57 +235,42 @@ public class ListActivity extends BaseActivity {
             }
         });
         list.addView(all, U.full());
-        TextView hint = U.text(this, "In ordine di ultimo messaggio. Quando scrivi a qualcuno da qui, da Notifiche, a voce o rispondendo dalla notifica, i suoi messaggi passano per 12 ore. Con ⋯ scegli come passano, o togli una riga dalla lista.", 12, U.MUTED, false);
+        TextView hint = U.text(this, "In ordine di ultimo messaggio. Tocca lo stato per cambiarlo.", 12, U.MUTED, false);
         hint.setPadding(0, U.dp(this, 8), 0, U.dp(this, 8));
         list.addView(hint);
     }
 
-    private View convRow(String name, boolean group, String status, boolean open, String badge) {
+    private View convRow(String name, boolean group, String status, String badge, final Runnable onStatus) {
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 60));
         r.setPadding(0, U.dp(this, 8), 0, U.dp(this, 8));
-        String n0 = name.replace("[", "").trim();
-        TextView ini = U.text(this, n0.length() > 0 ? n0.substring(0, 1).toUpperCase(java.util.Locale.ITALY) : "?", 14, U.INK, true);
-        ini.setGravity(Gravity.CENTER);
-        ini.setBackground(U.box(this, U.CHIP, 0, group ? 10 : 18));
-        ini.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        r.addView(ini, new LinearLayout.LayoutParams(U.dp(this, 36), U.dp(this, 36)));
+        r.addView(U.initial(this, name, group, 36), new LinearLayout.LayoutParams(U.dp(this, 36), U.dp(this, 36)));
         LinearLayout txt = U.col(this);
         txt.setPadding(U.dp(this, 12), 0, U.dp(this, 8), 0);
         TextView nm = U.text(this, name, 17, U.INK, false);
         nm.setSingleLine(true);
         nm.setEllipsize(android.text.TextUtils.TruncateAt.END);
         txt.addView(nm);
-        if (status != null) {
-            TextView st = U.text(this, (open ? "○ " : "") + status, 13, U.MUTED, false);
-            txt.addView(st);
+        StringBuilder apps = new StringBuilder();
+        if (badge != null) for (String code : badge.split(" · ")) {
+            if (code.trim().length() == 0) continue;
+            if (apps.length() > 0) apps.append(" · ");
+            apps.append(Rules.appName(code.trim()));
         }
+        if (group) apps.append(apps.length() > 0 ? " · gruppo" : "gruppo");
+        if (apps.length() > 0) txt.addView(U.text(this, apps.toString(), 13, U.MUTED, false));
         r.addView(txt, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        if (badge != null) {
-            // 0.15: le icone delle app al posto delle sigle WA, TG, SMS (il nome per intero se l'icona non c'è ancora)
-            LinearLayout icons = U.row(this);
-            StringBuilder said = new StringBuilder();
-            for (String code : badge.split(" · ")) {
-                if (code.trim().length() == 0) continue;
-                View b = AppIcons.badge(this, AppIcons.pkgOfCode(this, code.trim()), Rules.appName(code.trim()), U.MUTED);
-                // 0.15: la misura la decide badge (18 dp); con WRAP_CONTENT l'icona usciva alla sua misura piena
-                LinearLayout.LayoutParams lp = b.getLayoutParams() instanceof LinearLayout.LayoutParams
-                        ? (LinearLayout.LayoutParams) b.getLayoutParams()
-                        : new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-                lp.leftMargin = U.dp(this, 6);
-                icons.addView(b, lp);
-                if (said.length() > 0) said.append(", ");
-                said.append(Rules.appName(code.trim()));
-            }
-            // 0.15: con 3 app le icone vanno sotto il nome, che così non viene schiacciato
-            if (badge.split(" · ").length >= 3) {
-                if (icons.getChildCount() > 0) ((LinearLayout.LayoutParams) icons.getChildAt(0).getLayoutParams()).leftMargin = 0;
-                icons.setPadding(0, U.dp(this, 4), 0, 0);
-                txt.addView(icons);
-            } else r.addView(icons);
-            name = name + " (" + said + ")";
+        if (status != null) {
+            TextView st = U.text(this, status, 13, U.INK, false);
+            st.setPaintFlags(st.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+            st.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+            st.setMinHeight(U.dp(this, 48));
+            st.setPadding(U.dp(this, 8), 0, 0, 0);
+            st.setContentDescription(name + ": " + status + ". Cambia come passano i messaggi");
+            st.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { onStatus.run(); } });
+            r.addView(st);
         }
-        r.setContentDescription(name + (group ? ", gruppo" : "") + (status != null ? ", " + status : "") + ". Tieni premuto per scegliere come passano i messaggi");
+        r.setContentDescription(name + (apps.length() > 0 ? " (" + apps + ")" : "") + (status != null ? ", " + status : ""));
         list.addView(r, U.full());
         list.addView(U.divider(this));
         return r;
@@ -366,9 +343,9 @@ public class ListActivity extends BaseActivity {
 
     /** Scheda: come passano i suoi messaggi. */
     private void sheet(final Entry e) {
-        final String[] modes = e.group ? new String[]{"Passa sempre", "In silenzio (passa finché ci scrivi)"}
-                : new String[]{"Passano sempre", "Passano finché vi scrivete", "Aspettano in Notifiche"};
-        final int cur = modeOf(e);
+        final String[] modes = e.group ? new String[]{"Passa sempre", "In Per te", "In Altro"}
+                : new String[]{"Passa sempre", "In Per te · passa mentre vi scrivete", "In Per te · anche mentre vi scrivete"};
+        final int cur = modeOf(this, e);
         final boolean open = e.until > System.currentTimeMillis();
         // 0.6.3: una lista sola di azioni: come passano, con quale app vi scrivete, chiudi, togli
         final List<String> items = new java.util.ArrayList<String>();
@@ -379,7 +356,7 @@ public class ListActivity extends BaseActivity {
         if (open) items.add("Chiudi ora la conversazione aperta");
         final int removeAt = items.size();
         items.add("Togli dalla lista");
-        new AlertDialog.Builder(this)
+        U.dlg(this)
                 .setTitle(e.name)
                 .setItems(items.toArray(new String[0]), new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface d, int w) {
@@ -411,7 +388,7 @@ public class ListActivity extends BaseActivity {
         List<String> cur = e.person != null ? e.person.apps : U.chatAppsOf(this, e.name, e.code);
         final boolean[] on = new boolean[codes.length];
         for (int i = 0; i < codes.length; i++) on[i] = cur.contains(codes[i]);
-        new AlertDialog.Builder(this)
+        U.dlg(this)
                 .setTitle("Con " + e.name + " vi scrivete con")
                 .setMultiChoiceItems(names, on, new DialogInterface.OnMultiChoiceClickListener() {
                     public void onClick(DialogInterface d, int w, boolean c) { on[w] = c; }
@@ -468,9 +445,8 @@ public class ListActivity extends BaseActivity {
 
     private void setMode(final Entry e, final int m) {
         // 0.6: ogni scelta si annulla subito e si ritrova in Modifiche recenti
-        String desc = e.group ? e.name + (m == 0 ? ": passa sempre" : ": in silenzio")
-                : m == 0 ? e.name + ": passa sempre" : m == 2 ? e.name + ": aspetta in Notifiche" : e.name + ": passa finché vi scrivete";
-        Changes.track(this, desc, new String[]{e.group ? U.K_GROUPS : U.K_CONTACTS}, new Runnable() {
+        String desc = e.name + (m == 0 ? ": passa sempre" : e.group && m == 2 ? ": in Altro" : ": in Per te");
+        Changes.track(this, desc, e.group ? new String[]{U.K_GROUPS, Convs.KEY} : new String[]{U.K_CONTACTS}, new Runnable() {
             public void run() { applyMode(e, m); }
         }, new Runnable() {
             public void run() { list.removeAllViews(); buildContacts(); }
@@ -479,7 +455,9 @@ public class ListActivity extends BaseActivity {
 
     private void applyMode(Entry e, int m) {
         if (e.group) {
-            U.setGroupRule(this, e.name, m == 0 ? "sempre" : "silenzio");
+            U.setGroupRule(this, e.name, m == 0 ? "sempre" : m == 2 ? "altro" : "notifiche");
+            if (m > 0 && e.code != null) Convs.close(this, e.code, e.name);
+            if (m == 2) Store.moveGroup(this, e.name);
         } else {
             List<Rules.Person> people = Rules.people(U.cfg(this, U.K_CONTACTS, U.DEF_CONTACTS));
             Rules.Person p = null;
@@ -516,7 +494,7 @@ public class ListActivity extends BaseActivity {
         }
         final String[] names = new String[p.apps.size()];
         for (int i = 0; i < names.length; i++) names[i] = Rules.appName(p.apps.get(i));
-        new AlertDialog.Builder(this).setTitle(p.name).setItems(names, new DialogInterface.OnClickListener() {
+        U.dlg(this).setTitle(p.name).setItems(names, new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface d, int w) {
                 if (openPerson(p, p.apps.get(w))) Convs.started(ListActivity.this, p.apps.get(w), p.name, false);
             }

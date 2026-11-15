@@ -83,7 +83,7 @@ public class SearchActivity extends BaseActivity {
         field.setBackground(U.box(this, U.SURFACE, U.INK, 26));
         field.setPadding(U.dp(this, 16), U.dp(this, 2), U.dp(this, 6), U.dp(this, 2));
         query = new EditText(this);
-        query.setHint("Cerca persone, app o chiedi");
+        query.setHint("Cerca o chiedi");
         query.setHintTextColor(U.HINT);
         query.setTextColor(U.INK);
         query.setTextSize(16);
@@ -121,7 +121,7 @@ public class SearchActivity extends BaseActivity {
         });
         // 0.12: la tastiera resta chiusa (si vedono recenti, app e persone); si apre toccando il campo.
         // Impostazioni › App › «Apri subito la tastiera» la riporta come prima
-        if (U.prefs(this).getBoolean(U.K_KEYBOARD, false)) {
+        if (U.prefs(this).getBoolean(U.K_KEYBOARD, false) || getIntent().getBooleanExtra("kb", false)) { // E003: dal gesto, tastiera aperta
             query.requestFocus();
             getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE | android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         } else {
@@ -324,8 +324,9 @@ public class SearchActivity extends BaseActivity {
         i.setGravity(Gravity.CENTER);
         android.graphics.drawable.GradientDrawable d = new android.graphics.drawable.GradientDrawable();
         d.setCornerRadius(U.dp(this, group ? 14 : 28));
+        // 0.16: sfondo grigio, nessun bordo, iniziale in Literata regolare
         if (more) d.setStroke(U.dp(this, 1), U.MUTED, U.dp(this, 3), U.dp(this, 3));
-        else d.setStroke(Math.max(1, Math.round(U.dp(this, 1.5f))), U.INK);
+        else d.setColor(U.CHIP);
         i.setBackground(d);
         c.addView(i, new LinearLayout.LayoutParams(U.dp(this, 56), U.dp(this, 56)));
         TextView t = U.text(this, name, 14, more ? U.MUTED : U.INK, false);
@@ -479,7 +480,7 @@ public class SearchActivity extends BaseActivity {
         }
         // Chiedi, sempre per ultimo (lontano dal campo)
         List<View> ask = new ArrayList<View>();
-        ask.add(row("Chiedi «" + q + "» a Claude", null, "↗", null, new Runnable() { public void run() { ask(q); } }));
+        ask.add(row("Chiedi «" + q + "» all'assistente", null, "↗", null, new Runnable() { public void run() { ask(q); } }));
         if (!anything) {
             ask.add(row("Cerca sul web", null, "↗", null, new Runnable() { public void run() { web(q); } }));
             ask.add(row("Cerca nel Play Store", null, "↗", null, new Runnable() { public void run() { store(q); } }));
@@ -516,7 +517,7 @@ public class SearchActivity extends BaseActivity {
             if (s == 0) continue;
             Hit h = new Hit();
             h.rank = s; h.name = p.name; h.person = p; h.strong = p.section.equalsIgnoreCase("Sempre");
-            h.sub = status(conv.get(Cerca.norm(p.name)), p, null, now);
+            h.sub = status(this, conv.get(Cerca.norm(p.name)), p, null, now);
             h.badges = TextUtils.join(" ", p.apps);
             h.code = p.apps.isEmpty() ? "WA" : p.apps.get(0);
             out.add(h); seen.add(Cerca.norm(p.name));
@@ -529,7 +530,7 @@ public class SearchActivity extends BaseActivity {
             if (s == 0) continue;
             Hit h = new Hit();
             h.rank = s; h.name = Rules.groupName(c.name); h.code = c.code; h.group = c.group; h.badges = c.code;
-            h.sub = status(c, null, rule, now);
+            h.sub = status(this, c, null, rule, now);
             out.add(h); seen.add(k);
         }
         if (Onboarding.hasContacts(this) && Cerca.norm(q).length() >= 2) {
@@ -557,14 +558,10 @@ public class SearchActivity extends BaseActivity {
         return out;
     }
 
-    private static String status(Rules.Conv c, Rules.Person p, String groupRule, long now) {
-        if (c != null && c.isOpen(now) && (p == null || !p.section.equalsIgnoreCase("Sempre"))) return "aperta · " + Convs.until(c.until);
-        if (p != null) {
-            if (p.section.equalsIgnoreCase("Sempre")) return "passa sempre";
-            if (p.section.equalsIgnoreCase("Attesa")) return "aspetta in Notifiche";
-            return "passa finché vi scrivete";
-        }
-        if (c != null && c.group) return Rules.groupAlways(groupRule) ? "passa sempre" : "in silenzio";
+    private static String status(android.content.Context ctx, Rules.Conv c, Rules.Person p, String groupRule, long now) {
+        // 0.16: gli stessi quattro stati di Persone e gruppi
+        String st = Pass.state(ctx, c != null && c.group, groupRule, c == null ? null : c.code, p, c != null && c.isOpen(now) ? c.until : 0, now);
+        if (st != null) return st;
         if (c != null && c.last >= U.startOfDay(0)) return "ti ha scritto alle " + U.hhmm(c.last);
         return null;
     }
@@ -629,9 +626,7 @@ public class SearchActivity extends BaseActivity {
         LinearLayout row = U.row(this);
         row.setMinimumHeight(U.dp(this, 54));
         String n0 = h.name.replace("[", "").trim();
-        TextView ini = U.text(this, n0.length() > 0 ? n0.substring(0, 1).toUpperCase(Locale.ITALY) : "?", 13, U.INK, true);
-        ini.setGravity(Gravity.CENTER);
-        ini.setBackground(U.box(this, U.CHIP, 0, h.group ? 9 : 16));
+        View ini = U.initial(this, h.name, h.group, 32);
         row.addView(ini, new LinearLayout.LayoutParams(U.dp(this, 32), U.dp(this, 32)));
         LinearLayout tx = U.col(this);
         tx.setPadding(U.dp(this, 12), 0, U.dp(this, 6), 0);
@@ -639,19 +634,20 @@ public class SearchActivity extends BaseActivity {
         t.setSingleLine(true);
         t.setEllipsize(TextUtils.TruncateAt.END);
         tx.addView(t);
-        if (h.sub != null) tx.addView(U.text(this, h.sub, 12, U.MUTED, false));
+        TextView statusLink = null;
+        if (h.sub != null) { statusLink = U.text(this, h.sub, 12, U.MUTED, false); tx.addView(statusLink); }
         row.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         // 0.13 (178): al posto delle sigle, l'icona della barra di stato; il nome finché l'icona non c'è
         if (h.badges != null && h.badges.length() > 0)
             for (String code : h.badges.split(" ")) if (code.length() > 0) row.addView(AppIcons.badge(this, AppIcons.pkgOfCode(this, code), Rules.appName(code), U.MUTED));
-        if (h.contactId < 0) {
-            TextView more = U.text(this, "⋯", 20, U.INK, false);
-            more.setGravity(Gravity.CENTER);
-            more.setContentDescription("Come passano i messaggi di " + h.name);
-            more.setOnClickListener(new View.OnClickListener() {
+        // 0.16: niente ⋯: lo stato sotto il nome è un link che apre come passano i messaggi
+        if (h.contactId < 0 && h.sub != null && statusLink != null) {
+            statusLink.setPaintFlags(statusLink.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+            statusLink.setMinHeight(U.dp(this, 32));
+            statusLink.setContentDescription(h.name + ": " + h.sub + ". Cambia come passano i messaggi");
+            statusLink.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) { Pass.sheet(SearchActivity.this, pkgOf(h.code), h.name, new Runnable() { public void run() { render(); } }); }
             });
-            row.addView(more, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
         }
         row.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { openHit(h); } });
         LinearLayout wrap = U.col(this);
@@ -666,7 +662,7 @@ public class SearchActivity extends BaseActivity {
         Rules.Person p = null;
         for (Rules.Person x : Rules.people(U.cfg(this, U.K_CONTACTS, U.DEF_CONTACTS))) if (Cerca.norm(x.name).equals(Cerca.norm(h.name))) p = x;
         h.person = p;
-        h.sub = status(c, p, c.group ? U.groupRules(this).get(h.name.toLowerCase(Locale.ITALY)) : null, System.currentTimeMillis());
+        h.sub = status(this, c, p, c.group ? U.groupRules(this).get(h.name.toLowerCase(Locale.ITALY)) : null, System.currentTimeMillis());
         return personRow(h);
     }
 
@@ -696,7 +692,7 @@ public class SearchActivity extends BaseActivity {
         if (p.apps.size() <= 1) { openWith(p.name, p.apps.isEmpty() ? "WA" : p.apps.get(0), p.target); return; }
         final String[] names = new String[p.apps.size()];
         for (int i = 0; i < names.length; i++) names[i] = Rules.appName(p.apps.get(i));
-        new AlertDialog.Builder(this).setTitle(p.name).setItems(names, new DialogInterface.OnClickListener() {
+        U.dlg(this).setTitle(p.name).setItems(names, new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface d, int w) { openWith(p.name, p.apps.get(w), p.target); }
         }).show();
     }
@@ -709,7 +705,7 @@ public class SearchActivity extends BaseActivity {
         if (codes.isEmpty()) { U.toast(this, "Nessun numero o app di chat per " + name); return; }
         final String[] labels = new String[codes.size()];
         for (int i = 0; i < labels.length; i++) labels[i] = Rules.appName(codes.get(i));
-        new AlertDialog.Builder(this).setTitle(name).setItems(labels, new DialogInterface.OnClickListener() {
+        U.dlg(this).setTitle(name).setItems(labels, new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface d, int w) { openWith(name, codes.get(w), num); }
         }).show();
     }

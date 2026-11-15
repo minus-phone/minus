@@ -21,7 +21,7 @@ public final class Store {
     static final long OTHER_TTL = 24L * 3600 * 1000; // 0.15: Altro tenuto 24 ore (prima 7 giorni)
 
     public static class Item {
-        public String id, pkg, app, title, text;
+        public String id, pkg, app, title, text, shortcut; // 0.16: shortcut = la conversazione (Telegram, WhatsApp)
         public long time;
         public int level;
     }
@@ -56,6 +56,7 @@ public final class Store {
                 it.text = o.optString("text");
                 it.time = o.optLong("time");
                 it.level = o.optInt("level", OTHER);
+                it.shortcut = o.optString("sc", null);
                 if (it.level == OTHER && now - it.time > OTHER_TTL) continue;
                 out.add(it);
             }
@@ -72,6 +73,7 @@ public final class Store {
                 o.put("id", it.id); o.put("pkg", it.pkg); o.put("app", it.app);
                 o.put("title", it.title); o.put("text", it.text);
                 o.put("time", it.time); o.put("level", it.level);
+                if (it.shortcut != null) o.put("sc", it.shortcut);
                 a.put(o);
             }
         } catch (Exception ignored) {}
@@ -127,6 +129,26 @@ public final class Store {
     }
 
     public static synchronized PendingIntent intent(String id) { return INTENTS.get(id); }
+
+    /** 0.16: l'id della scorciatoia di conversazione (Android 8+), letto per riflessione: si compila con API 23. */
+    static String shortcutId(android.app.Notification n) {
+        try {
+            Object o = android.app.Notification.class.getMethod("getShortcutId").invoke(n);
+            return o == null ? null : o.toString();
+        } catch (Throwable t) { return null; }
+    }
+
+    /** 0.16: apre la conversazione giusta (il gruppo di Telegram, non l'ultima chat aperta). */
+    static boolean startShortcut(Context c, String pkg, String id) {
+        if (id == null || android.os.Build.VERSION.SDK_INT < 25) return false;
+        try {
+            Object la = c.getSystemService("launcherapps");
+            java.lang.reflect.Method m = la.getClass().getMethod("startShortcut", String.class, String.class,
+                    android.graphics.Rect.class, android.os.Bundle.class, android.os.UserHandle.class);
+            m.invoke(la, pkg, id, null, null, android.os.Process.myUserHandle());
+            return true;
+        } catch (Throwable t) { return false; }
+    }
 
     public static int count(Context c, int level) {
         int n = 0;

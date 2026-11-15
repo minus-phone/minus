@@ -69,7 +69,6 @@ public class SettingsActivity extends BaseActivity {
     // ---------- 198 · Radice ----------
 
     private void main() {
-        body.addView(U.label(this, "Il telefono essenziale"));
         open("La tua home", "Home, aspetto, a portata, ricerca, voce", HOME);
         open("La tua giornata", "Calendari, task, schermata di blocco", DAY);
         body.addView(U.label(this, "I tuoi obiettivi"));
@@ -100,7 +99,7 @@ public class SettingsActivity extends BaseActivity {
         android.widget.FrameLayout f = new android.widget.FrameLayout(this);
         f.setPadding(U.dp(this, 20), U.dp(this, 8), U.dp(this, 20), 0);
         f.addView(e);
-        new android.app.AlertDialog.Builder(this).setTitle("Cosa preferisci fare invece di scrollare?").setView(f)
+        U.dlg(this).setTitle("Cosa preferisci fare invece di scorrere?").setView(f)
                 .setPositiveButton("Salva", new android.content.DialogInterface.OnClickListener() {
                     public void onClick(android.content.DialogInterface d, int w) {
                         final String v = e.getText().toString().trim();
@@ -182,7 +181,7 @@ public class SettingsActivity extends BaseActivity {
     private void offerUnstar() {
         final int n = Stars.mineCount(this);
         if (n == 0) return;
-        new android.app.AlertDialog.Builder(this).setTitle("Togliere anche le stelle?")
+        U.dlg(this).setTitle("Togliere anche le stelle?")
                 .setMessage("−minus aveva messo la stella in rubrica a " + n + (n == 1 ? " persona" : " persone") + ". Restano preferite anche per Android, finché non le togli.")
                 .setPositiveButton("Toglile", new android.content.DialogInterface.OnClickListener() {
                     public void onClick(android.content.DialogInterface d, int w) { U.toast(SettingsActivity.this, "Stelle tolte: " + Stars.unstarMine(SettingsActivity.this)); }
@@ -226,16 +225,21 @@ public class SettingsActivity extends BaseActivity {
         }
         goalHeader(Goals.NOTIF, "Ti raggiunge solo chi conta. Spegnendolo, le notifiche tornano quelle di Android");
         int people = Onboarding.alwaysCount(this);
+        // 0.16: quattro gruppi: PERSONE, APP, COME TI AVVISA, BARRA DI STATO
+        body.addView(U.label(this, "Persone"));
         nav("Persone e gruppi", people + (people == 1 ? " persona" : " persone") + (Stars.mineCount(this) > 0 ? " ★" : "") + " · chi passa sempre, chi aspetta, chi ti ha scritto",
                 peopleIntent(this, TITLES[NOTIF]), "›");
         nav("Scegli dalla rubrica chi conta", "Anche con il silenzio, con la stella in rubrica", to(PeopleActivity.class), "›");
         nav("Gruppi", "App per app: quali passano sempre", to(GroupsActivity.class), "›");
+        body.addView(U.label(this, "App"));
         int sv = ServiziActivity.installed(this).size();
         nav("Servizi", sv + " riconosciuti · banca, SPID, IO, salute, scuola: codici e accessi passano sempre", to(ServiziActivity.class), "›");
         int ac = U.appChoices(this).size();
-        row("Notifiche delle app", ac == 0 ? "Per ogni app: passano sempre, in Per te o in Altro" : ac + (ac == 1 ? " app con una scelta" : " app con una scelta"), "›", new Runnable() {
+        int waiting = U.rows(U.cfg(this, U.K_WAITING_APPS, U.DEF_WAITING_APPS)).size();
+        row("Notifiche delle app", "Per ogni app: passa sempre, in Per te o in Altro" + (ac > 0 ? " · " + ac + " scelte" : ""), "›", new Runnable() {
             public void run() { AppChoice.list(SettingsActivity.this, new Runnable() { public void run() { render(); } }); }
         });
+        body.addView(U.label(this, "Come ti avvisa"));
         final boolean open = U.prefs(this).getBoolean(U.K_OPEN_ON, true);
         toggle("Conversazioni aperte", "Se rispondi a qualcuno, ti avvisa per 12 ore. Gruppi 1 ora, mai di notte", open, new Runnable() {
             public void run() {
@@ -244,12 +248,6 @@ public class SettingsActivity extends BaseActivity {
                         new Runnable() { public void run() { render(); } });
             }
         });
-        int waiting = U.rows(U.cfg(this, U.K_WAITING_APPS, U.DEF_WAITING_APPS)).size();
-        Intent w = to(ContainerActivity.class);
-        w.putExtra("tab", ContainerActivity.TAB_WAITING);
-        nav("App che aspettano", "Contate in «Per te» · " + waiting + " app", w, "›");
-        int sticky = Sticky.recent(this).size();
-        nav("Icone fisse nella barra", sticky == 0 ? "Nessuna negli ultimi 7 giorni" : sticky + (sticky == 1 ? " app" : " app") + " negli ultimi 7 giorni · rendile silenziose", to(StickyActivity.class), "›");
         final boolean policy = Onboarding.policy(this);
         final boolean silenceOn = U.prefs(this).getBoolean(U.K_SILENCE, false) && policy;
         row("Chiamate", !policy ? "Squillano solo chi conta · Non disturbare da concedere" : silenceOn ? "Squillano solo chi conta e le chiamate ripetute · tocca per far squillare tutti"
@@ -269,6 +267,9 @@ public class SettingsActivity extends BaseActivity {
                         new Runnable() { public void run() { render(); } });
             }
         });
+        body.addView(U.label(this, "Barra di stato"));
+        int sticky = Sticky.recent(this).size();
+        nav("Icone fisse nella barra", sticky == 0 ? "Nessuna negli ultimi 7 giorni" : sticky + " app negli ultimi 7 giorni · rendile silenziose", to(StickyActivity.class), "›");
         note("Persone e gruppi si cambiano anche da Notifiche, tenendo premuto.");
     }
 
@@ -310,8 +311,8 @@ public class SettingsActivity extends BaseActivity {
         }
         goalHeader(Goals.SLEEP, "Spegnendolo, la sera e la notte tornano come il resto del giorno");
         Intent q = new Intent(this, OnboardingActivity.class).putExtra("only", OnboardingActivity.SLEEP);
-        nav("Quando dormi", "Sveglia " + Notte.hhmm(Night.wakeMin(this)) + " · " + hours(Night.sleepMin(this)) + " ore", q, "›");
-        nav("Ora di staccare", Notte.hhmm(Night.offMin(this)) + " · " + Night.leadMin(this) + " minuti prima di dormire", q, "›");
+        // 0.16: una riga sola: sveglia e ora di staccare si scelgono insieme
+        nav("Quando dormi", "Sveglia " + Notte.hhmm(Night.wakeMin(this)) + " · staccare alle " + Notte.hhmm(Night.offMin(this)), q, "›");
         int preMin = ((Night.offMin(this) - Serale.PREWARN_MIN) % 1440 + 1440) % 1440;
         nav("Avviso e consiglio della sera", (Sera.prewarnOn(this) ? "Preavviso alle " + Notte.hhmm(preMin) : "Senza preavviso")
                 + (Sera.tipOn(this) ? " · consiglio della settimana" : ""), to(SeraActivity.class), "›");
@@ -356,10 +357,10 @@ public class SettingsActivity extends BaseActivity {
             perm("Dati di utilizzo", "La pausa anche da notifiche e app recenti", Pill.usageGranted(this), "utilizzo");
             if (U.prefs(this).getBoolean(Pill.K_ON, false)) perm("Mostra sopra altre app", "La pillola del tempo", Pill.canDraw(this), "sopra");
         }
-        if (Goals.on(this, Goals.SLEEP) && Night.on(this)) {
+        // 0.16: la scala di grigi non è un permesso: sta solo in «Meno interferenze sul sonno»
+        if (Goals.on(this, Goals.SLEEP) && Night.on(this) && !Goals.on(this, Goals.NOTIF)) {
             body.addView(U.label(this, Goals.NAMES[2]));
-            if (!Goals.on(this, Goals.NOTIF)) perm("Accesso alle notifiche", "Di notte, solo chi conta", U.listenerEnabled(this), "notifiche");
-            row("Scala di grigi", "In Android · non verificabile", "Apri ↗", new Runnable() { public void run() { Session.openWellbeing(SettingsActivity.this); } });
+            perm("Accesso alle notifiche", "Di notte, solo chi conta", U.listenerEnabled(this), "notifiche");
         }
         row("Cosa vede −minus", "Le ultime notifiche di chat arrivate e dove sono finite", "›", new Runnable() { public void run() { showLog(); } });
         note("Raggruppati come gli obiettivi: chi non ha un obiettivo acceso non vede i suoi permessi.");
@@ -402,53 +403,12 @@ public class SettingsActivity extends BaseActivity {
         });
         LinearLayout.LayoutParams lp = U.full();
         lp.topMargin = U.dp(this, 18);
+        lp.bottomMargin = U.dp(this, 90); // 0.16: «Ripristina le liste di esempio» tolto: era per le prove
         body.addView(again, lp);
-
-        TextView reset = button("Ripristina le liste di esempio");
-        reset.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                Changes.track(SettingsActivity.this, "Liste di esempio ripristinate",
-                        new String[]{U.K_CONTACTS, U.K_WAITING_APPS, U.K_GROUPS, U.K_RW_APPS, U.K_PAUSE, U.K_GROUP_DEST},
-                        new Runnable() { public void run() {
-                            U.prefs(SettingsActivity.this).edit().remove(U.K_CONTACTS)
-                                    .remove(U.K_WAITING_APPS).remove(U.K_GROUPS).remove(U.K_RW_APPS).remove(U.K_PAUSE).remove(U.K_GROUP_DEST).commit();
-                        } },
-                        new Runnable() { public void run() { render(); } });
-            }
-        });
-        LinearLayout.LayoutParams lp2 = U.full();
-        lp2.topMargin = U.dp(this, 10);
-        lp2.bottomMargin = U.dp(this, 90);
-        body.addView(reset, lp2);
     }
 
-    /** 0.6.2: per capire se una chat arriva a Essenziale (se non c'è qui, Android o l'app non la notificano). */
-    private void showLog() {
-        // 0.13: il telefono ha un barometro? Serve a capire se si può dire «la pressione scende» senza internet
-        final android.hardware.SensorManager sm = (android.hardware.SensorManager) getSystemService(SENSOR_SERVICE);
-        final android.hardware.Sensor baro = sm == null ? null : sm.getDefaultSensor(android.hardware.Sensor.TYPE_PRESSURE);
-        if (baro == null) { showLog("Barometro: non c'è su questo telefono.\n\n"); return; }
-        final boolean[] done = {false};
-        final android.os.Handler h = new android.os.Handler();
-        final android.hardware.SensorEventListener l = new android.hardware.SensorEventListener() {
-            public void onSensorChanged(android.hardware.SensorEvent e) {
-                if (done[0]) return;
-                done[0] = true;
-                sm.unregisterListener(this);
-                showLog("Barometro: sì (" + baro.getName() + "), ora " + Math.round(e.values[0]) + " hPa.\n\n");
-            }
-            public void onAccuracyChanged(android.hardware.Sensor s, int a) {}
-        };
-        sm.registerListener(l, baro, android.hardware.SensorManager.SENSOR_DELAY_NORMAL);
-        h.postDelayed(new Runnable() {
-            public void run() {
-                if (done[0]) return;
-                done[0] = true;
-                sm.unregisterListener(l);
-                showLog("Barometro: sì (" + baro.getName() + "), ma non ha ancora dato un valore.\n\n");
-            }
-        }, 1500);
-    }
+    /** 0.6.2: per capire se una chat arriva a Essenziale (se non c'è qui, Android o l'app non la notificano). 0.16: senza la riga del barometro. */
+    private void showLog() { showLog(""); }
 
     private void showLog(String head) {
         StringBuilder b = new StringBuilder(head);
@@ -461,7 +421,7 @@ public class SettingsActivity extends BaseActivity {
         }
         if (b.length() == 0) b.append(U.listenerEnabled(this) ? "Ancora nessuna notifica di chat da quando hai aggiornato." : "L'accesso alle notifiche è spento: −minus non vede niente.");
         b.append("Se una chat non compare qui, la notifica non arriva proprio: è disattivata o silenziata in WhatsApp o Telegram, o nelle impostazioni di Android.");
-        new android.app.AlertDialog.Builder(this).setTitle(U.brand("Cosa vede −minus")).setMessage(b.toString()).setPositiveButton("Ok", null).show();
+        U.dlg(this).setTitle(U.brand("Cosa vede −minus")).setMessage(b.toString()).setPositiveButton("Ok", null).show();
     }
 
     /** 0.7: la lista di persone e gruppi (era Conversazioni), aperta da Impostazioni o dalla ricerca. */
@@ -540,7 +500,7 @@ public class SettingsActivity extends BaseActivity {
         LinearLayout r = U.col(this);
         r.setPadding(0, U.dp(this, 10), 0, U.dp(this, 12));
         r.addView(U.text(this, "Durata della pausa", 16, U.INK, false));
-        r.addView(U.text(this, "Prima di aprire un'app con la pausa. Pausa e scopo resta di 4 secondi", 12, U.MUTED, false));
+        r.addView(U.text(this, "Prima di aprire un'app con la pausa. Pausa e scopo non ha attesa: chiede solo per cosa", 12, U.MUTED, false));
         final int cur = U.pauseSeconds(this);
         LinearLayout seg = U.row(this);
         seg.setBackground(U.box(this, U.SURFACE, U.BORDER, 10));
@@ -574,11 +534,11 @@ public class SettingsActivity extends BaseActivity {
         r.setMinimumHeight(U.dp(this, 64));
         r.setPadding(0, U.dp(this, 8), 0, U.dp(this, 8));
         LinearLayout tx = U.col(this);
-        tx.addView(U.text(this, title, 16, U.INK, false));
+        tx.addView(U.text(this, title, 16, U.INK, on)); // 0.16: grassetto se acceso
         if (sub != null) tx.addView(U.text(this, sub, 13, U.MUTED, false));
         r.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         r.addView(U.toggle(this, on), new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 26)));
-        r.setContentDescription(title + (on ? ", attivo" : ", spento"));
+        r.setContentDescription(title + ", interruttore, " + (on ? "acceso" : "spento"));
         r.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { action.run(); } });
         body.addView(r, U.full());
         body.addView(U.divider(this));

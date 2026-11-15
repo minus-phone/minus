@@ -92,6 +92,16 @@ public final class Tasks {
         save(c, list);
     }
 
+    /** 0.16: Modifica task. */
+    public static synchronized void update(Context c, String id, String title, long due, String app, boolean urgent) {
+        List<Task> list = all(c);
+        for (Task t : list) if (t.id.equals(id)) {
+            t.title = title; t.app = app; t.urgent = urgent;
+            t.due = urgent ? Urgenti.dueWhenUrgent(due, U.startOfDay(0)) : due;
+        }
+        save(c, list);
+    }
+
     /** E001: segna urgente (senza data diventa oggi) o non più urgente. */
     public static synchronized void setUrgent(Context c, String id, boolean urgent) {
         List<Task> list = all(c);

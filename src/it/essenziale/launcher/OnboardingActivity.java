@@ -452,7 +452,7 @@ public class OnboardingActivity extends BaseActivity {
         row.setMinimumHeight(U.dp(this, 56));
         row.setPadding(0, U.dp(this, 6), 0, U.dp(this, 6));
         LinearLayout tx = U.col(this);
-        tx.addView(U.text(this, title, 15, U.INK, false));
+        tx.addView(U.text(this, title, 15, U.INK, Boolean.TRUE.equals(toggle))); // 0.16: grassetto se acceso
         if (subtitle != null) tx.addView(U.text(this, subtitle, 12, U.MUTED, false));
         row.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         if (toggle != null) row.addView(U.toggle(this, toggle), new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 26)));
@@ -532,7 +532,7 @@ public class OnboardingActivity extends BaseActivity {
         brand.addView(name);
         body.addView(brand, U.full());
         title("Cosa vuoi cambiare?");
-        sub("Scegli cosa vuoi in meno: ti mostriamo solo i passi che servono.");
+        sub("Scegli cosa vuoi in meno: vedrai solo i passi che servono.");
         for (int i = 0; i < Goals.ALL.length; i++) {
             final String g = Goals.ALL[i];
             final boolean on = chosenGoals.contains(g);
@@ -667,7 +667,7 @@ public class OnboardingActivity extends BaseActivity {
                 }
             });
         } else {
-            LinearLayout c = card(new String[]{"Non vediamo il tuo calendario", "Senza accesso al calendario la home mostra solo i task e la sveglia."}, true);
+            LinearLayout c = card(new String[]{"Il calendario non è collegato", "Senza accesso al calendario la home mostra solo i task e la sveglia."}, true);
             c.setBackground(U.box(this, U.SURFACE, U.BORDER, 14));
             TextView b = U.text(this, "Collega il calendario", 15, U.INK, true);
             b.setGravity(Gravity.CENTER);
@@ -757,7 +757,7 @@ public class OnboardingActivity extends BaseActivity {
     private void notif() {
         title("Cosa ti avvisa, cosa aspetta");
         sub("Ti avvisa solo ciò che conta, il resto aspetta te. Suoneria o vibrazione restano quelle del telefono.");
-        tag("Per te", "ti avvisano subito, e restano qui", true);
+        tag("Ti avvisano", "subito, e restano anche in Per te", true);
         int n = Onboarding.alwaysCount(this);
         String names = alwaysNames(3);
         line("Chi conta", n == 0 ? "Da scegliere: persone e gruppi" : names, null, n == 0 ? "Scegli ›" : "✓ ›", new Runnable() {
@@ -770,7 +770,7 @@ public class OnboardingActivity extends BaseActivity {
         });
         line("Chiamate", "Squillano solo chi conta e le chiamate ripetute", null, null, null);
         tag("Per te", "ti aspettano qui", true);
-        body.addView(U.text(this, "Gruppi in silenzio, altre persone, app che segui", 14, U.INK, false));
+        body.addView(U.text(this, "Gruppi che aspettano, altre persone, app che segui", 14, U.INK, false));
         tag("Altro", "ti aspettano qui, fuori dal conteggio", false);
         body.addView(U.text(this, "Social, shopping, news", 14, U.INK, false));
         if (maybeRestricted() && !U.listenerEnabled(this)) {
@@ -844,7 +844,7 @@ public class OnboardingActivity extends BaseActivity {
                 : "Queste persone ti raggiungono sempre: scegline una alla volta.");
         if (!peopleLoaded) loadPeople();
         if (!contacts) {
-            card(new String[]{"Non vediamo la tua rubrica", "Senza accesso ai contatti non posso proporti i preferiti né mettere la stella. Puoi aggiungere le persone a mano."}, true);
+            card(new String[]{"La rubrica non è collegata", "Senza accesso ai contatti non si possono proporre i preferiti né mettere la stella. Puoi aggiungere le persone a mano."}, true);
             TextView pick = U.text(this, "Scegli dalla rubrica", 15, U.INK, true);
             pick.setGravity(Gravity.CENTER);
             pick.setMinHeight(U.dp(this, 48));
@@ -889,7 +889,7 @@ public class OnboardingActivity extends BaseActivity {
             body.addView(st);
         }
         caption("Gruppi, app per app");
-        line("Gruppi che passano sempre", "Gli altri restano in silenzio. Compaiono qui quando arrivano le prime notifiche dei gruppi", null, "›", new Runnable() {
+        line("Gruppi che passano sempre", "Gli altri aspettano in Per te. Compaiono qui quando arrivano le prime notifiche dei gruppi", null, "›", new Runnable() {
             public void run() { startActivity(new Intent(OnboardingActivity.this, GroupsActivity.class).putExtra("back", "Chi conta")); }
         });
         if (!contacts || !Stars.canWrite(this)) {
@@ -932,9 +932,7 @@ public class OnboardingActivity extends BaseActivity {
         final boolean on = chosen.containsKey(k);
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 56));
-        TextView ini = U.text(this, p[0].trim().length() > 0 ? p[0].trim().substring(0, 1).toUpperCase(Locale.ITALY) : "?", 13, U.INK, true);
-        ini.setGravity(Gravity.CENTER);
-        ini.setBackground(U.box(this, U.CHIP, 0, 17));
+        TextView ini = U.initial(this, p[0], false, 34);
         r.addView(ini, new LinearLayout.LayoutParams(U.dp(this, 34), U.dp(this, 34)));
         LinearLayout tx = U.col(this);
         tx.setPadding(U.dp(this, 12), 0, 0, 0);
@@ -1074,34 +1072,42 @@ public class OnboardingActivity extends BaseActivity {
     private void restrictedGuide() {
         title("Android blocca questo permesso");
         sub("Succede alle app installate fuori dal Play Store. Si sblocca una volta sola, poi torni qui.");
-        // 0.15: il menu ⋮ con «Consenti impostazioni con restrizioni» compare solo dopo aver provato ad accendere
-        // l'interruttore grigio almeno una volta da questa installazione: è il passo che mancava
-        String[] steps = {"Tocca «Prova ad accenderlo» qui sotto. Nell'elenco tocca −minus anche se è grigio, poi «OK»: serve ad Android per sbloccare il menu del passo 3",
-                "Torna qui e tocca «Apri Info app»",
-                "In alto a destra tocca ⋮, poi «Consenti impostazioni con restrizioni». Su alcuni telefoni la voce è in fondo alla pagina",
-                "Conferma con PIN o impronta, torna qui e riprova: ora l'interruttore si accende"};
-        for (int i = 0; i < steps.length; i++) {
-            LinearLayout r = U.row(this);
-            r.setPadding(0, U.dp(this, 6), 0, U.dp(this, 6));
-            TextView n = U.text(this, String.valueOf(i + 1), 13, U.BG, true);
-            n.setGravity(Gravity.CENTER);
-            n.setBackground(U.box(this, U.INK, 0, 13));
-            r.addView(n, new LinearLayout.LayoutParams(U.dp(this, 26), U.dp(this, 26)));
-            TextView t = U.text(this, steps[i], 15, U.INK, false);
-            t.setPadding(U.dp(this, 12), 0, 0, 0);
-            r.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-            body.addView(r, U.full());
-        }
-        note("Il ⋮ non c'è? Ripeti il passo 1 e chiudi il messaggio con «OK», non con Indietro. Se ancora manca, riavvia il telefono e riprova. Con il Play Store questo passo non c'è.");
-        primary("Prova ad accenderlo", new Runnable() { public void run() { Onboarding.openListenerSettings(OnboardingActivity.this); } },
-                "Apri Info app ›", new Runnable() { public void run() { asked.remove("notifiche"); Onboarding.openAppInfo(OnboardingActivity.this); } });
+        // 0.16: tre passi, uno alla volta, un pulsante ciascuno. Il menu ⋮ compare solo dopo aver provato
+        // ad accendere l'interruttore grigio almeno una volta da questa installazione: per questo il passo 1
+        final String[][] steps = {
+                {"Tocca «Prova ad accenderlo». Nell'elenco tocca −minus anche se è grigio, poi «OK».", "Prova ad accenderlo"},
+                {"Torna qui e apri Info app. In alto a destra tocca ⋮, poi «Consenti impostazioni con restrizioni». Su alcuni telefoni la voce è in fondo alla pagina.", "Apri Info app"},
+                {"Conferma con PIN o impronta e torna qui. Ora l'interruttore si accende.", "Accendilo"}};
+        final int k = Math.max(0, Math.min(2, rstep));
+        TextView pos = U.label(this, "Passo " + (k + 1) + " di 3");
+        pos.setPadding(0, U.dp(this, 8), 0, U.dp(this, 4));
+        body.addView(pos);
+        body.addView(U.text(this, steps[k][0], 17, U.INK, false), U.full());
+        link("Non funziona?", new Runnable() {
+            public void run() {
+                U.show(U.dlg(OnboardingActivity.this).setTitle("Non funziona?")
+                        .setMessage("Il ⋮ non c'è? Ripeti il passo 1 e chiudi il messaggio con «OK», non con Indietro. Se ancora manca, riavvia il telefono e riprova. Con il Play Store questo passaggio non serve.")
+                        .setPositiveButton("Ricomincia dal passo 1", new android.content.DialogInterface.OnClickListener() {
+                            public void onClick(android.content.DialogInterface d, int w) { rstep = 0; render(); }
+                        }).setNegativeButton("Chiudi", null));
+            }
+        });
+        primary(steps[k][1], new Runnable() {
+            public void run() {
+                if (k == 1) { asked.remove("notifiche"); Onboarding.openAppInfo(OnboardingActivity.this); }
+                else Onboarding.openListenerSettings(OnboardingActivity.this);
+                if (k < 2) rstep = k + 1;
+            }
+        });
     }
+
+    private int rstep = 0; // 0.16: a che passo della guida «Android blocca questo permesso»
 
     // ---------- 187 · Quando lo sblocchi senza motivo ----------
 
     private void unlock() {
         title("Quando lo sblocchi senza motivo");
-        sub("Se lo sblocchi tre volte in 10 minuti senza aprire niente, ti chiediamo per cosa l'hai preso.");
+        sub("Se lo sblocchi tre volte in 10 minuti senza aprire niente, una domanda ti chiede per cosa.");
         final boolean on = U.prefs(this).getBoolean(Sblocco.K_ON, true);
         line("Chiedimelo", "Al massimo 3 volte al giorno, mai di notte", on, null, new Runnable() {
             public void run() { U.prefs(OnboardingActivity.this).edit().putBoolean(Sblocco.K_ON, !on).apply(); render(); }
@@ -1167,7 +1173,7 @@ public class OnboardingActivity extends BaseActivity {
         }
         if (shown == 0) body.addView(U.text(this, "Nessun social o app video installata.", 14, U.MUTED, false));
         link("Aggiungi un'altra app", new Runnable() { public void run() { addDoomApp(); } });
-        note("Se manca l'accesso ai dati di utilizzo, Avanti apre la pagina di Android e torni qui da sola: serve per la pausa anche da notifiche e app recenti.");
+        note("Se manca l'accesso ai dati di utilizzo, Avanti apre la pagina di Android e torni qui in automatico: serve per la pausa anche da notifiche e app recenti.");
         primary("Avanti", new Runnable() {
             public void run() {
                 List<Perm> p = new ArrayList<Perm>();
@@ -1183,7 +1189,7 @@ public class OnboardingActivity extends BaseActivity {
         for (U.AppInfo a : U.sortedApps(this)) if (!paused.contains(a.pkg) && !getPackageName().equals(a.pkg)) apps.add(a);
         String[] names = new String[apps.size()];
         for (int i = 0; i < names.length; i++) names[i] = apps.get(i).label;
-        new AlertDialog.Builder(this).setTitle("Aggiungi un'app").setItems(names, new DialogInterface.OnClickListener() {
+        U.dlg(this).setTitle("Aggiungi un'app").setItems(names, new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface d, int w) { Scope.setLevel(OnboardingActivity.this, apps.get(w).pkg, Scopo.PAUSE); render(); }
         }).setNegativeButton("Annulla", null).show();
     }
@@ -1230,7 +1236,7 @@ public class OnboardingActivity extends BaseActivity {
 
     private void sleep() {
         title("Quando dormi");
-        sub("Ogni sera ti avviso quando è il momento di staccare.");
+        sub("Ogni sera un avviso ti dice quando è il momento di staccare.");
         final android.content.SharedPreferences p = U.prefs(this);
         if (!p.contains(Night.K_WAKE)) {
             int a = Night.alarmMin(this);
@@ -1266,7 +1272,7 @@ public class OnboardingActivity extends BaseActivity {
         ch.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 final int[] opts = {15, 30, 45, 60};
-                new AlertDialog.Builder(OnboardingActivity.this).setTitle("Quanto prima di dormire?")
+                U.dlg(OnboardingActivity.this).setTitle("Quanto prima di dormire?")
                         .setItems(new String[]{"15 minuti", "30 minuti", "45 minuti", "Un'ora"}, new DialogInterface.OnClickListener() {
                             public void onClick(DialogInterface d, int w) { p.edit().putInt(Night.K_LEAD, opts[w]).apply(); render(); }
                         }).show();
@@ -1308,7 +1314,7 @@ public class OnboardingActivity extends BaseActivity {
         line("App frenate di notte", na.length() > 0 ? "Proposte: " + na + " · trovate sul telefono" : "Nessuna", null, "Scegli", new Runnable() {
             public void run() { pickNightApps(); }
         });
-        card(new String[]{"Un consiglio, una volta: metti il telefono a caricare fuori dalla camera. La sveglia suona lo stesso."}, false);
+        // 0.16 (192): il consiglio una tantum è tolto: i consigli arrivano la sera, uno a settimana
         primary("Avanti", new Runnable() {
             public void run() {
                 U.prefs(OnboardingActivity.this).edit().putString(Night.K_MODE, Notte.SCHED).apply();
@@ -1328,7 +1334,7 @@ public class OnboardingActivity extends BaseActivity {
         String[] names = new String[apps.size()];
         final boolean[] on = new boolean[apps.size()];
         for (int i = 0; i < names.length; i++) { names[i] = apps.get(i).label; on[i] = night.contains(apps.get(i).pkg); }
-        new AlertDialog.Builder(this).setTitle("App frenate di notte").setMultiChoiceItems(names, on, new DialogInterface.OnMultiChoiceClickListener() {
+        U.dlg(this).setTitle("App frenate di notte").setMultiChoiceItems(names, on, new DialogInterface.OnMultiChoiceClickListener() {
             public void onClick(DialogInterface d, int w, boolean c) { on[w] = c; }
         }).setPositiveButton("Fatto", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface d, int w) {
@@ -1345,8 +1351,8 @@ public class OnboardingActivity extends BaseActivity {
     private void alternative() {
         View top = new View(this);
         body.addView(top, new LinearLayout.LayoutParams(1, U.dp(this, 12)));
-        title("Cosa preferisci fare invece di scrollare?");
-        sub("Te lo proponiamo quando dici «Mi annoiavo», nella pausa con scopo e la sera.");
+        title("Cosa preferisci fare invece di scorrere?");
+        sub("Viene proposta quando dici «Mi annoiavo», nella pausa con scopo e nello sblocco di notte.");
         altField = new EditText(this);
         String cur = U.prefs(this).getString(Night.K_ALT, "");
         altField.setText(cur);

@@ -66,7 +66,7 @@ public final class Cerca {
             {"Comandi vocali", "voce microfono parla", "voice"},
             {"Schermata di blocco", "blocco lock", "area:1"},
             {"Meno interferenze sul sonno", "notte sonno sveglia buio letto insonnia sera staccare dormire", "area:4"},
-            {"La tua alternativa", "alternativa invece di scrollare leggere", "area:-1"},
+            {"La tua alternativa", "alternativa invece di scorrere scrollare leggere", "area:-1"},
             {"Permessi", "permessi silenzio non disturbare home predefinita attivazione", "area:5"},
             {"Da completare", "da completare configurazione mancano", "area:6"},
             {"Modifiche recenti", "annulla ripristina storico", "changes"},

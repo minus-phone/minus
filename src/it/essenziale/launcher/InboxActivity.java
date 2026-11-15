@@ -106,6 +106,11 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
             TextView d = U.text(this, "Qui restano 24 ore, poi spariscono da sole.", 12, U.MUTED, false);
             d.setPadding(0, U.dp(this, 4), 0, U.dp(this, 8));
             list.addView(d, U.full());
+        } else {
+            // 0.16: Per te lo dice anche lui
+            TextView d = U.text(this, "Restano qui finché non le segni come viste.", 12, U.MUTED, false);
+            d.setPadding(0, U.dp(this, 4), 0, U.dp(this, 8));
+            list.addView(d, U.full());
         }
         List<Store.Item> items = Store.load(this);
         // 0.15: un'app nuova (installata dopo −minus) arriva qui, mai in Altro, con una domanda una volta sola
@@ -130,29 +135,23 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
             list.addView(e, U.full());
         }
         clearAll.setVisibility(shown > 0 ? View.VISIBLE : View.GONE);
-        if (shown > 0) {
+        // 0.16: il suggerimento solo in Per te, finché non hai provato il tocco lungo una volta
+        if (shown > 0 && level == Store.WAITING && !U.prefs(this).getBoolean(K_LONG_USED, false)) {
             TextView hint = U.text(this, "Tieni premuto un messaggio di WhatsApp, Telegram o SMS per far passare sempre chi lo ha scritto, o il gruppo.", 12, U.MUTED, false);
             hint.setPadding(0, U.dp(this, 12), 0, U.dp(this, 8));
             list.addView(hint, U.full());
         }
         if (!U.listenerEnabled(this)) {
-            TextView w = U.text(this, "Il filtro notifiche non è attivo: si accende nelle impostazioni qui sotto.", 14, U.MUTED, false);
+            TextView w = U.text(this, "Il filtro notifiche non è attivo: si accende dalle impostazioni, con ⚙ in alto.", 14, U.MUTED, false);
             w.setPadding(0, U.dp(this, 16), 0, 0);
             list.addView(w, U.full());
         }
-        // 0.15: da Notifiche si arriva alle sue impostazioni (chi conta, servizi, gruppi, silenzio)
-        TextView set = U.text(this, "Impostazioni delle notifiche  ›", 15, U.INK, false);
-        set.setMinHeight(U.dp(this, 48));
-        set.setGravity(Gravity.CENTER_VERTICAL);
-        set.setPadding(0, U.dp(this, 12), 0, U.dp(this, 20));
-        set.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                startActivity(new android.content.Intent(InboxActivity.this, SettingsActivity.class)
-                        .putExtra("area", SettingsActivity.NOTIF).putExtra("back", "Notifiche"));
-            }
-        });
-        list.addView(set, U.full());
+        // 0.16: le impostazioni sono solo nella ⚙ in alto (il link in fondo era doppio)
     }
+
+    static final String K_LONG_USED = "inbox_long_used";
+
+    private void usedLong() { U.prefs(this).edit().putBoolean(K_LONG_USED, true).apply(); }
 
     private void style(TextView t, boolean on) {
         t.setBackground(on ? U.box(this, U.INK, 0, 20) : null);
@@ -165,10 +164,10 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
         c.setPadding(U.dp(this, 14), U.dp(this, 12), U.dp(this, 14), U.dp(this, 12));
         c.setBackground(U.box(this, U.SURFACE, U.INK, 14));
         c.addView(U.text(this, "Nuova app · " + app, 15, U.INK, true));
-        TextView q = U.text(this, "Le sue notifiche? Si cambia in Impostazioni › Meno notifiche › Notifiche delle app.", 12, U.MUTED, false);
+        TextView q = U.text(this, "Le sue notifiche? Si cambia anche dopo, con ⚙ in alto › Notifiche delle app.", 12, U.MUTED, false);
         q.setPadding(0, U.dp(this, 2), 0, U.dp(this, 8));
         c.addView(q);
-        String[][] opts = {{Rules.APP_ALWAYS, "Passano sempre"}, {Rules.APP_WAITING, "Restano qui"}, {Rules.APP_OTHER, "In Altro"}};
+        String[][] opts = {{Rules.APP_ALWAYS, "Passa sempre"}, {Rules.APP_WAITING, "In Per te"}, {Rules.APP_OTHER, "In Altro"}};
         LinearLayout row = U.row(this);
         for (final String[] o : opts) {
             TextView t = U.text(this, o[1], 13, U.INK, false);
@@ -203,7 +202,7 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
         // 0.13 (178c): l'icona della barra di stato al posto del nome dell'app, se c'è
         android.graphics.drawable.Drawable ic = AppIcons.drawable(this, it.pkg, U.MUTED, 14);
         if (ic != null && it.app != null && meta.startsWith(it.app + " · ")) meta = meta.substring(it.app.length() + 3); else ic = null;
-        TextView m = U.text(this, meta.toUpperCase(java.util.Locale.ITALY), 11, U.MUTED, false);
+        TextView m = U.text(this, meta.toUpperCase(java.util.Locale.ITALY), 12, U.MUTED, false);
         m.setLetterSpacing(0.05f);
         if (ic != null) {
             m.setCompoundDrawablesRelative(ic, null, null, null);
@@ -236,12 +235,12 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
         // 0.6: da un messaggio di chat si sceglie subito chi far passare sempre
         if (Rules.chatCode(it.pkg) != null && !TextUtils.isEmpty(it.title)) {
             r.setOnLongClickListener(new View.OnLongClickListener() {
-                public boolean onLongClick(View v) { Pass.sheet(InboxActivity.this, it.pkg, it.title, new Runnable() { public void run() { render(); } }); return true; }
+                public boolean onLongClick(View v) { usedLong(); Pass.sheet(InboxActivity.this, it.pkg, it.title, new Runnable() { public void run() { render(); } }); return true; }
             });
         } else if (Rules.chatCode(it.pkg) == null) {
             // 0.15: per le altre app si sceglie dove vanno le sue notifiche
             r.setOnLongClickListener(new View.OnLongClickListener() {
-                public boolean onLongClick(View v) { AppChoice.ask(InboxActivity.this, it.pkg, it.app, new Runnable() { public void run() { render(); } }); return true; }
+                public boolean onLongClick(View v) { usedLong(); AppChoice.ask(InboxActivity.this, it.pkg, it.app, new Runnable() { public void run() { render(); } }); return true; }
             });
         }
         return r;
@@ -263,7 +262,9 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
             log.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
             try { startActivity(log); Store.remove(this, it.id); return; } catch (Exception ignored) {}
         }
-        PendingIntent pi = Store.intent(it.id);
+        // 0.16: prima la scorciatoia della conversazione (−minus è la home, può aprirla), poi l'azione della notifica
+        ok = Store.startShortcut(this, it.pkg, it.shortcut);
+        PendingIntent pi = ok ? null : Store.intent(it.id);
         if (pi != null) {
             try { pi.send(); ok = true; } catch (Exception ignored) {}
         }

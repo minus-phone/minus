@@ -69,6 +69,26 @@ public class WeekActivity extends BaseActivity {
         observer = U.calendarObserver(new Runnable() { public void run() { render(); } });
     }
 
+    private Swipe swipe;
+
+    /** E003: da Settimana, scorrendo verso destra si torna a Oggi. Di lato non cambia settimana: restano ‹ e ›. */
+    @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent e) {
+        if (swipe == null) swipe = new Swipe(this, new boolean[]{false}, new Swipe.Act() {
+            public void up() {}
+            public void left() {}
+            public void right() { finish(); overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out); }
+        });
+        if (swipe.detector.onTouchEvent(e)) {
+            android.view.MotionEvent cancel = android.view.MotionEvent.obtain(e);
+            cancel.setAction(android.view.MotionEvent.ACTION_CANCEL);
+            super.dispatchTouchEvent(cancel);
+            cancel.recycle();
+            return true;
+        }
+        return super.dispatchTouchEvent(e);
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
@@ -96,7 +116,17 @@ public class WeekActivity extends BaseActivity {
         if (week == 0) {
             List<Tasks.Task> und = Tasks.undated(this);
             if (!und.isEmpty()) {
-                list.addView(U.label(this, "Senza scadenza"));
+                // 0.16: un «+» anche qui, per aggiungere un task senza scadenza
+                LinearLayout uh = U.row(this);
+                uh.addView(U.label(this, "Senza scadenza"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+                TextView up = U.text(this, "+", 22, U.INK, false);
+                up.setGravity(Gravity.CENTER);
+                up.setContentDescription("Aggiungi un task senza scadenza");
+                up.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) { startActivity(new Intent(WeekActivity.this, AddActivity.class).putExtra("kind", "task").putExtra("day", 0L)); }
+                });
+                uh.addView(up, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
+                list.addView(uh, U.full());
                 for (Tasks.Task k : und) list.addView(taskRow(k));
             }
         }
@@ -184,21 +214,42 @@ public class WeekActivity extends BaseActivity {
         View.OnClickListener toggle = new View.OnClickListener() {
             public void onClick(View v) { Tasks.setDone(WeekActivity.this, k.id, !k.done); render(); }
         };
-        if (k.app != null && !k.done && U.installed(this, k.app)) {
+        // 0.16: come in home: la casella segna fatto, la riga apre (l'app o «Modifica task»)
+        if (k.done) {
+            r.setOnClickListener(toggle);
+            r.setContentDescription(k.title + ", completato. Tocca per riaprirlo");
+            return r;
+        }
+        w.setOnClickListener(toggle);
+        w.setContentDescription("Segna fatto: " + k.title);
+        w.setMinimumHeight(U.dp(this, 48));
+        U.widenLeft(r, w, 18);
+        if (k.app != null && U.installed(this, k.app)) {
             final String label = U.appLabel(this, k.app);
             TextView open = U.text(this, label + " ›", 13, U.MUTED, false);
             open.setPadding(U.dp(this, 10), 0, 0, 0);
             r.addView(open);
-            w.setOnClickListener(toggle);
-            w.setContentDescription("Segna fatto: " + k.title);
             r.setContentDescription(k.title + ", apri " + label);
             r.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View v) { if (!U.launchPkg(WeekActivity.this, k.app)) U.toast(WeekActivity.this, "Non riesco ad aprire " + label); }
+                public void onClick(View v) { if (!U.launchPkg(WeekActivity.this, k.app)) U.toast(WeekActivity.this, label + " non si apre. Controlla che sia installata"); }
             });
-        } else {
-            r.setOnClickListener(toggle);
-            if (k.done) r.setContentDescription(k.title + ", completato. Tocca per riaprirlo");
-        }
+        } else r.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { MainActivity.editTask(WeekActivity.this, k); } });
+        // 0.16: tocco lungo: Modifica task, ! Urgente, Elimina task (subito, con Annulla)
+        r.setOnLongClickListener(new View.OnLongClickListener() {
+            public boolean onLongClick(View v) {
+                new Menu(WeekActivity.this, k.title)
+                        .item("Modifica task", false, new Runnable() { public void run() { MainActivity.editTask(WeekActivity.this, k); } })
+                        .toggle(U.bang("Urgente"), "Urgente", k.urgent, new Runnable() { public void run() { Tasks.setUrgent(WeekActivity.this, k.id, !k.urgent); render(); } })
+                        .item("Elimina task", true, new Runnable() {
+                            public void run() {
+                                Changes.track(WeekActivity.this, "Task eliminato: " + k.title, new String[]{"tasks"},
+                                        new Runnable() { public void run() { Tasks.delete(WeekActivity.this, k.id); } },
+                                        new Runnable() { public void run() { render(); } });
+                            }
+                        }).show();
+                return true;
+            }
+        });
         return r;
     }
 }

@@ -31,7 +31,7 @@ public final class Serale {
     }
 
     public static String prewarnText(int min) {
-        return "Tra " + (min <= 1 ? "un minuto" : min + " minuti") + " −minus passa alla sera";
+        return "Modalità sera tra " + (min <= 1 ? "un minuto" : min + " minuti"); // 0.16 (C): la frase corta
     }
 
     /** Numero della settimana, da lunedì: giorni dal 5 gennaio 1970 (un lunedì) diviso 7. */
@@ -54,7 +54,7 @@ public final class Serale {
             "Domani sveglia alla stessa ora di oggi, anche se è sabato.",
             "Il letto è per dormire: il lavoro e le serie restano sul divano.",
             "Se non prendi sonno, alzati e fai qualcosa di tranquillo con la luce bassa, poi torna a letto.",
-            "Domattina, appena sveglia, prendi qualche minuto di luce del giorno.",
+            "Domattina, al risveglio, prendi qualche minuto di luce del giorno.",
             "Scrivi i task di domani: −minus li tiene per te, la tua testa può lasciarli.",
             "Prepara i vestiti e la borsa per domani.",
             "C'è un pensiero che gira? Scrivilo e lascialo sul foglio.",

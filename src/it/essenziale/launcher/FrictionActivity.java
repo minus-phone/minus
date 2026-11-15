@@ -64,7 +64,7 @@ public class FrictionActivity extends Activity {
         int[] mins = night ? Scopo.NIGHT_MIN : Scopo.DAY_MIN;
         minutes = mins.length > 1 ? mins[night ? 0 : 1] : mins[0];
         seconds = U.pauseSeconds(this); // 0.12: 8 secondi, oppure 4 o 6
-        left = scope ? SCOPE_SECONDS : seconds;
+        left = scope ? 0 : seconds; // 0.16: pausa e scopo senza timer: si apre quando scegli per cosa
 
         LinearLayout root = U.col(this);
         root.setBackgroundColor(U.DARK);
@@ -86,12 +86,11 @@ public class FrictionActivity extends Activity {
             name.setPadding(0, U.dp(this, 6), 0, U.dp(this, 30));
             body.addView(name);
             body.addView(count, new LinearLayout.LayoutParams(size, size));
-            TextView q = U.text(this, "Un respiro. Ti serve davvero adesso?", 18, U.ON_DARK, false);
+            TextView q = U.text(this, "Un respiro. Ti serve adesso?", 18, U.ON_DARK, false);
             q.setGravity(Gravity.CENTER);
             q.setPadding(0, U.dp(this, 30), 0, 0);
             body.addView(q, U.full());
         } else {
-            body.addView(count, new LinearLayout.LayoutParams(size, size));
             String when = night ? String.format(java.util.Locale.ITALY, "%d:%02d", Calendar.getInstance().get(Calendar.HOUR_OF_DAY), Calendar.getInstance().get(Calendar.MINUTE)) : null;
             TextView sub = U.text(this, (demo ? "Anteprima · " : "") + "Stai aprendo " + app.label, 13, U.ON_DARK_MUTED, false);
             sub.setPadding(0, U.dp(this, 8), 0, U.dp(this, 14));
@@ -283,7 +282,7 @@ public class FrictionActivity extends Activity {
         Pill.resumed(this);
         // Ogni volta che torno qui la pausa riparte: è il senso dell'attrito
         h.removeCallbacks(tick);
-        left = scope ? SCOPE_SECONDS : seconds;
+        left = scope ? 0 : seconds; // 0.16: pausa e scopo senza timer: si apre quando scegli per cosa
         render();
         h.postDelayed(tick, 1000);
     }

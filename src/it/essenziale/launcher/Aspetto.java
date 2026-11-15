@@ -34,7 +34,7 @@ final class Aspetto {
             l.addView(U.text(a, r[1], 14, U.INK, false));
             c.addView(l, U.full());
         }
-        TextView s = U.text(a, "Cerca persone, app o chiedi", 12, U.MUTED, false);
+        TextView s = U.text(a, "Cerca o chiedi", 12, U.MUTED, false);
         s.setMinHeight(U.dp(a, 34));
         s.setGravity(Gravity.CENTER_VERTICAL);
         s.setPadding(U.dp(a, 12), 0, 0, 0);
