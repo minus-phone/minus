@@ -34,6 +34,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     private static final String MAPS_PKG = "com.google.android.apps.maps";
 
     private LinearLayout root, today, tomorrow, results;
+    private LinearLayout dateChips;
     private TextView todayAlarm, dateView, notifBtn, notifCount, sessionView, filterOff;
     private android.widget.FrameLayout sessionWrap;
     private View notifBox, tomorrowLine, setupLine;
@@ -128,7 +129,11 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         // 0.13.1: sotto, la data e, a destra, la sveglia di oggi finché non ha suonato (anche dopo mezzanotte)
         LinearLayout dateRow = U.row(this);
         dateView = U.text(this, "", 15, U.MUTED, false);
-        dateRow.addView(dateView, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        dateRow.addView(dateView);
+        // 0.17 (Evolutiva 007): gli eventi di tutto il giorno accanto alla data
+        dateChips = new LinearLayout(this);
+        dateChips.setPadding(U.dp(this, 10), 0, 0, 0);
+        dateRow.addView(dateChips, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         todayAlarm = U.text(this, "", 15, U.INK, false);
         todayAlarm.setMinHeight(U.dp(this, 44));
         todayAlarm.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
@@ -497,6 +502,9 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         sessionWrap.setVisibility(sl == null ? View.INVISIBLE : View.VISIBLE);
         today.removeAllViews();
         taskHead = null;
+        dateChips.removeAllViews();
+        View chips = U.allDayChips(this, U.events(this, U.startOfDay(0), U.startOfDay(1)));
+        if (chips != null) dateChips.addView(chips, U.full());
         evening = Night.evening(this);
         if (evening && U.hourNow() >= 12) {
             // 195: la sera domani prende il posto di oggi. E002: al posto di «Invece di scorrere» l'avviso
@@ -526,7 +534,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         long now = System.currentTimeMillis();
         // 0.4.3: gli impegni già finiti spariscono dalla home (restano in Settimana)
         List<U.Event> ev = new java.util.ArrayList<U.Event>();
-        for (U.Event e : all) if (e.allDay || e.end >= now) ev.add(e);
+        for (U.Event e : all) if (!e.allDay && e.end >= now) ev.add(e); // 0.17: tutto il giorno sta accanto alla data
         boolean nextMarked = false;
         for (U.Event e : ev) {
             boolean isNext = !nextMarked && !e.allDay;
@@ -556,8 +564,28 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         }
         boolean anyToday = false, split = false;
         int urgentToday = 0;
+        String lastHead = null;
         for (Tasks.Task t : todo) {
             int g = Tasks.group(t);
+            // 0.17 (Evolutiva 006): la scadenza non si ripete su ogni task, è un titoletto sopra il gruppo
+            String hd = Urgenti.heading(g, new java.text.SimpleDateFormat("EEE", Locale.ITALY).format(new java.util.Date(t.due)));
+            if (hd != null && !hd.equals(lastHead)) {
+                if (anyToday && !split) {
+                    split = true;
+                    View line = new View(this);
+                    line.setBackgroundColor(U.LINE);
+                    LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(U.dp(this, 64), Math.max(1, U.dp(this, 1)));
+                    llp.setMargins(U.dp(this, 30), U.dp(this, 4), 0, 0);
+                    today.addView(line, llp);
+                }
+                TextView h = U.text(this, hd, 12, U.MUTED, false);
+                int st = g == Urgenti.URG_WEEK ? android.graphics.Typeface.BOLD : g == Urgenti.OVERDUE ? android.graphics.Typeface.BOLD_ITALIC : android.graphics.Typeface.NORMAL;
+                h.setTypeface(android.graphics.Typeface.create(h.getTypeface(), st));
+                h.setPadding(0, U.dp(this, 10), 0, 0);
+                U.heading(h);
+                today.addView(h);
+            }
+            lastHead = hd;
             if (Urgenti.isToday(g)) anyToday = true;
             else if (anyToday && !split) {
                 split = true; // una linea più corta, rientrata, separa i task di oggi dagli altri
@@ -570,7 +598,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
             if (g == Urgenti.URG_TODAY) urgentToday++;
             List<Tasks.Task> same = new java.util.ArrayList<Tasks.Task>();
             for (Tasks.Task x : todo) if (Tasks.group(x) == g) same.add(x);
-            today.addView(taskRow(t, 16, true, same));
+            today.addView(taskRow(t, 16, false, same));
         }
         String many = Urgenti.tooMany(urgentToday);
         if (many != null) {
@@ -655,23 +683,35 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         long d = U.startOfDay(1);
         // 0.13: la sveglia sta sulla riga del giorno, a destra; dalle 19, se non c'è, lo dice
         String al = Quando.homeAlarm(hour, System.currentTimeMillis(), U.nextAlarmTime(this), d, U.startOfDay(2));
-        tomorrow.addView(dayRow(this, "Domani · " + U.dayLabel(d), al, U.MUTED, U.INK), U.full());
-        List<U.Event> ev = U.events(this, d, U.startOfDay(2));
+        List<U.Event> all = U.events(this, d, U.startOfDay(2)), ev = new java.util.ArrayList<U.Event>();
+        for (U.Event e : all) if (!e.allDay) ev.add(e);
+        tomorrow.addView(dayRow(this, "Domani · " + U.dayLabel(d), al, U.MUTED, U.INK, U.allDayChips(this, all)), U.full());
         for (U.Event e : ev) tomorrow.addView(eventRow(e, false, false, 15));
-        List<Tasks.Task> tasks = Tasks.forDay(this, d);
+        // 0.17: gli urgenti di domani stanno già in cima (TASK); in modalità sera la cima non c'è e restano qui
+        List<Tasks.Task> tasks = new java.util.ArrayList<Tasks.Task>();
+        for (Tasks.Task t : Tasks.forDay(this, d)) if (!(t.urgent && !evening)) tasks.add(t);
         for (Tasks.Task t : tasks) tomorrow.addView(taskRow(t, 15, false, tasks));
-        if (ev.isEmpty() && tasks.isEmpty()) tomorrow.addView(U.text(this, "Niente in programma", 15, U.MUTED, false));
+        if (all.isEmpty() && tasks.isEmpty()) tomorrow.addView(U.text(this, "Niente in programma", 15, U.MUTED, false));
     }
 
     /** 0.13: «DOMANI · SAB 31» a sinistra e la sveglia a destra, sulla stessa riga (home e blocco). */
-    static View dayRow(final android.app.Activity a, String day, String alarm, int muted, int ink) {
+    static View dayRow(final android.app.Activity a, String day, String alarm, int muted, int ink) { return dayRow(a, day, alarm, muted, ink, null); }
+
+    static View dayRow(final android.app.Activity a, String day, String alarm, int muted, int ink, View chips) {
         LinearLayout r = U.row(a);
         r.setMinimumHeight(U.dp(a, 48));
         r.setPadding(0, U.dp(a, 10), 0, 0);
         TextView l = U.label(a, day);
         l.setTextColor(muted);
         l.setPadding(0, 0, 0, 0);
-        r.addView(l, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        if (chips == null) r.addView(l, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        else {
+            r.addView(l);
+            LinearLayout cw = new LinearLayout(a);
+            cw.setPadding(U.dp(a, 10), 0, 0, 0);
+            cw.addView(chips, U.full());
+            r.addView(cw, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        }
         if (alarm != null) {
             boolean none = alarm.startsWith("Nessuna");
             TextView t = U.text(a, none ? "Nessuna sveglia ›" : alarm, 15, ink, false);

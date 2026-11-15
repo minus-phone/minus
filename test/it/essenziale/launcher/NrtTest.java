@@ -825,6 +825,10 @@ public class NrtTest {
         eq("Etichetta «Scaduto»", Urgenti.label(Urgenti.OVERDUE, "lun"), "Scaduto");
         eq("Etichetta «senza scadenza»", Urgenti.label(Urgenti.UNDATED, ""), "senza scadenza");
         eq("Niente «oggi»", Urgenti.label(Urgenti.TODAY, "mer"), null);
+        eq("0.17: titoletto «entro gio»", Urgenti.heading(Urgenti.URG_WEEK, "gio"), "entro gio");
+        eq("0.17: titoletto «scaduti»", Urgenti.heading(Urgenti.OVERDUE, "lun"), "scaduti");
+        eq("0.17: titoletto «senza scadenza»", Urgenti.heading(Urgenti.UNDATED, ""), "senza scadenza");
+        eq("0.17: nessun titoletto per oggi", Urgenti.heading(Urgenti.TODAY, "mer"), null);
         eq("Urgente senza data diventa oggi", Urgenti.dueWhenUrgent(0, t0), t0);
         eq("Urgente con data la tiene", Urgenti.dueWhenUrgent(t0 + D, t0), t0 + D);
         eq("«! pagare la mensa»", Urgenti.bang("! pagare la mensa"), "pagare la mensa");

@@ -257,8 +257,21 @@ public class ListActivity extends BaseActivity {
             if (apps.length() > 0) apps.append(" · ");
             apps.append(Rules.appName(code.trim()));
         }
-        if (group) apps.append(apps.length() > 0 ? " · gruppo" : "gruppo");
-        if (apps.length() > 0) txt.addView(U.text(this, apps.toString(), 13, U.MUTED, false));
+        // 0.17: sotto il nome tornano le icone delle app (il nome solo se l'icona non c'è ancora), poi «· gruppo»
+        LinearLayout icons = U.row(this);
+        icons.setPadding(0, U.dp(this, 3), 0, 0);
+        if (badge != null) for (String code : badge.split(" · ")) {
+            if (code.trim().length() == 0) continue;
+            View b = AppIcons.badge(this, AppIcons.pkgOfCode(this, code.trim()), Rules.appName(code.trim()), U.MUTED);
+            b.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            if (icons.getChildCount() == 0) b.setPadding(0, 0, b.getPaddingRight(), 0);
+            icons.addView(b, b.getLayoutParams() != null ? b.getLayoutParams() : new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, U.dp(this, 18)));
+        }
+        if (group) {
+            apps.append(apps.length() > 0 ? " · gruppo" : "gruppo");
+            icons.addView(U.text(this, icons.getChildCount() > 0 ? " · gruppo" : "gruppo", 12, U.MUTED, false));
+        }
+        if (icons.getChildCount() > 0) txt.addView(icons);
         r.addView(txt, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         if (status != null) {
             TextView st = U.text(this, status, 13, U.INK, false);

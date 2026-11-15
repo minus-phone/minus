@@ -1099,6 +1099,9 @@ public final class U {
                     loc.set(utc.get(Calendar.YEAR), utc.get(Calendar.MONTH), utc.get(Calendar.DAY_OF_MONTH));
                     e.begin = loc.getTimeInMillis();
                     e.end = e.begin + Math.max(1, Math.round((e.instEnd - e.instBegin) / 86400000.0)) * 86400000L;
+                    // 0.17: il calendario li salva in UTC e la richiesta è in ora locale: senza questo controllo
+                    // un evento di tutto il giorno compariva anche il giorno dopo («Tutti i Santi» il 2 novembre)
+                    if (e.end <= from || e.begin >= to) continue;
                 }
                 out.add(e);
             }
@@ -1107,6 +1110,33 @@ public final class U {
             if (cur != null) cur.close();
         }
         return out;
+    }
+
+    /** 0.17: un titoletto letto da TalkBack come intestazione (Android 9+, per riflessione: si compila con API 23). */
+    static void heading(View v) {
+        try { View.class.getMethod("setAccessibilityHeading", boolean.class).invoke(v, true); } catch (Throwable ignored) {}
+    }
+
+    /** 0.17 (Evolutiva 007): gli eventi di tutto il giorno in riquadri sulla riga del giorno. Null se non ce ne sono. */
+    static View allDayChips(final android.app.Activity a, List<Event> ev) {
+        Flow f = null;
+        for (final Event e : ev) {
+            if (!e.allDay) continue;
+            if (f == null) f = new Flow(a, dp(a, 6));
+            TextView t = text(a, e.title, 14, INK, false);
+            t.setSingleLine(true);
+            t.setEllipsize(TextUtils.TruncateAt.END);
+            t.setMaxWidth(dp(a, 240));
+            t.setGravity(Gravity.CENTER_VERTICAL);
+            t.setMinHeight(dp(a, 32));
+            t.setPadding(dp(a, 10), 0, dp(a, 10), 0);
+            t.setBackground(box(a, CHIP, 0, 8));
+            t.setContentDescription(e.title + ", tutto il giorno");
+            t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { openEvent(a, e); } });
+            t.setOnLongClickListener(new View.OnLongClickListener() { public boolean onLongClick(View v) { Menu.event(a, e); return true; } });
+            f.addView(t);
+        }
+        return f;
     }
 
     // ---------- Calendario: scelta, lettura e scrittura degli impegni ----------

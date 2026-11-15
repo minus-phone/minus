@@ -136,7 +136,18 @@ public class WeekActivity extends BaseActivity {
             String name = d == 0 ? "Oggi · " + U.dayLabel(day) : d == 1 ? "Domani · " + U.dayLabel(day) : U.dayLabel(day);
             // 0.6: un + per ogni giorno, che apre Aggiungi con quel giorno già scelto
             LinearLayout head = U.row(this);
-            head.addView(U.label(this, name), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            List<U.Event> allEv = U.events(this, day, U.startOfDay(d + 1));
+            View chips = U.allDayChips(this, allEv); // 0.17 (Evolutiva 007): tutto il giorno sulla riga del giorno
+            TextView hl = U.label(this, name);
+            hl.setMinWidth(U.dp(this, 64));
+            if (chips == null) head.addView(hl, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            else {
+                head.addView(hl);
+                LinearLayout cw = new LinearLayout(this);
+                cw.setPadding(U.dp(this, 8), U.dp(this, 4), 0, U.dp(this, 4));
+                cw.addView(chips, U.full());
+                head.addView(cw, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            }
             final long dayF = day;
             TextView plus = U.text(this, "+", 22, U.INK, false);
             plus.setGravity(Gravity.CENTER);
@@ -156,7 +167,8 @@ public class WeekActivity extends BaseActivity {
             else if (d > 0) tasks.addAll(Tasks.forDay(this, day));
             // E001: in ogni giorno gli urgenti vanno in cima, prima degli impegni
             for (Tasks.Task k : tasks) if (k.urgent) list.addView(taskRow(k));
-            List<U.Event> ev = U.events(this, day, U.startOfDay(d + 1));
+            List<U.Event> ev = new java.util.ArrayList<U.Event>();
+            for (U.Event e : allEv) if (!e.allDay) ev.add(e);
             for (final U.Event e : ev) {
                 LinearLayout r = U.row(this);
                 r.setMinimumHeight(U.dp(this, 40));
@@ -180,7 +192,7 @@ public class WeekActivity extends BaseActivity {
             for (Tasks.Task k : tasks) if (!k.urgent) list.addView(taskRow(k));
             tasks.addAll(Tasks.doneOn(this, day));
             for (Tasks.Task k : tasks) if (k.done) list.addView(taskRow(k));
-            if (ev.isEmpty() && tasks.isEmpty()) {
+            if (allEv.isEmpty() && tasks.isEmpty()) {
                 TextView n = U.text(this, "Niente in programma", 14, U.MUTED, false);
                 n.setPadding(0, 0, 0, U.dp(this, 6));
                 list.addView(n);
