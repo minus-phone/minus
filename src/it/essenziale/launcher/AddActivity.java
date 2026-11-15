@@ -53,7 +53,10 @@ public class AddActivity extends BaseActivity {
     private Tasks.Task editTask;
     private TextView titleLabel, bangView;
     private LinearLayout chips, eventOnly, times, tabs, calBlock, taskOnly;
-    private TextView appBtn;
+    private android.widget.EditText appField; // 0.17: «Si apre con» è una casella che filtra mentre scrivi
+    private TextView appClear;
+    private LinearLayout appSugg;
+    private boolean appSetting;
     private String taskApp;
     private boolean appChosen;
     private static final String KEEP = "com.google.android.keep";
@@ -219,13 +222,7 @@ public class AddActivity extends BaseActivity {
         // 0.13: un task può aprire un'app («Fare la spesa» → Keep, per le liste condivise)
         taskOnly = U.col(this);
         taskOnly.addView(U.label(this, "Si apre con"));
-        appBtn = U.text(this, "", 15, U.INK, false);
-        appBtn.setMinHeight(U.dp(this, 48));
-        appBtn.setGravity(Gravity.CENTER_VERTICAL);
-        appBtn.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
-        appBtn.setBackground(U.box(this, U.SURFACE, U.BORDER, 12));
-        appBtn.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pickApp(); } });
-        taskOnly.addView(appBtn, U.full());
+        taskOnly.addView(appCombo(), U.full());
         TextView an = U.text(this, "Toccando il task si apre l'app; la casella lo segna come fatto.", 12, U.MUTED, false);
         an.setPadding(0, U.dp(this, 6), 0, 0);
         taskOnly.addView(an);
@@ -372,8 +369,8 @@ public class AddActivity extends BaseActivity {
         eventOnly.setVisibility(isEvent ? View.VISIBLE : View.GONE);
         if (taskOnly != null) {
             taskOnly.setVisibility(isEvent ? View.GONE : View.VISIBLE);
-            appBtn.setText((taskApp == null ? "Nessuna app" : U.appLabel(this, taskApp)) + "   ▾");
-            appBtn.setContentDescription("Si apre con: " + (taskApp == null ? "nessuna app" : U.appLabel(this, taskApp)));
+            if (!appField.hasFocus()) setAppText(taskApp == null ? "" : U.appLabel(this, taskApp));
+            appClear.setVisibility(appField.getText().length() > 0 ? View.VISIBLE : View.GONE);
         }
         times.setVisibility(allDay ? View.GONE : View.VISIBLE);
         allDayWrap.removeAllViews();
@@ -492,20 +489,144 @@ public class AddActivity extends BaseActivity {
                 }));
     }
 
+    // ---------- 0.17 · «Si apre con»: combo box ----------
+
+    private View appCombo() {
+        LinearLayout wrap = U.col(this);
+        LinearLayout box = U.row(this);
+        box.setBackground(U.box(this, U.SURFACE, U.BORDER, 12));
+        box.setPadding(U.dp(this, 14), 0, U.dp(this, 4), 0);
+        appField = new android.widget.EditText(this);
+        appField.setBackground(null);
+        appField.setTextSize(15 * U.textScale);
+        appField.setTextColor(U.INK);
+        appField.setHintTextColor(U.HINT);
+        appField.setHint("Scrivi il nome dell'app");
+        appField.setSingleLine(true);
+        appField.setMinHeight(U.dp(this, 48));
+        appField.setPadding(0, 0, 0, 0);
+        appField.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+        appField.setContentDescription("Si apre con");
+        box.addView(appField, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        appClear = U.text(this, "✕", 16, U.INK, false);
+        appClear.setGravity(Gravity.CENTER);
+        appClear.setContentDescription("Togli l'app");
+        appClear.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { appChosen = true; taskApp = null; setAppText(""); showSugg(""); appField.requestFocus(); }
+        });
+        box.addView(appClear, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
+        wrap.addView(box, U.full());
+        appSugg = U.col(this);
+        appSugg.setVisibility(View.GONE);
+        appSugg.setBackground(U.box(this, U.SURFACE, U.BORDER, 12));
+        LinearLayout.LayoutParams lp = U.full();
+        lp.topMargin = U.dp(this, 4);
+        wrap.addView(appSugg, lp);
+        appField.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            public void onFocusChange(View v, boolean has) {
+                if (has) { showSugg(appField.getText().toString().equals(taskApp == null ? "" : U.appLabel(AddActivity.this, taskApp)) ? "" : appField.getText().toString()); return; }
+                appSugg.setVisibility(View.GONE);
+                // uscendo senza scegliere torna il nome dell'app scelta (o vuoto)
+                setAppText(taskApp == null ? "" : U.appLabel(AddActivity.this, taskApp));
+            }
+        });
+        appField.addTextChangedListener(new android.text.TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int a, int b, int d) {}
+            public void onTextChanged(CharSequence s, int a, int b, int d) {}
+            public void afterTextChanged(android.text.Editable e) {
+                appClear.setVisibility(e.length() > 0 ? View.VISIBLE : View.GONE);
+                if (!appSetting && appField.hasFocus()) showSugg(e.toString());
+            }
+        });
+        appField.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            public boolean onEditorAction(TextView v, int id, android.view.KeyEvent ev) {
+                // «Fatto» sulla tastiera sceglie il primo suggerimento
+                List<U.AppInfo> m = matches(appField.getText().toString());
+                if (!m.isEmpty() && appField.getText().length() > 0) chooseApp(m.get(0));
+                else appField.clearFocus();
+                return true;
+            }
+        });
+        return wrap;
+    }
+
+    private void setAppText(String t) {
+        appSetting = true;
+        appField.setText(t);
+        appField.setSelection(t.length());
+        appSetting = false;
+    }
+
+    /** Vuota: le app già usate nei task e quelle a portata (5 al massimo), poi «Tutte le app ›». Scritta: chi corrisponde. */
+    private List<U.AppInfo> matches(String q) {
+        List<U.AppInfo> all = U.sortedApps(this), out = new ArrayList<U.AppInfo>();
+        if (Cerca.norm(q).length() == 0) {
+            java.util.LinkedHashSet<String> pk = new java.util.LinkedHashSet<String>();
+            for (Tasks.Task t : Tasks.all(this)) if (t.app != null) pk.add(t.app);
+            for (String[] r : SearchActivity.portata(this)) pk.add(r[0]);
+            for (String p : pk) {
+                for (U.AppInfo a : all) if (a.pkg.equals(p)) { out.add(a); break; }
+                if (out.size() == 5) break;
+            }
+            return out;
+        }
+        for (int sc = 3; sc >= 1; sc--) for (U.AppInfo a : all) if (Cerca.score(a.label, q) == sc) out.add(a);
+        return out.size() > 6 ? out.subList(0, 6) : out;
+    }
+
+    private void showSugg(String q) {
+        appSugg.removeAllViews();
+        List<U.AppInfo> m = matches(q);
+        for (final U.AppInfo a : m) {
+            TextView t = U.text(this, a.label, 15, U.INK, a.pkg.equals(taskApp));
+            t.setMinHeight(U.dp(this, 48));
+            t.setGravity(Gravity.CENTER_VERTICAL);
+            t.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
+            t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { chooseApp(a); } });
+            appSugg.addView(t, U.full());
+        }
+        boolean empty = Cerca.norm(q).length() == 0;
+        if (!empty && m.isEmpty()) {
+            TextView none = U.text(this, "Nessuna app con questo nome", 14, U.MUTED, false);
+            none.setMinHeight(U.dp(this, 48));
+            none.setGravity(Gravity.CENTER_VERTICAL);
+            none.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
+            appSugg.addView(none, U.full());
+        }
+        if (empty) {
+            TextView more = U.text(this, "Tutte le app  ›", 15, U.INK, false);
+            more.setMinHeight(U.dp(this, 48));
+            more.setGravity(Gravity.CENTER_VERTICAL);
+            more.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
+            more.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pickApp(); } });
+            appSugg.addView(more, U.full());
+        }
+        appSugg.setVisibility(View.VISIBLE);
+        appSugg.announceForAccessibility(empty ? m.size() + " app suggerite" : m.size() == 1 ? "1 app trovata" : m.size() + " app trovate");
+    }
+
+    private void chooseApp(U.AppInfo a) {
+        appChosen = true;
+        taskApp = a == null ? null : a.pkg;
+        setAppText(a == null ? "" : a.label);
+        appSugg.setVisibility(View.GONE);
+        appField.clearFocus();
+        try {
+            ((android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(appField.getWindowToken(), 0);
+        } catch (Exception ignored) {}
+        render();
+    }
+
+    /** «Tutte le app ›»: l'elenco completo, come prima. */
     private void pickApp() {
         final List<U.AppInfo> apps = U.sortedApps(this);
         List<CharSequence> names = new ArrayList<CharSequence>();
-        names.add("Nessuna app");
         for (U.AppInfo a : apps) names.add(a.label);
-        U.dlg(this)
+        U.show(U.dlg(this)
                 .setTitle("Si apre con")
                 .setItems(names.toArray(new CharSequence[0]), new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface d, int w) {
-                        appChosen = true;
-                        taskApp = w == 0 ? null : apps.get(w - 1).pkg;
-                        render();
-                    }
-                }).show();
+                    public void onClick(DialogInterface d, int w) { chooseApp(apps.get(w)); }
+                }).setNegativeButton("Annulla", null));
     }
 
     /** 0.15: «Ripeti» è una selezione di sistema, al posto della pagina. */
