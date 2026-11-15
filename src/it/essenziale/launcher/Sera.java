@@ -110,8 +110,26 @@ final class Sera {
         return (t + k.get(Calendar.ZONE_OFFSET) + k.get(Calendar.DST_OFFSET)) / 86400000L;
     }
 
+    /** 0.16: la sveglia vera del telefono, se suona entro 14 ore; altrimenti niente (né riga né orologio). */
     static String alarmLine(Context c) {
-        return "La sveglia suona alle " + Notte.hhmm(Night.wakeMin(c)) + ".";
+        long t = U.nextAlarmTime(c), now = System.currentTimeMillis();
+        if (t <= now || t - now > 14L * 3600000L) return null;
+        Calendar k = Calendar.getInstance();
+        k.setTimeInMillis(t);
+        return "La sveglia suona alle " + Notte.hhmm(k.get(Calendar.HOUR_OF_DAY) * 60 + k.get(Calendar.MINUTE)) + ".";
+    }
+
+    /** 0.16: dopo «Ancora 15 min» il secondo avviso lo dice. */
+    static final String SNOOZE_USED = "Rinvio già usato stasera.";
+
+    static String join(String a, String b) { return a == null ? b : b == null ? a : a + " " + b; }
+
+    /** 0.16: con TalkBack la pillola sopra le app non si raggiunge bene: arriva la notifica. */
+    static boolean talkback(Context c) {
+        try {
+            android.view.accessibility.AccessibilityManager am = (android.view.accessibility.AccessibilityManager) c.getSystemService(Context.ACCESSIBILITY_SERVICE);
+            return am != null && am.isEnabled() && am.isTouchExplorationEnabled();
+        } catch (Exception e) { return false; }
     }
 
     /** Ogni 30 secondi a schermo acceso (FilterService): l'avviso arriva una volta, dove serve. */
@@ -123,7 +141,7 @@ final class Sera {
         int where = Serale.where(true, minusFront || fg == null || fg.equals(c.getPackageName()), braked, Pill.canDraw(c));
         if (where == Serale.HOME) return; // la home lo mostra da sé
         p(c).edit().putLong(K_ALERTED, evening()).apply();
-        if (where == Serale.PILL) { showPill(c); buzz(c); }
+        if (where == Serale.PILL && !talkback(c)) { showPill(c); buzz(c); }
         else notify(c);
     }
 
@@ -161,7 +179,7 @@ final class Sera {
     private static void notify(Context c) {
         try {
             String tip = tip(c);
-            String text = U.brand(alarmLine(c) + (tip != null ? " " + tip : "")).toString();
+            String text = U.brand(join(join(alarmLine(c), canSnooze(c) ? null : SNOOZE_USED), tip)).toString();
             Intent home = new Intent(c, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             Notification.Builder b = new Notification.Builder(c)
                     .setSmallIcon(Icon.createWithResource("android", android.R.drawable.ic_lock_idle_alarm))
@@ -194,7 +212,7 @@ final class Sera {
             box.setBackground(U.box(a, 0xFF171716, 0, 22));
             TextView t = U.text(a, "È l'ora di staccare", 17, 0xFFF3F1EB, true);
             box.addView(t);
-            TextView l = U.text(a, "−minus passa alla sera. " + alarmLine(a), 14, 0xFFD0CEC7, false);
+            TextView l = U.text(a, join("−minus passa alla sera.", join(alarmLine(a), canSnooze(a) ? null : SNOOZE_USED)), 14, 0xFFD0CEC7, false);
             l.setPadding(0, U.dp(a, 4), 0, 0);
             box.addView(l);
             String tip = tip(a);
@@ -204,7 +222,7 @@ final class Sera {
                 LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.max(1, U.dp(a, 1)));
                 llp.topMargin = U.dp(a, 10);
                 box.addView(line, llp);
-                TextView tl = U.text(a, "CONSIGLIO DELLA SETTIMANA", 11, 0xFFA19F98, false);
+                TextView tl = U.text(a, "CONSIGLIO DELLA SETTIMANA", 12, 0xFFA19F98, false);
                 tl.setLetterSpacing(0.06f);
                 tl.setPadding(0, U.dp(a, 8), 0, 0);
                 box.addView(tl);
@@ -226,7 +244,7 @@ final class Sera {
                 btns.addView(more, new LinearLayout.LayoutParams(0, U.dp(a, 44), 1f));
             }
             box.addView(btns);
-            box.setContentDescription("È l'ora di staccare. " + alarmLine(a) + (tip != null ? " Consiglio della settimana: " + tip : ""));
+            box.setContentDescription(join(join("È l'ora di staccare.", alarmLine(a)), tip != null ? "Consiglio della settimana: " + tip : null));
             WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
                     U.dp(a, 328), WindowManager.LayoutParams.WRAP_CONTENT,
                     Build.VERSION.SDK_INT >= 26 ? 2038 : 2002,
@@ -236,6 +254,34 @@ final class Sera {
             lp.y = U.dp(a, 34);
             wm.addView(box, lp);
             pill = box;
+            // 0.16: dopo 15 secondi si chiude da sola e resta la pillola chiusa «Sera»: un tocco la riapre
+            box.postDelayed(new Runnable() { public void run() { if (pill != null && pending(a)) showClosed(a); } }, 15000);
+        } catch (Exception ignored) {
+            pill = null;
+        }
+    }
+
+    /** 0.16: la pillola chiusa, piccola in alto: «Sera». */
+    static void showClosed(final Context a) {
+        try {
+            hidePill();
+            WindowManager wm = (WindowManager) a.getSystemService(Context.WINDOW_SERVICE);
+            TextView t = U.text(a, "Sera", 14, 0xFFF3F1EB, true);
+            t.setGravity(Gravity.CENTER);
+            t.setPadding(U.dp(a, 18), 0, U.dp(a, 18), 0);
+            t.setMinHeight(U.dp(a, 36));
+            t.setBackground(U.box(a, 0xFF171716, 0xFF62625C, 18));
+            t.setContentDescription("Modalità sera. Tocca per riaprire l'avviso");
+            t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { showPill(a); } });
+            WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+                    Build.VERSION.SDK_INT >= 26 ? 2038 : 2002,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                    PixelFormat.TRANSLUCENT);
+            lp.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+            lp.y = U.dp(a, 34);
+            wm.addView(t, lp);
+            pill = t;
         } catch (Exception ignored) {
             pill = null;
         }

@@ -104,29 +104,29 @@ public class GroupsActivity extends BaseActivity {
         if (always.isEmpty() && silent.isEmpty()) {
             TextView t = U.text(this, U.listenerEnabled(this)
                     ? "Ancora nessun gruppo di " + Rules.appName(code) + ": compariranno qui appena arriva una notifica da un gruppo."
-                    : "Attiva l'accesso alle notifiche (Impostazioni › Attivazione) per vedere qui i tuoi gruppi.", 15, U.INK, false);
+                    : "Attiva l'accesso alle notifiche (Impostazioni › Permessi) per vedere qui i tuoi gruppi.", 15, U.INK, false);
             t.setPadding(0, U.dp(this, 14), 0, 0);
             list.addView(t);
         } else {
             list.addView(U.label(this, "Passano sempre"));
             if (always.isEmpty()) list.addView(U.text(this, "Nessuno. Tocca un gruppo qui sotto per farlo passare sempre.", 14, U.MUTED, false));
             for (G g : always) row(g, true);
-            list.addView(U.label(this, "In silenzio"));
+            list.addView(U.label(this, "Aspettano"));
             if (silent.isEmpty()) list.addView(U.text(this, "Nessuno.", 14, U.MUTED, false));
             for (G g : silent) row(g, false);
         }
 
         // Dove vanno i gruppi in silenzio di questa app
-        TextView q = U.text(this, "I gruppi in silenzio di " + Rules.appName(code) + " vanno in:", 15, U.INK, false);
+        TextView q = U.text(this, "I gruppi che aspettano, di " + Rules.appName(code) + ", vanno in:", 15, U.INK, false);
         q.setPadding(0, U.dp(this, 22), 0, U.dp(this, 8));
         list.addView(q);
         String dest = U.groupDest(this).get(code);
         if (dest == null) dest = Rules.DEST_OTHER;
         LinearLayout chips = U.row(this);
-        destChip(chips, "Notifiche", "contati", Rules.DEST_NOTIF, dest);
+        destChip(chips, "Per te", "contati", Rules.DEST_NOTIF, dest);
         destChip(chips, "Altro", "non contati", Rules.DEST_OTHER, dest);
         list.addView(chips, U.full());
-        TextView foot = U.text(this, "I gruppi nuovi partono in silenzio. Un gruppo in cui scrivi passa per 12 ore, come le conversazioni aperte.", 12, U.MUTED, false);
+        TextView foot = U.text(this, "I gruppi nuovi aspettano. Un gruppo in cui scrivi passa per 12 ore, come le conversazioni aperte.", 12, U.MUTED, false);
         foot.setPadding(0, U.dp(this, 14), 0, U.dp(this, 24));
         list.addView(foot);
     }
@@ -138,7 +138,7 @@ public class GroupsActivity extends BaseActivity {
         tx.addView(U.text(this, g.name, 16, U.INK, false));
         if (g.last > 0) tx.addView(U.text(this, "ultimo messaggio " + ago(g.last), 12, U.MUTED, false));
         r.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView act = U.text(this, always ? "Silenzia" : "Fai passare", 13, U.INK, false);
+        TextView act = U.text(this, always ? "Fai aspettare" : "Fai passare", 13, U.INK, false);
         act.setGravity(Gravity.CENTER);
         act.setMinHeight(U.dp(this, 44));
         act.setPadding(U.dp(this, 12), 0, U.dp(this, 12), 0);
@@ -146,14 +146,14 @@ public class GroupsActivity extends BaseActivity {
         r.addView(act);
         View.OnClickListener l = new View.OnClickListener() {
             public void onClick(View v) {
-                Changes.track(GroupsActivity.this, g.name + (always ? ": in silenzio" : ": passa sempre"), new String[]{U.K_GROUPS},
+                Changes.track(GroupsActivity.this, g.name + (always ? ": aspetta" : ": passa sempre"), new String[]{U.K_GROUPS},
                         new Runnable() { public void run() { U.setGroupRule(GroupsActivity.this, g.name, always ? "silenzio" : "sempre"); } },
                         new Runnable() { public void run() { render(); } });
             }
         };
         r.setOnClickListener(l);
         act.setOnClickListener(l);
-        r.setContentDescription(g.name + (always ? ", passa sempre" : ", in silenzio"));
+        r.setContentDescription(g.name + (always ? ", passa sempre" : ", aspetta"));
         list.addView(r, U.full());
         list.addView(U.divider(this));
     }
@@ -172,7 +172,7 @@ public class GroupsActivity extends BaseActivity {
         c.addView(s);
         c.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                Changes.track(GroupsActivity.this, "Gruppi in silenzio di " + Rules.appName(code) + ": in " + (Rules.DEST_NOTIF.equals(value) ? "Notifiche" : "Altro"),
+                Changes.track(GroupsActivity.this, "Gruppi che aspettano di " + Rules.appName(code) + ": in " + (Rules.DEST_NOTIF.equals(value) ? "Per te" : "Altro"),
                         new String[]{U.K_GROUP_DEST},
                         new Runnable() { public void run() { U.setGroupDest(GroupsActivity.this, code, value); } },
                         new Runnable() { public void run() { render(); } });

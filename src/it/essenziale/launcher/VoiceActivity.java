@@ -130,7 +130,7 @@ public class VoiceActivity extends BaseActivity {
     private void head(String tag, String action) {
         LinearLayout r = U.row(this);
         r.setPadding(0, U.dp(this, 20), 0, U.dp(this, 6));
-        TextView tg = U.text(this, tag, 11, U.INK, true);
+        TextView tg = U.text(this, tag, 12, U.INK, true);
         tg.setTypeface(U.SERIF_M);
         tg.setPadding(U.dp(this, 8), U.dp(this, 3), U.dp(this, 8), U.dp(this, 3));
         tg.setBackground(U.box(this, U.BG, U.INK, 6));
@@ -371,7 +371,7 @@ public class VoiceActivity extends BaseActivity {
                 boolean ok = e.repeats()
                         ? U.exception(VoiceActivity.this, e.eventId, e.instBegin, false, d.title, start, end, allDay, d.desc)
                         : U.updateEvent(VoiceActivity.this, e.eventId, d.title, start, end, allDay, null, d.desc);
-                U.toast(VoiceActivity.this, ok ? "Impegno spostato" : "Non sono riuscita a spostarlo");
+                U.toast(VoiceActivity.this, ok ? "Impegno spostato" : "Impegno non spostato: riprova dal calendario");
                 if (ok) finish();
             }
         });
@@ -393,7 +393,7 @@ public class VoiceActivity extends BaseActivity {
                 boolean ok = e.repeats()
                         ? U.exception(VoiceActivity.this, e.eventId, e.instBegin, true, null, 0, 0, false, null)
                         : U.deleteEvent(VoiceActivity.this, e.eventId);
-                U.toast(VoiceActivity.this, ok ? "Impegno eliminato" : "Non sono riuscita a eliminarlo");
+                U.toast(VoiceActivity.this, ok ? "Impegno eliminato" : "Impegno non eliminato: riprova dal calendario");
                 if (ok) finish();
             }
         });
@@ -406,9 +406,9 @@ public class VoiceActivity extends BaseActivity {
     private void ask() {
         final String q = cmd.text == null ? cmd.raw : cmd.text;
         head("?", "Non è un comando di −minus");
-        line("Puoi", "Chiederlo a Gemini");
+        line("Puoi", "Chiederlo all'assistente");
         hint("Si apre fuori da −minus.");
-        cta("Chiedi a Gemini", new Runnable() { public void run() { gemini(VoiceActivity.this, q); finish(); } });
+        cta("Chiedi all'assistente", new Runnable() { public void run() { gemini(VoiceActivity.this, q); finish(); } });
     }
 
     /** Gira la domanda a Gemini; se non c'è, all'assistente predefinito o alla ricerca web. */

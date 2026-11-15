@@ -73,13 +73,13 @@ public final class U {
         TRACK_OFF = Color.parseColor(d ? "#6E6D68" : "#8A877F");
         ALERT = Color.parseColor(d ? "#E39A72" : "#A4461C");
         URGENT = Color.parseColor(d ? "#F2766B" : "#B3261E");   // E001: il «!» rosso, l'unico rosso
-        HINT = Color.parseColor(d ? "#6F6E69" : "#AAA79F");     // segnaposto dei campi, più chiari del testo
+        HINT = Color.parseColor(d ? "#8A8983" : "#6E6B64");     // 0.16: segnaposto leggibili (4,5:1 sul fondo)
         BADGE = Color.parseColor(d ? "#3A3935" : "#DEDBD1");    // pallino con il numero accanto a «Notifiche»
         if (changed) themeStamp++;
         return changed;
     }
     public static int ALERT = Color.parseColor("#A4461C"); // scaduto, contrasto AA su BG (chiaro e scuro)
-    public static int URGENT = Color.parseColor("#B3261E"), HINT = Color.parseColor("#AAA79F"), BADGE = Color.parseColor("#DEDBD1");
+    public static int URGENT = Color.parseColor("#B3261E"), HINT = Color.parseColor("#6E6B64"), BADGE = Color.parseColor("#DEDBD1");
     public static final int DARK = Color.parseColor("#121211");
     public static final int ON_DARK = Color.parseColor("#E9E7E1");
     public static final int ON_DARK_MUTED = Color.parseColor("#A19F98");
@@ -213,13 +213,52 @@ public final class U {
     public static LinearLayout switchRow(Context c, CharSequence label, String spoken, boolean on, View.OnClickListener l) {
         LinearLayout r = row(c);
         r.setMinimumHeight(dp(c, 48));
-        TextView t = text(c, "", 16, INK, false);
+        TextView t = text(c, "", 16, INK, on); // 0.16: label in grassetto solo con l'interruttore acceso
         t.setText(label);
         r.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         r.addView(toggle(c, on), new LinearLayout.LayoutParams(dp(c, 48), dp(c, 28)));
         r.setContentDescription(spoken + ", interruttore, " + (on ? "acceso" : "spento"));
         r.setOnClickListener(l);
         return r;
+    }
+
+    /** 0.16: le finestre di sistema seguono il tema di −minus (prima, di sera, testi scuri su grigio scuro). */
+    public static android.app.AlertDialog.Builder dlg(Context c) {
+        return new android.app.AlertDialog.Builder(c, dark ? android.app.AlertDialog.THEME_DEVICE_DEFAULT_DARK : android.app.AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+    }
+
+    /** 0.16: mostra la finestra sul fondo delle schede di −minus, così i colori nostri hanno il contrasto verificato. */
+    public static android.app.AlertDialog show(android.app.AlertDialog.Builder b) {
+        android.app.AlertDialog d = b.show();
+        try {
+            Context c = d.getContext();
+            d.getWindow().setBackgroundDrawable(new android.graphics.drawable.InsetDrawable(box(c, SURFACE, 0, 24), dp(c, 16), dp(c, 24), dp(c, 16), dp(c, 24)));
+        } catch (Exception ignored) {}
+        return d;
+    }
+
+    /** 0.16: allarga a sinistra l'area di tocco di un controllo piccolo (la casella dei task), fino a 48 dp. */
+    public static void widenLeft(final View parent, final View child, final int dpLeft) {
+        parent.post(new Runnable() {
+            public void run() {
+                android.graphics.Rect r = new android.graphics.Rect();
+                child.getHitRect(r);
+                r.left -= dp(parent.getContext(), dpLeft);
+                parent.setTouchDelegate(new android.view.TouchDelegate(r, child));
+            }
+        });
+    }
+
+    /** 0.16: il badge con l'iniziale di persone e gruppi: sfondo grigio, nessun bordo, Literata regolare. */
+    public static TextView initial(Context c, String name, boolean group, int sizeDp) {
+        String n0 = name == null ? "" : name.replace("[", "").trim();
+        TextView t = text(c, n0.length() > 0 ? n0.substring(0, 1).toUpperCase(Locale.ITALY) : "?", sizeDp * 0.42f, INK, false);
+        t.setTypeface(SERIF);
+        t.setGravity(Gravity.CENTER);
+        t.setIncludeFontPadding(false);
+        t.setBackground(box(c, CHIP, 0, group ? sizeDp / 4 : sizeDp / 2));
+        t.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        return t;
     }
 
     /** 0.15: il pallino grigio chiaro con un numero (accanto a «Notifiche», «TASK»). */

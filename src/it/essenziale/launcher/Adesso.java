@@ -87,7 +87,7 @@ final class Adesso {
             done.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     done(c, t);
-                    U.toast(c, "Fatto. Grazie per esserti preso un momento");
+                    U.toast(c, "Fatto.");
                     if (onChange != null) onChange.run();
                 }
             });

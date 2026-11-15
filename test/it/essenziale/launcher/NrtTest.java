@@ -850,8 +850,11 @@ public class NrtTest {
         check("Niente preavviso all'ora di staccare", !Serale.prewarn(22 * 60 + 45, 22 * 60 + 45), null);
         check("Preavviso a cavallo della mezzanotte (staccare alle 0:05)", Serale.prewarn(23 * 60 + 58, 5), null);
         eq("Mancano 7 minuti", Serale.minutesTo(22 * 60 + 38, 22 * 60 + 45), 7);
-        eq("Testo del preavviso", Serale.prewarnText(10), "Tra 10 minuti −minus passa alla sera");
-        eq("Testo dell'ultimo minuto", Serale.prewarnText(1), "Tra un minuto −minus passa alla sera");
+        eq("Testo del preavviso", Serale.prewarnText(10), "Modalità sera tra 10 minuti");
+        eq("Testo dell'ultimo minuto", Serale.prewarnText(1), "Modalità sera tra un minuto");
+        boolean risveglio = false;
+        for (String t : Serale.TIPS) { if (t.contains("appena sveglia")) risveglio = false; if (t.contains("al risveglio")) risveglio = true; }
+        eq("0.16: consiglio senza genere, al risveglio", risveglio, true);
         eq("Schermo spento: in home allo sblocco", Serale.where(false, false, true, true), Serale.HOME);
         eq("−minus davanti: in home", Serale.where(true, true, false, true), Serale.HOME);
         eq("App frenata: la pillola", Serale.where(true, false, true, true), Serale.PILL);

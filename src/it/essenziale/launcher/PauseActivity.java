@@ -83,7 +83,7 @@ public class PauseActivity extends BaseActivity {
         for (U.AppInfo a : on) row(a);
         list.addView(U.label(this, "Altre app"));
         for (U.AppInfo a : off) row(a);
-        TextView n = U.text(this, "Non c'è «spegni per qualche giorno»: chi sospende tende a ricadere in fretta. Si può solo scendere di livello, app per app, e ogni scelta ha «Annulla». Di notte, con «Di notte» attivo, la pausa diventa pausa e scopo.", 12, U.MUTED, false);
+        TextView n = U.text(this, "Non c'è «spegni per qualche giorno»: chi sospende tende a ricadere in fretta. Si può solo scendere di livello, app per app. Ogni scelta ha «Annulla». Dall'ora di staccare, la pausa diventa pausa e scopo.", 12, U.MUTED, false);
         n.setPadding(0, U.dp(this, 14), 0, U.dp(this, 24));
         list.addView(n);
     }

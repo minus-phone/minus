@@ -114,7 +114,7 @@ public class BetaActivity extends BaseActivity {
     }
 
     private void askOff() {
-        new AlertDialog.Builder(this).setTitle("Spegnere il registro?")
+        U.dlg(this).setTitle("Spegnere il registro?")
                 .setMessage("I numeri registrati finora si cancellano dal telefono. Quelli che hai già inviato restano a chi li ha ricevuti.")
                 .setPositiveButton("Spegni e cancella", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface d, int w) { Beta.setOn(BetaActivity.this, false); render(); }
@@ -122,7 +122,7 @@ public class BetaActivity extends BaseActivity {
     }
 
     private void askClear() {
-        new AlertDialog.Builder(this).setTitle("Cancellare il registro?")
+        U.dlg(this).setTitle("Cancellare il registro?")
                 .setMessage("Il registro riparte da oggi e resta acceso. Quello che hai già inviato non cambia.")
                 .setPositiveButton("Cancella", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface d, int w) { Beta.clear(BetaActivity.this); render(); }

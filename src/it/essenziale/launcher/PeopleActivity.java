@@ -175,7 +175,7 @@ public class PeopleActivity extends BaseActivity {
     private void renderList() {
         list.removeAllViews();
         if (step == 2) {
-            if (chosen.isEmpty()) list.addView(U.text(this, "Nessuna persona scelta: con “Fatto” la sezione Sempre resta vuota.", 15, U.MUTED, false));
+            if (chosen.isEmpty()) list.addView(U.text(this, "Nessuna persona scelta: con «Fatto» nessuno passa sempre, salvo i servizi e le chiamate ripetute.", 15, U.MUTED, false));
             for (final Rules.Person p : chosen.values()) {
                 list.addView(U.label(this, p.name));
                 LinearLayout chips = U.row(this);
@@ -228,9 +228,7 @@ public class PeopleActivity extends BaseActivity {
             LinearLayout r = U.row(this);
             r.setMinimumHeight(U.dp(this, 52));
             String n0 = p.name.replace("[", "").trim();
-            TextView ini = U.text(this, n0.length() > 0 ? n0.substring(0, 1).toUpperCase(Locale.ITALY) : "?", 15, U.INK, true);
-            ini.setGravity(Gravity.CENTER);
-            ini.setBackground(U.box(this, U.CHIP, 0, 18));
+            TextView ini = U.initial(this, n0, false, 36);
             r.addView(ini, new LinearLayout.LayoutParams(U.dp(this, 36), U.dp(this, 36)));
             TextView nm = U.text(this, p.name, 16, U.INK, false);
             nm.setPadding(U.dp(this, 12), 0, 0, 0);

@@ -90,7 +90,7 @@ public class NightSettingsActivity extends BaseActivity {
         for (U.AppInfo a : U.sortedApps(this)) if (!in.contains(a.pkg) && !paused.contains(a.pkg)) all.add(a);
         String[] names = new String[all.size()];
         for (int i = 0; i < names.length; i++) names[i] = all.get(i).label;
-        new AlertDialog.Builder(this).setTitle("Frenata di notte").setItems(names, new DialogInterface.OnClickListener() {
+        U.dlg(this).setTitle("Frenata di notte").setItems(names, new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface d, final int w) {
                 Changes.track(NightSettingsActivity.this, "Di notte: aggiunta " + all.get(w).label, new String[]{Night.K_APPS},
                         new Runnable() { public void run() { Night.setNightApp(NightSettingsActivity.this, all.get(w).pkg, true); } },

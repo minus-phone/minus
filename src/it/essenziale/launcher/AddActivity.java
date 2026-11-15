@@ -50,6 +50,8 @@ public class AddActivity extends BaseActivity {
     private TextView tabEvent, tabTask, whenLabel, fromBtn, toBtn, calBtn, repeatBtn;
     private LinearLayout allDayWrap, urgentWrap;
     private boolean urgent;
+    private Tasks.Task editTask;
+    private TextView titleLabel, bangView;
     private LinearLayout chips, eventOnly, times, tabs, calBlock, taskOnly;
     private TextView appBtn;
     private String taskApp;
@@ -69,6 +71,16 @@ public class AddActivity extends BaseActivity {
         calId = U.prefs(this).getLong("last_cal", -1);
         calName = U.prefs(this).getString("last_cal_name", null);
 
+        // 0.16: «Modifica task» apre Aggiungi già compilato
+        String tid = in.getStringExtra("task_id");
+        if (tid != null) for (Tasks.Task t : Tasks.all(this)) if (t.id.equals(tid)) editTask = t;
+        if (editTask != null) {
+            isEvent = false;
+            day = editTask.due;
+            urgent = editTask.urgent;
+            taskApp = editTask.app;
+            appChosen = true;
+        }
         long eventId = in.getLongExtra("event_id", -1);
         if (eventId >= 0) {
             orig = U.loadEvent(this, eventId);
@@ -115,7 +127,7 @@ public class AddActivity extends BaseActivity {
         if (editing()) {
             if (calName != null) c.addView(U.text(this, calName, 13, U.MUTED, false));
             c.addView(U.text(this, "Modifica impegno", 24, U.INK, true));
-        }
+        } else if (editTask != null) c.addView(U.text(this, "Modifica task", 24, U.INK, true));
 
         tabs = U.row(this);
         tabs.setBackground(U.box(this, U.CHIP, 0, 24));
@@ -125,12 +137,18 @@ public class AddActivity extends BaseActivity {
         tabs.addView(tabEvent, new LinearLayout.LayoutParams(0, U.dp(this, 42), 1f));
         tabs.addView(tabTask, new LinearLayout.LayoutParams(0, U.dp(this, 42), 1f));
         c.addView(tabs, U.full());
-        if (editing()) tabs.setVisibility(View.GONE);
+        if (editing() || editTask != null) tabs.setVisibility(View.GONE);
 
-        c.addView(U.label(this, "Titolo"));
+        titleLabel = U.label(this, "Titolo");
+        c.addView(titleLabel);
         LinearLayout tf = U.row(this);
         tf.setBackground(U.box(this, U.SURFACE, U.BORDER, 12));
         tf.setPadding(U.dp(this, 14), U.dp(this, 2), U.dp(this, 6), U.dp(this, 2));
+        // 0.16: con Urgente acceso un «!» rosso fisso davanti al titolo: non si cancella da tastiera
+        bangView = U.text(this, "!", 16, U.URGENT, true);
+        bangView.setPadding(0, 0, U.dp(this, 8), 0);
+        bangView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        tf.addView(bangView);
         title = new EditText(this);
         title.setBackground(null);
         title.setTextSize(16);
@@ -145,6 +163,7 @@ public class AddActivity extends BaseActivity {
         tf.addView(mic, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
         c.addView(tf, U.full());
         if (editing()) title.setText(orig.title);
+        else if (editTask != null) title.setText(editTask.title);
         else if (in.getStringExtra("title") != null) title.setText(in.getStringExtra("title"));
 
         whenLabel = U.label(this, "Giorno");
@@ -158,33 +177,25 @@ public class AddActivity extends BaseActivity {
 
         eventOnly = U.col(this);
 
-        times = U.row(this);
-        times.setPadding(0, U.dp(this, 2), 0, 0);
-        fromBtn = field();
-        toBtn = field();
-        LinearLayout fcol = U.col(this);
-        fcol.addView(U.label(this, "Dalle"));
-        fcol.addView(fromBtn, U.full());
-        LinearLayout tcol = U.col(this);
-        tcol.addView(U.label(this, "Alle"));
-        tcol.addView(toBtn, U.full());
-        LinearLayout.LayoutParams fl = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        fl.rightMargin = U.dp(this, 10);
-        times.addView(fcol, fl);
-        times.addView(tcol, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        eventOnly.addView(times, U.full());
-        // 0.15: «Tutto il giorno» è un interruttore, sotto «Dalle / Alle»
+        // 0.16: «Tutto il giorno» sopra l'orario; acceso, la riga Orario sparisce
         allDayWrap = U.col(this);
         eventOnly.addView(allDayWrap, U.full());
+        // 0.16: orario, ripetizione e calendario sono righe compatte da 48 dp, il valore sottolineato a destra
+        fromBtn = field();
+        toBtn = field();
+        times = compact("Orario", fromBtn);
+        TextView dash = U.text(this, "–", 16, U.MUTED, false);
+        dash.setPadding(U.dp(this, 6), 0, U.dp(this, 6), 0);
+        times.addView(dash);
+        times.addView(toBtn);
+        eventOnly.addView(times, U.full());
 
-        eventOnly.addView(U.label(this, "Ripeti"));
         repeatBtn = field();
-        eventOnly.addView(repeatBtn, U.full());
+        eventOnly.addView(compact("Ripeti", repeatBtn), U.full());
 
         calBlock = U.col(this);
-        calBlock.addView(U.label(this, "Calendario"));
         calBtn = field();
-        calBlock.addView(calBtn, U.full());
+        calBlock.addView(compact("Calendario", calBtn), U.full());
         calNote = U.text(this, "", 12, U.MUTED, false);
         calNote.setPadding(U.dp(this, 4), U.dp(this, 4), 0, 0);
         calBlock.addView(calNote);
@@ -265,7 +276,26 @@ public class AddActivity extends BaseActivity {
             root.addView(del, dlp);
         }
 
-        TextView save = U.text(this, editing() ? "Salva modifiche" : "Salva", 16, U.BG, true);
+        if (editTask != null) {
+            // 0.16: elimina subito; «Annulla» compare in home
+            TextView del = U.text(this, "Elimina task", 16, U.URGENT, true);
+            del.setGravity(Gravity.CENTER);
+            del.setMinHeight(U.dp(this, 48));
+            del.setBackground(U.box(this, U.BG, U.URGENT, 24));
+            del.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    Changes.record(AddActivity.this, "Task eliminato: " + editTask.title, new String[]{"tasks"});
+                    Tasks.delete(AddActivity.this, editTask.id);
+                    startActivity(new Intent(AddActivity.this, MainActivity.class).putExtra("undo", true)
+                            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+                    finish();
+                }
+            });
+            LinearLayout.LayoutParams dlp = U.full();
+            dlp.topMargin = U.dp(this, 8);
+            root.addView(del, dlp);
+        }
+        TextView save = U.text(this, editing() || editTask != null ? "Salva modifiche" : "Salva", 16, U.BG, true);
         save.setGravity(Gravity.CENTER);
         save.setMinHeight(U.dp(this, 52));
         save.setBackground(U.box(this, U.INK, 0, 26));
@@ -315,11 +345,19 @@ public class AddActivity extends BaseActivity {
 
     private TextView field() {
         TextView t = U.text(this, "", 16, U.INK, false);
-        t.setMinHeight(U.dp(this, 50));
-        t.setGravity(Gravity.CENTER_VERTICAL);
-        t.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
-        t.setBackground(U.box(this, U.SURFACE, U.BORDER, 12));
+        t.setMinHeight(U.dp(this, 48));
+        t.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+        t.setPaintFlags(t.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
         return t;
+    }
+
+    /** 0.16: una riga da 48 dp, l'etichetta a sinistra e il valore a destra. */
+    private LinearLayout compact(String label, TextView value) {
+        LinearLayout r = U.row(this);
+        r.setMinimumHeight(U.dp(this, 48));
+        r.addView(U.text(this, label, 16, U.INK, false), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        r.addView(value);
+        return r;
     }
 
     private void render() {
@@ -327,6 +365,8 @@ public class AddActivity extends BaseActivity {
         tabEvent.setTextColor(isEvent ? U.BG : U.INK);
         tabTask.setBackground(!isEvent ? U.box(this, U.INK, 0, 20) : null);
         tabTask.setTextColor(!isEvent ? U.BG : U.INK);
+        titleLabel.setText(isEvent ? "TITOLO" : "COSA DEVI FARE?");
+        bangView.setVisibility(!isEvent && urgent ? View.VISIBLE : View.GONE);
         title.setHint(isEvent ? "Esempio: Pediatra" : "Esempio: Pagare la retta del nido");
         whenLabel.setText(isEvent ? "GIORNO" : "SCADENZA");
         eventOnly.setVisibility(isEvent ? View.VISIBLE : View.GONE);
@@ -361,11 +401,11 @@ public class AddActivity extends BaseActivity {
         toBtn.setText(fmt(toMin));
         fromBtn.setTypeface(U.SERIF);
         toBtn.setTypeface(U.SERIF);
-        calBtn.setText((calName != null ? calName : "Scegli il calendario") + "   ▾");
+        calBtn.setText(calName != null ? calName : "Scegli");
         U.Cal info = U.calInfo(this, calId);
         calNote.setText(info == null ? "" : U.calNote(info));
         calNote.setVisibility(info == null ? View.GONE : View.VISIBLE);
-        repeatBtn.setText(rec.shortLabel(startMillis()) + "   ›");
+        repeatBtn.setText(rec.shortLabel(startMillis()));
     }
 
     private void chip(String label, boolean on, final long value) {
@@ -436,7 +476,7 @@ public class AddActivity extends BaseActivity {
             s.setSpan(new android.text.style.ForegroundColorSpan(U.MUTED), k.name.length() + 1, s.length(), 0);
             names.add(s);
         }
-        new AlertDialog.Builder(this)
+        U.show(U.dlg(this)
                 .setTitle(editing() ? "Sposta in" : "Calendario")
                 .setItems(names.toArray(new CharSequence[0]), new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface d, int w) {
@@ -449,7 +489,7 @@ public class AddActivity extends BaseActivity {
                         if (!editing()) U.prefs(AddActivity.this).edit().putLong("last_cal", calId).putString("last_cal_name", calName).apply();
                         render();
                     }
-                }).show();
+                }));
     }
 
     private void pickApp() {
@@ -457,7 +497,7 @@ public class AddActivity extends BaseActivity {
         List<CharSequence> names = new ArrayList<CharSequence>();
         names.add("Nessuna app");
         for (U.AppInfo a : apps) names.add(a.label);
-        new AlertDialog.Builder(this)
+        U.dlg(this)
                 .setTitle("Si apre con")
                 .setItems(names.toArray(new CharSequence[0]), new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface d, int w) {
@@ -470,15 +510,22 @@ public class AddActivity extends BaseActivity {
 
     /** 0.15: «Ripeti» è una selezione di sistema, al posto della pagina. */
     private void pickRepeat() {
-        final String[] names = {"Mai", "Ogni giorno", "Ogni settimana", "Ogni mese", "Ogni anno"};
+        final String[] names = {"Mai", "Ogni giorno", "Ogni settimana", "Ogni mese", "Ogni anno", "Personalizza…"};
         final int[] freqs = {Rec.NONE, Rec.DAILY, Rec.WEEKLY, Rec.MONTHLY, Rec.YEARLY};
-        int sel = -1;
+        int sel = rec.repeats() ? 5 : -1;
         if (rec.custom == null && rec.interval == 1 && rec.end == Rec.END_NEVER
                 && (rec.freq != Rec.WEEKLY || rec.days == 0 || Integer.bitCount(rec.days) == 1))
             for (int i = 0; i < freqs.length; i++) if (freqs[i] == rec.freq) sel = i;
-        new AlertDialog.Builder(this).setTitle("Ripeti")
+        U.dlg(this).setTitle("Ripeti")
                 .setSingleChoiceItems(names, sel, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface d, int w) {
+                        d.dismiss();
+                        if (w == 5) {
+                            RepeatDialog.show(AddActivity.this, rec, startMillis(), new RepeatDialog.Done() {
+                                public void done(Rec r) { rec = r; render(); }
+                            });
+                            return;
+                        }
                         Rec r = new Rec();
                         r.freq = freqs[w];
                         rec = r;
@@ -498,6 +545,13 @@ public class AddActivity extends BaseActivity {
         if (!isEvent) {
             // E001: un «!» all'inizio rende il task urgente
             String b = Urgenti.bang(t);
+            if (editTask != null) {
+                Changes.record(this, "Task modificato: " + t, new String[]{"tasks"});
+                Tasks.update(this, editTask.id, b != null ? b : t, day, taskApp, urgent || b != null);
+                U.toast(this, "Task modificato");
+                finish();
+                return;
+            }
             Tasks.add(this, b != null ? b : t, day, taskApp, urgent || b != null);
             U.toast(this, "Task aggiunto");
             finish();
@@ -565,7 +619,7 @@ public class AddActivity extends BaseActivity {
 
     private void done(boolean ok, String msg) {
         if (ok) { U.toast(this, msg); finish(); }
-        else U.toast(this, "Non sono riuscita a salvare: il calendario non lo permette");
+        else U.toast(this, "Non salvato: il calendario non lo permette");
     }
 
     // ---------- Elimina ----------
@@ -573,7 +627,7 @@ public class AddActivity extends BaseActivity {
     private void askDelete() {
         final String t = orig.title;
         if (orig.rrule == null || orig.rrule.length() == 0) {
-            new AlertDialog.Builder(this)
+            U.dlg(this)
                     .setTitle("Eliminare “" + t + "”?")
                     .setMessage("Sparisce anche dal calendario" + (orig.calName != null ? " " + orig.calName : "") + ", anche per chi lo condivide.")
                     .setNegativeButton("No", null)
@@ -600,7 +654,7 @@ public class AddActivity extends BaseActivity {
         String when = new java.text.SimpleDateFormat("EEE d MMMM", Locale.ITALY).format(new java.util.Date(instStartLocal()));
         String[] items = {"Solo questo · " + when, "Questo e i successivi · da " + when + " in poi", "Tutta la serie · anche quelli passati"};
         final int[] sel = {SCOPE_ONE};
-        new AlertDialog.Builder(this)
+        U.dlg(this)
                 .setTitle("“" + orig.title + "” si ripete. A quali impegni?")
                 .setSingleChoiceItems(items, 0, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface d, int w) { sel[0] = w; }

@@ -55,8 +55,8 @@ public class SeraActivity extends BaseActivity {
             body.addView(note("Le fonti sono nel piano di progetto, nella pagina «Meno interferenze sul sonno»."));
             return;
         }
-        body.addView(U.text(this, "All'ora di staccare −minus ti avvisa una volta. Se stai scorrendo in un'app frenata si apre la pillola; "
-                + "se stai usando un'altra app arriva una notifica silenziosa; a telefono bloccato te lo dice in home allo sblocco.", 14, U.MUTED, false));
+        body.addView(U.text(this, "All'ora di staccare −minus ti avvisa. Sopra un'app frenata con la pillola, che dopo poco si chiude; "
+                + "sopra le altre app con una notifica silenziosa; a telefono bloccato in home, allo sblocco.", 14, U.MUTED, false));
         int pre = ((Night.offMin(this) - Serale.PREWARN_MIN) % 1440 + 1440) % 1440;
         toggle("Preavviso di 10 minuti", "Alle " + Notte.hhmm(pre) + ", una riga in home e sulla pillola", Sera.K_PREWARN);
         toggle("Consiglio della settimana", "Uno nuovo ogni lunedì, " + Serale.TIPS.length + " in tutto", Sera.K_TIP);
@@ -96,7 +96,7 @@ public class SeraActivity extends BaseActivity {
         r.setMinimumHeight(U.dp(this, 64));
         r.setPadding(0, U.dp(this, 8), 0, U.dp(this, 8));
         LinearLayout tx = U.col(this);
-        tx.addView(U.text(this, title, 16, U.INK, false));
+        tx.addView(U.text(this, title, 16, U.INK, on)); // 0.16: grassetto se acceso
         tx.addView(U.text(this, sub, 13, U.MUTED, false));
         r.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         r.addView(U.toggle(this, on), new LinearLayout.LayoutParams(U.dp(this, 48), U.dp(this, 28)));

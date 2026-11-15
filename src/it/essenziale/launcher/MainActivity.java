@@ -46,6 +46,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        scrollToTasks = getIntent().getBooleanExtra("tasks", false);
         if (getIntent() != null && getIntent().getBooleanExtra("scope_done", false)) Scope.end(this, "chiusa");
         Goals.migrate(this); // 0.14: chi aggiorna trova gli obiettivi ricavati da cosa usava già
         evening = Night.evening(this);
@@ -57,7 +58,8 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         root.setFocusable(true);
         root.setFocusableInTouchMode(true);
 
-        ScrollView sv = new ScrollView(this);
+        final ScrollView sv = new ScrollView(this);
+        homeScroll = sv;
         sv.setVerticalScrollBarEnabled(false);
         LinearLayout content = U.col(this);
         sv.addView(content);
@@ -193,7 +195,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         root.addView(results, U.full());
 
         // 0.13: in basso le azioni valide sempre: aggiungere, poi cercare o chiedere
-        TextView add = U.text(this, "+ Aggiungi al calendario", 15, U.INK, false);
+        TextView add = U.text(this, "+ Aggiungi", 15, U.INK, false);
         add.setGravity(Gravity.CENTER);
         add.setPadding(U.dp(this, 18), 0, U.dp(this, 18), 0);
         add.setBackground(U.box(this, U.BG, U.INK, 22));
@@ -216,7 +218,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         field.setBackground(U.box(this, U.BG, U.INK, 28));
         field.setPadding(U.dp(this, 22), U.dp(this, 6), U.dp(this, 6), U.dp(this, 6));
         query = new EditText(this);
-        query.setHint("Cerca, chiedi o di' un comando");
+        query.setHint("Cerca o chiedi");
         query.setHintTextColor(U.HINT);
         query.setTextColor(U.INK);
         query.setTextSize(17);
@@ -300,6 +302,48 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         if (!starred.isEmpty()) U.toast(this, android.text.TextUtils.join(", ", starred) + ": stella in rubrica, ora passa sempre");
         root.requestFocus();
         refresh();
+        maybeScrollToTasks();
+    }
+
+    // ---------- E003 · gesti ----------
+
+    private ScrollView homeScroll;
+    private View taskHead;
+    private boolean scrollToTasks;
+    private final boolean[] upOk = {true};
+    private Swipe swipe;
+
+    @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent e) {
+        if (swipe == null) swipe = new Swipe(this, upOk, new Swipe.Act() {
+            public void up() { startActivity(new Intent(MainActivity.this, SearchActivity.class).putExtra("kb", true)); }
+            public void left() { startActivity(new Intent(MainActivity.this, WeekActivity.class)); overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out); }
+            public void right() {}
+        });
+        // su apre la ricerca solo quando la home è già in fondo (altrimenti si scorre la giornata)
+        if (e.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) upOk[0] = homeScroll == null || !homeScroll.canScrollVertically(1);
+        if (swipe.detector.onTouchEvent(e)) {
+            android.view.MotionEvent cancel = android.view.MotionEvent.obtain(e);
+            cancel.setAction(android.view.MotionEvent.ACTION_CANCEL);
+            super.dispatchTouchEvent(cancel);
+            cancel.recycle();
+            return true;
+        }
+        return super.dispatchTouchEvent(e);
+    }
+
+    /** 0.16: dal blocco, «TASK» apre la home sui task. */
+    private void maybeScrollToTasks() {
+        if (!scrollToTasks || taskHead == null || homeScroll == null) return;
+        scrollToTasks = false;
+        homeScroll.post(new Runnable() {
+            public void run() {
+                android.graphics.Rect r = new android.graphics.Rect();
+                taskHead.getDrawingRect(r);
+                try { ((ViewGroup) homeScroll.getChildAt(0)).offsetDescendantRectToMyCoords(taskHead, r); } catch (Exception e) { return; }
+                homeScroll.smoothScrollTo(0, Math.max(0, r.top - U.dp(MainActivity.this, 8)));
+            }
+        });
     }
 
     @Override
@@ -386,6 +430,11 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         if (intent.getBooleanExtra("scope_done", false)) Scope.end(this, "chiusa"); // «Chiudo» / «Ho finito»
+        if (intent.getBooleanExtra("undo", false)) { // 0.16: da Modifica task › Elimina task
+            final java.util.List<Changes.Change> ch = Changes.list(this);
+            if (!ch.isEmpty()) Changes.snackbar(this, ch.get(0).desc, ch.get(0), new Runnable() { public void run() { refresh(); } });
+        }
+        if (intent.getBooleanExtra("tasks", false)) { scrollToTasks = true; maybeScrollToTasks(); } // 0.16: dal blocco, «TASK»
         query.setText("");
         hideKeyboard();
         refresh();
@@ -447,6 +496,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
                 : "Al telefono: " + sl.replace("●", "").replace("◷", "").trim() + ". Tocca per le impostazioni del tempo.");
         sessionWrap.setVisibility(sl == null ? View.INVISIBLE : View.VISIBLE);
         today.removeAllViews();
+        taskHead = null;
         evening = Night.evening(this);
         if (evening && U.hourNow() >= 12) {
             // 195: la sera domani prende il posto di oggi. E002: al posto di «Invece di scorrere» l'avviso
@@ -454,6 +504,15 @@ public class MainActivity extends BaseActivity implements Store.Listener {
             todayEmpty = true;
             View card = seraCard();
             if (card != null) today.addView(card, U.full());
+            // 0.16: sotto, i task urgenti di oggi non ancora fatti: la sera non li nasconde
+            List<Tasks.Task> urg = new java.util.ArrayList<Tasks.Task>();
+            for (Tasks.Task t : Tasks.forToday(this, false, false)) if (t.urgent && t.due != 0) urg.add(t);
+            if (!urg.isEmpty()) {
+                TextView h = U.label(this, "Urgente, da oggi");
+                h.setPadding(0, U.dp(this, 18), 0, U.dp(this, 4));
+                today.addView(h);
+                for (Tasks.Task t : urg) today.addView(taskRow(t, 16, false, urg));
+            }
             return;
         }
         if (!U.hasCalendar(this)) {
@@ -490,7 +549,8 @@ public class MainActivity extends BaseActivity implements Store.Listener {
                 today.addView(line, llp);
             }
             TextView th = U.label(this, "Task");
-            th.setTextSize(11 * U.textScale);
+            taskHead = th;
+            th.setTextSize(12 * U.textScale);
             th.setPadding(0, U.dp(this, 12), 0, U.dp(this, 2));
             today.addView(th);
         }
@@ -549,13 +609,16 @@ public class MainActivity extends BaseActivity implements Store.Listener {
             TextView t = U.text(this, "È l'ora di staccare", 20, U.INK, false);
             t.setTypeface(U.SERIF_M);
             c.addView(t);
-            TextView l = U.text(this, Sera.alarmLine(this), 15, U.MUTED, false);
-            l.setPadding(0, U.dp(this, 4), 0, 0);
-            c.addView(l);
+            String al = Sera.join(Sera.alarmLine(this), Sera.canSnooze(this) ? null : Sera.SNOOZE_USED);
+            if (al != null) {
+                TextView l = U.text(this, al, 15, U.MUTED, false);
+                l.setPadding(0, U.dp(this, 4), 0, 0);
+                c.addView(l);
+            }
         }
         if (tip != null) {
             TextView tl = U.label(this, "Consiglio della settimana");
-            tl.setTextSize(11 * U.textScale);
+            tl.setTextSize(12 * U.textScale);
             if (!pending) tl.setPadding(0, 0, 0, U.dp(this, 4));
             c.addView(tl);
             c.addView(U.text(this, tip, 16, U.INK, false));
@@ -661,7 +724,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
                 : Urgenti.label(g, new java.text.SimpleDateFormat("EEE", Locale.ITALY).format(new java.util.Date(t.due)));
         if (lab != null) {
             // E001: «entro gio» in grassetto, «Scaduto» in grassetto corsivo, «senza scadenza» normale; niente «oggi»
-            TextView l = U.text(this, lab, 11.5f, U.MUTED, false);
+            TextView l = U.text(this, lab, 12, U.MUTED, false);
             int style = g == Urgenti.URG_WEEK ? android.graphics.Typeface.BOLD
                     : late ? android.graphics.Typeface.BOLD_ITALIC : android.graphics.Typeface.NORMAL;
             l.setTypeface(android.graphics.Typeface.create(l.getTypeface(), style));
@@ -682,20 +745,28 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         View.OnClickListener toggle = new View.OnClickListener() {
             public void onClick(View v) { Tasks.setDone(MainActivity.this, t.id, !t.done); refresh(); }
         };
-        if (t.app != null && !t.done && U.installed(this, t.app)) {
-            // 0.13: il task apre la sua app; la casella resta per segnarlo fatto. E001: l'app sta a destra
-            final String label = U.appLabel(this, t.app);
-            TextView open = U.text(this, label + " ›", 13, U.MUTED, false);
-            open.setPadding(U.dp(this, 10), 0, 0, 0);
-            r.addView(open);
-            boxWrap.setMinimumHeight(U.dp(this, 44));
+        // 0.16: una regola sola: la casella segna fatto, la riga apre (l'app del task, o «Modifica task»)
+        if (t.done) r.setOnClickListener(toggle);
+        else {
+            boxWrap.setMinimumHeight(U.dp(this, 48));
             boxWrap.setOnClickListener(toggle);
             boxWrap.setContentDescription("Segna fatto: " + t.title);
-            r.setContentDescription(spoken + ", apri " + label);
-            r.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View v) { if (!U.launchPkg(MainActivity.this, t.app)) U.toast(MainActivity.this, "Non riesco ad aprire " + label); }
-            });
-        } else r.setOnClickListener(toggle);
+            U.widenLeft(r, boxWrap, 18);
+            if (t.app != null && U.installed(this, t.app)) {
+                // 0.13: il task apre la sua app. E001: l'app sta a destra
+                final String label = U.appLabel(this, t.app);
+                TextView open = U.text(this, label + " ›", 13, U.MUTED, false);
+                open.setPadding(U.dp(this, 10), 0, 0, 0);
+                r.addView(open);
+                r.setContentDescription(spoken + ", apri " + label);
+                r.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) { if (!U.launchPkg(MainActivity.this, t.app)) U.toast(MainActivity.this, label + " non si apre. Controlla che sia installata"); }
+                });
+            } else {
+                r.setContentDescription(spoken + ", modifica");
+                r.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { editTask(MainActivity.this, t); } });
+            }
+        }
         r.setOnLongClickListener(new View.OnLongClickListener() {
             public boolean onLongClick(View v) { taskMenu(t, scope); return true; }
         });
@@ -707,6 +778,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         int at = -1;
         if (scope != null) for (int i = 0; i < scope.size(); i++) if (scope.get(i).id.equals(t.id)) at = i;
         Menu m = new Menu(this, t.title);
+        if (!t.done) m.item("Modifica task", false, new Runnable() { public void run() { editTask(MainActivity.this, t); } });
         if (at > 0) m.item("Sposta su", false, new Runnable() { public void run() { Tasks.move(MainActivity.this, scope, t.id, -1); refresh(); } });
         if (at >= 0 && at < scope.size() - 1) m.item("Sposta giù", false, new Runnable() { public void run() { Tasks.move(MainActivity.this, scope, t.id, 1); refresh(); } });
         if (!t.done) m.toggle(U.bang("Urgente"), "Urgente", t.urgent, new Runnable() {
@@ -715,15 +787,16 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         m.item("Elimina task", true, new Runnable() { public void run() { confirmDelete(t); } }).show();
     }
 
+    /** 0.16: elimina subito, con «Annulla» (prima chiedeva conferma, unico punto senza Annulla). */
     private void confirmDelete(final Tasks.Task t) {
-        new AlertDialog.Builder(this)
-                .setTitle("Eliminare il task?")
-                .setMessage(t.title)
-                .setPositiveButton("Elimina", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface d, int w) { Tasks.delete(MainActivity.this, t.id); refresh(); }
-                })
-                .setNegativeButton("Annulla", null)
-                .show();
+        Changes.track(this, "Task eliminato: " + t.title, new String[]{"tasks"},
+                new Runnable() { public void run() { Tasks.delete(MainActivity.this, t.id); } },
+                new Runnable() { public void run() { refresh(); } });
+    }
+
+    /** 0.16: «Modifica task» apre Aggiungi già compilato. */
+    static void editTask(android.app.Activity a, Tasks.Task t) {
+        a.startActivity(new Intent(a, AddActivity.class).putExtra("kind", "task").putExtra("task_id", t.id));
     }
 
     private void refreshNotif() {
