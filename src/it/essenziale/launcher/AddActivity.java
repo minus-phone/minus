@@ -57,6 +57,7 @@ public class AddActivity extends BaseActivity {
     private TextView appClear;
     private LinearLayout appSugg;
     private boolean appSetting;
+    private ScrollView scrollView;
     private String taskApp;
     private boolean appChosen;
     private static final String KEEP = "com.google.android.keep";
@@ -122,7 +123,8 @@ public class AddActivity extends BaseActivity {
         cancel.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { finish(); } });
         root.addView(cancel);
 
-        ScrollView sv = new ScrollView(this);
+        final ScrollView sv = new ScrollView(this);
+        scrollView = sv;
         LinearLayout c = U.col(this);
         sv.addView(c);
         root.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
@@ -602,6 +604,17 @@ public class AddActivity extends BaseActivity {
             appSugg.addView(more, U.full());
         }
         appSugg.setVisibility(View.VISIBLE);
+        // 0.17 (Evolutiva 004): etichetta, campo e tendina sopra la tastiera (la pagina si ridimensiona: adjustResize)
+        if (scrollView != null) scrollView.postDelayed(new Runnable() {
+            public void run() {
+                View label = (View) appField.getParent().getParent().getParent();
+                int[] a = new int[2], b = new int[2];
+                label.getLocationInWindow(a);
+                scrollView.getLocationInWindow(b);
+                int top = a[1] - b[1] + scrollView.getScrollY() - U.dp(AddActivity.this, 24);
+                scrollView.smoothScrollTo(0, Math.max(0, top));
+            }
+        }, 250);
         appSugg.announceForAccessibility(empty ? m.size() + " app suggerite" : m.size() == 1 ? "1 app trovata" : m.size() + " app trovate");
     }
 

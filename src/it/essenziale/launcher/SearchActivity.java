@@ -63,7 +63,18 @@ public class SearchActivity extends BaseActivity {
         root.setPadding(U.dp(this, 20), U.dp(this, 12), U.dp(this, 20), U.dp(this, 10));
         // 0.13: in alto solo ✕ per tornare alla home; le Impostazioni sono una voce del menu, sopra i recenti
         LinearLayout top = U.row(this);
-        top.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
+        // 0.17 (Evolutiva 005): «Cambia impostazioni» in alto, con il segno di −minus: non è una voce della ricerca
+        LinearLayout set = U.row(this);
+        set.setMinimumHeight(U.dp(this, 48));
+        set.addView(new Mark(this, U.INK), new LinearLayout.LayoutParams(U.dp(this, 24), U.dp(this, 24)));
+        TextView setT = U.text(this, "Cambia impostazioni", 16, U.INK, false);
+        setT.setPadding(U.dp(this, 10), 0, 0, 0);
+        set.addView(setT);
+        set.setContentDescription("Cambia impostazioni di −minus");
+        set.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { startActivity(new Intent(SearchActivity.this, SettingsActivity.class).putExtra("back", "Ricerca")); }
+        });
+        top.addView(set, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         TextView close = U.text(this, "✕", 18, U.INK, false);
         close.setGravity(Gravity.CENTER);
         close.setContentDescription("Chiudi la ricerca");
@@ -156,7 +167,7 @@ public class SearchActivity extends BaseActivity {
         Set<String> paused = U.pausedPkgs(this);
         // dall'alto: recenti, app, persone e gruppi (vicino al pollice). Ogni blocco su una riga che scorre di lato.
         // 0.13.6: l'aspetto della proposta UI (canvas «Ricerca»): voci a riga, griglia per le app, persone come avatar
-        blocks.add(settingsRow());
+        // 0.17: «Impostazioni» non è più nell'elenco: sta in alto
         if (U.prefs(this).getBoolean(K_RECENT_ON, true)) {
             // 0.13.7: di nuovo una riga che scorre di lato
             LinearLayout chips = hrow();
@@ -634,16 +645,28 @@ public class SearchActivity extends BaseActivity {
         t.setSingleLine(true);
         t.setEllipsize(TextUtils.TruncateAt.END);
         tx.addView(t);
-        TextView statusLink = null;
-        if (h.sub != null) { statusLink = U.text(this, h.sub, 12, U.MUTED, false); tx.addView(statusLink); }
+        // 0.17: come in «Persone e gruppi»: sotto il nome le icone delle app, a destra lo stato come link
+        boolean link = h.contactId < 0 && h.sub != null;
+        if (h.sub != null && !link) tx.addView(U.text(this, h.sub, 12, U.MUTED, false));
+        if (h.badges != null && h.badges.length() > 0) {
+            LinearLayout icons = U.row(this);
+            icons.setPadding(0, U.dp(this, 3), 0, 0);
+            for (String code : h.badges.split(" ")) if (code.length() > 0) {
+                View b = AppIcons.badge(this, AppIcons.pkgOfCode(this, code), Rules.appName(code), U.MUTED);
+                if (icons.getChildCount() == 0) b.setPadding(0, 0, b.getPaddingRight(), 0);
+                icons.addView(b);
+            }
+            tx.addView(icons);
+        }
         row.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        // 0.13 (178): al posto delle sigle, l'icona della barra di stato; il nome finché l'icona non c'è
-        if (h.badges != null && h.badges.length() > 0)
-            for (String code : h.badges.split(" ")) if (code.length() > 0) row.addView(AppIcons.badge(this, AppIcons.pkgOfCode(this, code), Rules.appName(code), U.MUTED));
-        // 0.16: niente ⋯: lo stato sotto il nome è un link che apre come passano i messaggi
-        if (h.contactId < 0 && h.sub != null && statusLink != null) {
+        TextView statusLink = null;
+        if (link) {
+            statusLink = U.text(this, h.sub, 13, U.INK, false);
+            statusLink.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+            statusLink.setPadding(U.dp(this, 8), 0, 0, 0);
+            row.addView(statusLink);
             statusLink.setPaintFlags(statusLink.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
-            statusLink.setMinHeight(U.dp(this, 32));
+            statusLink.setMinHeight(U.dp(this, 48));
             statusLink.setContentDescription(h.name + ": " + h.sub + ". Cambia come passano i messaggi");
             statusLink.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) { Pass.sheet(SearchActivity.this, pkgOf(h.code), h.name, new Runnable() { public void run() { render(); } }); }

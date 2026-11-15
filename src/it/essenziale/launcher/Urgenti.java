@@ -38,6 +38,16 @@ public final class Urgenti {
         }
     }
 
+    /** 0.17 (Evolutiva 006): il titoletto sopra un gruppo di task in home; null per quelli di oggi. */
+    public static String heading(int g, String day) {
+        switch (g) {
+            case URG_WEEK: return "entro " + day;
+            case OVERDUE: return "scaduti";
+            case UNDATED: return "senza scadenza";
+            default: return null;
+        }
+    }
+
     /** Urgente vuol dire con una scadenza: senza data diventa oggi. */
     public static long dueWhenUrgent(long due, long today) { return due == 0 ? today : due; }
 
