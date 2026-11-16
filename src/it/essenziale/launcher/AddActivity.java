@@ -58,6 +58,8 @@ public class AddActivity extends BaseActivity {
     private LinearLayout appSugg;
     private boolean appSetting;
     private ScrollView scrollView;
+    private View rootView, comboWrap;
+    private final List<View> bottom = new ArrayList<View>(); // 0.18: «Elimina task» e «Salva», nascosti a tendina aperta
     private String taskApp;
     private boolean appChosen;
     private static final String KEEP = "com.google.android.keep";
@@ -293,6 +295,7 @@ public class AddActivity extends BaseActivity {
             LinearLayout.LayoutParams dlp = U.full();
             dlp.topMargin = U.dp(this, 8);
             root.addView(del, dlp);
+            bottom.add(del);
         }
         TextView save = U.text(this, editing() || editTask != null ? "Salva modifiche" : "Salva", 16, U.BG, true);
         save.setGravity(Gravity.CENTER);
@@ -302,6 +305,9 @@ public class AddActivity extends BaseActivity {
         LinearLayout.LayoutParams slp = U.full();
         slp.topMargin = U.dp(this, 10);
         root.addView(save, slp);
+        bottom.add(save);
+        root.setFocusableInTouchMode(true); // 0.18: chiudendo la tendina il cursore non salta in un altro campo
+        rootView = root;
 
         setContentView(root);
         render();
@@ -498,7 +504,17 @@ public class AddActivity extends BaseActivity {
         LinearLayout box = U.row(this);
         box.setBackground(U.box(this, U.SURFACE, U.BORDER, 12));
         box.setPadding(U.dp(this, 14), 0, U.dp(this, 4), 0);
-        appField = new android.widget.EditText(this);
+        appField = new android.widget.EditText(this) {
+            // 0.18: Indietro chiude insieme tendina e tastiera (prima chiudeva solo la tastiera)
+            @Override public boolean onKeyPreIme(int code, android.view.KeyEvent e) {
+                if (code == android.view.KeyEvent.KEYCODE_BACK && comboOpen()) {
+                    if (e.getAction() == android.view.KeyEvent.ACTION_UP) closeCombo();
+                    return true;
+                }
+                return super.onKeyPreIme(code, e);
+            }
+        };
+        comboWrap = wrap;
         appField.setBackground(null);
         appField.setTextSize(15 * U.textScale);
         appField.setTextColor(U.INK);
@@ -527,9 +543,7 @@ public class AddActivity extends BaseActivity {
         appField.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             public void onFocusChange(View v, boolean has) {
                 if (has) { showSugg(appField.getText().toString().equals(taskApp == null ? "" : U.appLabel(AddActivity.this, taskApp)) ? "" : appField.getText().toString()); return; }
-                appSugg.setVisibility(View.GONE);
-                // uscendo senza scegliere torna il nome dell'app scelta (o vuoto)
-                setAppText(taskApp == null ? "" : U.appLabel(AddActivity.this, taskApp));
+                if (comboOpen()) closeCombo();
             }
         });
         appField.addTextChangedListener(new android.text.TextWatcher() {
@@ -545,7 +559,7 @@ public class AddActivity extends BaseActivity {
                 // «Fatto» sulla tastiera sceglie il primo suggerimento
                 List<U.AppInfo> m = matches(appField.getText().toString());
                 if (!m.isEmpty() && appField.getText().length() > 0) chooseApp(m.get(0));
-                else appField.clearFocus();
+                else closeCombo(); // 0.18: a campo vuoto «Fatto» chiude senza scegliere
                 return true;
             }
         });
@@ -604,6 +618,7 @@ public class AddActivity extends BaseActivity {
             appSugg.addView(more, U.full());
         }
         appSugg.setVisibility(View.VISIBLE);
+        for (View b : bottom) b.setVisibility(View.GONE); // 0.18: la tendina ha tutto lo spazio sopra la tastiera
         // 0.17 (Evolutiva 004): etichetta, campo e tendina sopra la tastiera (la pagina si ridimensiona: adjustResize)
         if (scrollView != null) scrollView.postDelayed(new Runnable() {
             public void run() {
@@ -621,13 +636,34 @@ public class AddActivity extends BaseActivity {
     private void chooseApp(U.AppInfo a) {
         appChosen = true;
         taskApp = a == null ? null : a.pkg;
-        setAppText(a == null ? "" : a.label);
+        closeCombo();
+    }
+
+    private boolean comboOpen() { return appSugg != null && appSugg.getVisibility() == View.VISIBLE; }
+
+    /** 0.18: chiude tendina e tastiera senza scegliere: resta l'app già scelta; a campo svuotato, nessuna app. */
+    private void closeCombo() {
+        if (appField.getText().length() == 0 && taskApp != null) { appChosen = true; taskApp = null; }
         appSugg.setVisibility(View.GONE);
-        appField.clearFocus();
+        setAppText(taskApp == null ? "" : U.appLabel(this, taskApp));
+        for (View b : bottom) b.setVisibility(View.VISIBLE);
         try {
             ((android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(appField.getWindowToken(), 0);
         } catch (Exception ignored) {}
+        if (rootView != null) rootView.requestFocus();
         render();
+    }
+
+    /** 0.18: un tocco fuori dal campo e dalla tendina li chiude. */
+    @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent ev) {
+        if (ev.getAction() == android.view.MotionEvent.ACTION_DOWN && comboOpen() && comboWrap != null) {
+            int[] xy = new int[2];
+            comboWrap.getLocationOnScreen(xy);
+            float x = ev.getRawX(), y = ev.getRawY();
+            if (x < xy[0] || x > xy[0] + comboWrap.getWidth() || y < xy[1] || y > xy[1] + comboWrap.getHeight()) { closeCombo(); return true; }
+        }
+        return super.dispatchTouchEvent(ev);
     }
 
     /** «Tutte le app ›»: l'elenco completo, come prima. */
