@@ -24,6 +24,10 @@ public class ListActivity extends BaseActivity {
 
     private LinearLayout list;
     private int mode;
+    private int tab;            // 0.18: 0 Contatti, 1 Gruppi
+    private boolean az;         // 0.18: «Tutti…, dalla A alla Z»
+    private TextView tabC, tabG;
+    private android.widget.EditText searchBox;
     private String filter = "";
 
     @Override
@@ -36,11 +40,17 @@ public class ListActivity extends BaseActivity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         int mode = getIntent().getIntExtra(EXTRA_MODE, MODE_CONTACTS);
-        String title = mode == MODE_CONTACTS ? "Persone e gruppi" : mode == MODE_SHOP ? "Shop" : "Movimenti";
+        String title = mode == MODE_CONTACTS ? "Contatti e gruppi" : mode == MODE_SHOP ? "Shop" : "Movimenti";
         if (getIntent().getStringExtra("title") != null) title = getIntent().getStringExtra("title"); // 0.7: da Impostazioni
+        tab = getIntent().getIntExtra("tab", 0);
+        az = getIntent().getBooleanExtra("az", false);
+        if (mode == MODE_CONTACTS) title = az ? (tab == 1 ? "Tutti i gruppi" : "Tutti i contatti") : "Contatti e gruppi";
         LinearLayout root = U.screen(this, title);
         this.mode = mode;
-        if (mode == MODE_CONTACTS) root.addView(searchField(), searchParams());
+        if (mode == MODE_CONTACTS) {
+            if (!az) root.addView(tabs(), U.full()); // 0.18 (Evolutiva 009): Contatti | Gruppi
+            root.addView(searchField(), searchParams());
+        }
         ScrollView sv = new ScrollView(this);
         list = U.col(this);
         sv.addView(list);
@@ -95,7 +105,8 @@ public class ListActivity extends BaseActivity {
 
     private android.widget.EditText searchField() {
         android.widget.EditText search = new android.widget.EditText(this);
-        search.setHint("Cerca una persona o un gruppo");
+        searchBox = search;
+        search.setHint(tab == 1 ? "Cerca un gruppo" : "Cerca un contatto");
         search.setHintTextColor(U.HINT);
         search.setTextColor(U.INK);
         search.setTextSize(16);
@@ -190,57 +201,178 @@ public class ListActivity extends BaseActivity {
         return 1;
     }
 
-    private void buildContacts() {
-        long now = System.currentTimeMillis();
-        int shown = 0;
-        for (final Entry e : entries()) {
-            if (filter.length() > 0 && !low(e.name).contains(filter)) continue;
-            shown++;
-            String status = Pass.state(this, e.group, e.groupRule, e.code, e.person, e.until, now);
-            if (status == null) status = "in Per te";
-            String badge;
-            if (e.person != null && e.person.apps.size() > 0) {
-                StringBuilder b = new StringBuilder();
-                for (String a : e.person.apps) { if (b.length() > 0) b.append(" · "); b.append(a); }
-                badge = b.toString();
-            } else badge = e.code;
-            // 0.16: le app sotto il nome, lo stato a destra come link: il tocco apre come passano
-            View r = convRow(e.name, e.group, status, badge, new Runnable() { public void run() { sheet(e); } });
-            r.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View v) { openEntry(e); }
-            });
-            r.setOnLongClickListener(new View.OnLongClickListener() {
-                public boolean onLongClick(View v) { sheet(e); return true; }
-            });
-        }
-        if (shown == 0) {
-            TextView t = U.text(this, filter.length() > 0 ? "Nessuna conversazione con questo nome." : "Ancora nessuna conversazione.", 15, U.MUTED, false);
-            t.setPadding(0, U.dp(this, 16), 0, U.dp(this, 8));
-            list.addView(t);
-        }
-        if (filter.length() == 0) {
-            List<String[]> apps = U.rows(U.prefs(this).getString(U.K_RW_APPS, ""));
-            if (!apps.isEmpty()) {
-                list.addView(U.label(this, "App"));
-                for (String[] r : apps) appRow(r[0]);
+    /** 0.18 (Evolutiva 009): i due tab, con le stesse sezioni. */
+    private View tabs() {
+        LinearLayout r = U.row(this);
+        tabC = tabItem("Contatti", 0);
+        tabG = tabItem("Gruppi", 1);
+        r.addView(tabC, new LinearLayout.LayoutParams(0, U.dp(this, 48), 1f));
+        r.addView(tabG, new LinearLayout.LayoutParams(0, U.dp(this, 48), 1f));
+        LinearLayout wrap = U.col(this);
+        wrap.addView(r, U.full());
+        wrap.addView(U.divider(this));
+        styleTabs();
+        return wrap;
+    }
+
+    private TextView tabItem(String label, final int t) {
+        TextView v = U.text(this, label, 15, U.INK, false);
+        v.setGravity(Gravity.CENTER);
+        v.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View x) {
+                if (tab == t) return;
+                tab = t;
+                styleTabs();
+                if (searchBox != null) { searchBox.setText(""); searchBox.setHint(tab == 1 ? "Cerca un gruppo" : "Cerca un contatto"); }
+                list.removeAllViews();
+                buildContacts();
             }
+        });
+        return v;
+    }
+
+    private void styleTabs() {
+        if (tabC == null) return;
+        TextView[] ts = {tabC, tabG};
+        for (int i = 0; i < 2; i++) {
+            boolean on = i == tab;
+            ts[i].setTextColor(on ? U.INK : U.MUTED);
+            ts[i].setTypeface(on ? U.SANS_B : U.SANS);
+            android.graphics.drawable.GradientDrawable line = new android.graphics.drawable.GradientDrawable();
+            line.setColor(on ? U.INK : 0);
+            android.graphics.drawable.LayerDrawable bg = new android.graphics.drawable.LayerDrawable(new android.graphics.drawable.Drawable[]{line});
+            bg.setLayerInset(0, 0, U.dp(this, 45), 0, 0);
+            ts[i].setBackground(on ? bg : null);
+            ts[i].setContentDescription((i == 0 ? "Contatti" : "Gruppi") + ", scheda" + (on ? ", selezionata" : ""));
         }
-        TextView all = U.text(this, "Tutti i contatti  ›", 15, U.INK, false);
+    }
+
+    /** Nomi in rubrica (minuscoli), per «non in rubrica» e per «Tutti i contatti». */
+    private java.util.LinkedHashMap<String, String> rubrica() {
+        java.util.LinkedHashMap<String, String> out = new java.util.LinkedHashMap<String, String>();
+        if (checkSelfPermission(android.Manifest.permission.READ_CONTACTS) != android.content.pm.PackageManager.PERMISSION_GRANTED) return out;
+        android.database.Cursor cur = null;
+        try {
+            cur = getContentResolver().query(android.provider.ContactsContract.Contacts.CONTENT_URI,
+                    new String[]{android.provider.ContactsContract.Contacts.DISPLAY_NAME}, null, null,
+                    android.provider.ContactsContract.Contacts.DISPLAY_NAME + " COLLATE LOCALIZED ASC");
+            while (cur != null && cur.moveToNext()) {
+                String n = cur.getString(0);
+                if (n != null && n.trim().length() > 0) out.put(low(n), n.trim());
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (cur != null) cur.close();
+        }
+        return out;
+    }
+
+    private void section(String title) {
+        TextView h = U.label(this, title);
+        h.setPadding(0, U.dp(this, 14), 0, U.dp(this, 4));
+        U.heading(h);
+        list.addView(h);
+    }
+
+    /**
+     * 0.18 (Evolutiva 009): Contatti e Gruppi, con le stesse sezioni: Aperte ora, Passano sempre,
+     * Ti hanno scritto di recente, poi «Tutti…, dalla A alla Z ›». Una sezione vuota non si mostra.
+     * Un gruppo aperto sta solo in Gruppi.
+     */
+    private void buildContacts() {
+        final long now = System.currentTimeMillis();
+        final boolean groups = tab == 1;
+        java.util.LinkedHashMap<String, String> rub = groups ? new java.util.LinkedHashMap<String, String>() : rubrica();
+        List<Entry> mine = new java.util.ArrayList<Entry>();
+        for (Entry e : entries()) if (e.group == groups && (filter.length() == 0 || low(e.name).contains(filter))) mine.add(e);
+        if (az) {
+            java.util.Set<String> have = new java.util.HashSet<String>();
+            for (Entry e : mine) have.add(low(e.name));
+            if (groups) {
+                for (String[] r : U.rows(U.prefs(this).getString(U.K_SEEN_GROUPS, ""))) {
+                    if (r.length < 1) continue;
+                    String gn = Rules.groupName(r[0]);
+                    if (have.contains(low(gn)) || (filter.length() > 0 && !low(gn).contains(filter))) continue;
+                    Entry e = new Entry(); e.name = gn; e.group = true; e.code = r.length >= 2 ? codeOfLabel(r[1]) : null;
+                    e.groupRule = U.groupRules(this).get(low(gn));
+                    mine.add(e); have.add(low(gn));
+                }
+            } else for (String n : rub.values()) {
+                if (have.contains(low(n)) || (filter.length() > 0 && !low(n).contains(filter))) continue;
+                Entry e = new Entry(); e.name = n;
+                mine.add(e); have.add(low(n));
+            }
+            final java.text.Collator col = java.text.Collator.getInstance(java.util.Locale.ITALY);
+            java.util.Collections.sort(mine, new java.util.Comparator<Entry>() {
+                public int compare(Entry a, Entry b) { return col.compare(a.name, b.name); }
+            });
+            for (Entry e : mine) entryRow(e, rub, now);
+            if (mine.isEmpty()) empty(groups);
+            return;
+        }
+        List<Entry> open = new java.util.ArrayList<Entry>(), always = new java.util.ArrayList<Entry>(), recent = new java.util.ArrayList<Entry>();
+        for (Entry e : mine) {
+            if (e.until > now) open.add(e);
+            else if (modeOf(this, e) == 0) always.add(e);
+            else if (e.last > 0) recent.add(e);
+        }
+        if (!open.isEmpty()) { section("Aperte ora"); for (Entry e : open) entryRow(e, rub, now); }
+        if (!always.isEmpty()) { section("Passano sempre"); for (Entry e : always) entryRow(e, rub, now); }
+        if (!recent.isEmpty()) { section("Ti hanno scritto di recente"); for (Entry e : recent) entryRow(e, rub, now); }
+        if (open.isEmpty() && always.isEmpty() && recent.isEmpty()) empty(groups);
+        if (!groups && filter.length() == 0) {
+            TextView add = U.text(this, "+   Aggiungi dalla rubrica", 15, U.INK, false);
+            add.setMinHeight(U.dp(this, 52));
+            add.setGravity(Gravity.CENTER_VERTICAL);
+            add.setContentDescription("Aggiungi dalla rubrica");
+            add.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) { startActivity(new Intent(ListActivity.this, PeopleActivity.class).putExtra("back", "Contatti e gruppi")); }
+            });
+            list.addView(add, U.full());
+            list.addView(U.divider(this));
+        }
+        TextView all = U.text(this, (groups ? "Tutti i gruppi" : "Tutti i contatti") + ", dalla A alla Z  ›", 15, U.INK, false);
         all.setMinHeight(U.dp(this, 48));
         all.setGravity(Gravity.CENTER_VERTICAL);
         all.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                if (!U.start(ListActivity.this, new Intent(Intent.ACTION_VIEW, android.provider.ContactsContract.Contacts.CONTENT_URI)))
-                    U.toast(ListActivity.this, "Non trovo l'app Contatti");
+                startActivity(new Intent(ListActivity.this, ListActivity.class).putExtra(EXTRA_MODE, MODE_CONTACTS)
+                        .putExtra("tab", tab).putExtra("az", true).putExtra("back", "Contatti e gruppi"));
             }
         });
         list.addView(all, U.full());
-        TextView hint = U.text(this, "In ordine di ultimo messaggio. Tocca lo stato per cambiarlo.", 12, U.MUTED, false);
-        hint.setPadding(0, U.dp(this, 8), 0, U.dp(this, 8));
+        TextView hint = U.text(this, "Tocca lo stato per cambiarlo.", 12, U.MUTED, false);
+        hint.setPadding(0, U.dp(this, 4), 0, U.dp(this, 8));
         list.addView(hint);
     }
 
-    private View convRow(String name, boolean group, String status, String badge, final Runnable onStatus) {
+    private void empty(boolean groups) {
+        TextView t = U.text(this, filter.length() > 0 ? (groups ? "Nessun gruppo con questo nome." : "Nessun contatto con questo nome.")
+                : (groups ? "Ancora nessun gruppo: compaiono con i loro primi messaggi." : "Ancora nessun contatto."), 15, U.MUTED, false);
+        t.setPadding(0, U.dp(this, 16), 0, U.dp(this, 8));
+        list.addView(t);
+    }
+
+    private void entryRow(final Entry e, java.util.Map<String, String> rub, long now) {
+        String status = Pass.state(this, e.group, e.groupRule, e.code, e.person, e.until, now);
+        if (status == null) status = "in Per te";
+        String badge;
+        if (e.person != null && e.person.apps.size() > 0) {
+            StringBuilder b = new StringBuilder();
+            for (String a : e.person.apps) { if (b.length() > 0) b.append(" · "); b.append(a); }
+            badge = b.toString();
+        } else badge = e.code;
+        boolean outside = !e.group && e.person == null && !rub.isEmpty() && !rub.containsKey(low(e.name));
+        View r = convRow(e.name, e.group, status, badge, outside, new Runnable() { public void run() { sheet(e); } });
+        r.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { openEntry(e); }
+        });
+        r.setOnLongClickListener(new View.OnLongClickListener() {
+            public boolean onLongClick(View v) { sheet(e); return true; }
+        });
+    }
+
+    private View convRow(String name, boolean group, String status, String badge, boolean outside, final Runnable onStatus) {
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 60));
         r.setPadding(0, U.dp(this, 8), 0, U.dp(this, 8));
@@ -271,19 +403,23 @@ public class ListActivity extends BaseActivity {
             apps.append(apps.length() > 0 ? " · gruppo" : "gruppo");
             icons.addView(U.text(this, icons.getChildCount() > 0 ? " · gruppo" : "gruppo", 12, U.MUTED, false));
         }
+        if (outside) { // 0.18: chi ti scrive senza essere in rubrica (WhatsApp, Telegram)
+            apps.append(apps.length() > 0 ? " · non in rubrica" : "non in rubrica");
+            icons.addView(U.text(this, icons.getChildCount() > 0 ? " · non in rubrica" : "non in rubrica", 12, U.MUTED, false));
+        }
         if (icons.getChildCount() > 0) txt.addView(icons);
         r.addView(txt, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         if (status != null) {
-            TextView st = U.text(this, status, 13, U.INK, false);
-            st.setPaintFlags(st.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+            TextView st = U.text(this, "", 13, U.INK, false);
+            Pass.asLink(st, status); // 0.18: «○ fino alle…», il pallino non è sottolineato
             st.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
             st.setMinHeight(U.dp(this, 48));
             st.setPadding(U.dp(this, 8), 0, 0, 0);
-            st.setContentDescription(name + ": " + status + ". Cambia come passano i messaggi");
+            st.setContentDescription(name + ": " + Pass.spoken(status) + ". Cambia come passano i messaggi");
             st.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { onStatus.run(); } });
             r.addView(st);
         }
-        r.setContentDescription(name + (apps.length() > 0 ? " (" + apps + ")" : "") + (status != null ? ", " + status : ""));
+        r.setContentDescription(name + (apps.length() > 0 ? " (" + apps + ")" : "") + (status != null ? ", " + Pass.spoken(status) : ""));
         list.addView(r, U.full());
         list.addView(U.divider(this));
         return r;

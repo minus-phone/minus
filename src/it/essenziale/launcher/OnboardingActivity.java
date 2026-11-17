@@ -265,8 +265,8 @@ public class OnboardingActivity extends BaseActivity {
     // ---------- Percorso ----------
 
     private int[] goalSteps(String g, boolean alone) {
-        if (Goals.NOTIF.equals(g)) return new int[]{NOTIF, UNLOCK};
-        if (Goals.DOOM.equals(g)) return new int[]{DOOM_APPS, DOOM_HOW};
+        if (Goals.NOTIF.equals(g)) return new int[]{NOTIF};
+        if (Goals.DOOM.equals(g)) return new int[]{DOOM_APPS, DOOM_HOW, UNLOCK}; // 0.18 (Evolutiva 010): 187 dopo 189
         if (Goals.SLEEP.equals(g)) return new int[]{SLEEP, TRIAL};
         return new int[0];
     }
@@ -285,8 +285,8 @@ public class OnboardingActivity extends BaseActivity {
     /** Il gruppo del passo: 0 configurazione, poi un numero per obiettivo. */
     private String groupOf(int s) {
         if (s == HOME || s == DAY || s == PORTATA) return "Configurazione";
-        if (s == NOTIF || s == UNLOCK) return Goals.NAMES[0];
-        if (s == DOOM_APPS || s == DOOM_HOW) return Goals.NAMES[1];
+        if (s == NOTIF) return Goals.NAMES[0];
+        if (s == DOOM_APPS || s == DOOM_HOW || s == UNLOCK) return Goals.NAMES[1];
         if (s == SLEEP || s == TRIAL) return Goals.NAMES[2];
         return null;
     }
@@ -789,7 +789,7 @@ public class OnboardingActivity extends BaseActivity {
                     public void run() {
                         if (Onboarding.policy(OnboardingActivity.this) && FilterService.applySilence(OnboardingActivity.this, true))
                             U.prefs(OnboardingActivity.this).edit().putBoolean(U.K_SILENCE, true).apply();
-                        next();
+                        goalDone(Goals.NOTIF);
                     }
                 });
             }
@@ -1113,10 +1113,11 @@ public class OnboardingActivity extends BaseActivity {
             public void run() { U.prefs(OnboardingActivity.this).edit().putBoolean(Sblocco.K_ON, !on).apply(); render(); }
         });
         card(new String[]{"ANTEPRIMA", "Per cosa l'hai preso?", "Controllare l'ora  ·  Mi annoiavo  ·  Niente"}, false);
+        note("Usa l'accesso ai dati di utilizzo che hai appena dato: nessun permesso in più.");
         primary("Avanti", new Runnable() {
             public void run() {
                 if (!U.prefs(OnboardingActivity.this).contains(Sblocco.K_ON)) U.prefs(OnboardingActivity.this).edit().putBoolean(Sblocco.K_ON, true).apply();
-                goalDone(Goals.NOTIF);
+                goalDone(Goals.DOOM);
             }
         });
     }
@@ -1225,7 +1226,7 @@ public class OnboardingActivity extends BaseActivity {
                 askThen(p, new Runnable() {
                     public void run() {
                         if (!Pill.canDraw(OnboardingActivity.this)) U.prefs(OnboardingActivity.this).edit().putBoolean(Pill.K_ON, false).apply();
-                        goalDone(Goals.DOOM);
+                        next();
                     }
                 });
             }
@@ -1408,6 +1409,8 @@ public class OnboardingActivity extends BaseActivity {
                 done("Chi conta", n + (n == 1 ? " persona" : " persone") + (Stars.mineCount(this) > 0 || Stars.canWrite(this) ? " · ★ in rubrica" : ""), n > 0);
             }
             if (Goals.DOOM.equals(Goals.ALL[i])) done("Pausa", U.pausedPkgs(this).size() + " app · " + U.pauseSeconds(this) + " secondi", true);
+            if (Goals.DOOM.equals(Goals.ALL[i]) && U.prefs(this).getBoolean(Sblocco.K_ON, false))
+                done("Sblocchi senza scopo", "una domanda, al massimo 3 al giorno", true); // 0.18 (Evolutiva 010)
             if (Goals.SLEEP.equals(Goals.ALL[i]) && Night.on(this))
                 done("Ora di staccare " + Notte.hhmm(Night.offMin(this)), "prova fino al " + new java.text.SimpleDateFormat("d MMMM", Locale.ITALY).format(new java.util.Date(U.prefs(this).getLong(Night.K_TRIAL, System.currentTimeMillis()))), true);
             for (final String[] t : todo) if (Goals.ALL[i].equals(t[2])) fixRow(t);

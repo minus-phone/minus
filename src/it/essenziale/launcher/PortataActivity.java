@@ -68,7 +68,7 @@ public class PortataActivity extends BaseActivity {
             list.addView(r, U.full());
             list.addView(U.divider(this));
         }
-        TextView link = U.text(this, fixed.isEmpty() ? "Nessuno passa sempre. Si sceglie in Notifiche › Persone e gruppi ›" : "Si cambiano in Notifiche › Persone e gruppi ›", 14, U.MUTED, false);
+        TextView link = U.text(this, fixed.isEmpty() ? "Nessuno passa sempre. Si sceglie in Notifiche › Contatti e gruppi ›" : "Si cambiano in Notifiche › Contatti e gruppi ›", 14, U.MUTED, false);
         link.setMinHeight(U.dp(this, 44));
         link.setGravity(Gravity.CENTER_VERTICAL);
         link.setOnClickListener(new View.OnClickListener() {

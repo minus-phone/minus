@@ -33,6 +33,7 @@ public class LockActivity extends Activity {
     private static final int MAX_ROWS = 4;
 
     private TextView clock, date, notif, notifN, torchBtn, alarm;
+    private LinearLayout dateChips; // 0.18 (Evolutiva 008): «tutto il giorno» accanto alla data
     private LinearLayout notifRow;
     private LinearLayout next, todo;
     private final Handler handler = new Handler();
@@ -68,7 +69,13 @@ public class LockActivity extends Activity {
         clock.setTypeface(U.SERIF);
         tl.addView(clock);
         date = U.text(this, "", 16, U.ON_DARK_MUTED, false);
-        tl.addView(date);
+        LinearLayout dr = U.row(this);
+        dr.setGravity(Gravity.TOP);
+        dr.addView(date);
+        dateChips = new LinearLayout(this);
+        dateChips.setPadding(U.dp(this, 10), 0, 0, 0);
+        dr.addView(dateChips, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        tl.addView(dr, U.full());
         top.addView(tl, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         notifRow = U.row(this);
         notifRow.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
@@ -196,7 +203,11 @@ public class LockActivity extends Activity {
         // Domani compare dalle 17, o prima se oggi non resta niente (né impegni né cose da fare)
         long now = System.currentTimeMillis();
         List<U.Event> ev = new java.util.ArrayList<U.Event>();
-        for (U.Event e : U.events(this, U.startOfDay(0), U.startOfDay(1))) if (e.allDay || e.end >= now) ev.add(e);
+        List<U.Event> all = U.events(this, U.startOfDay(0), U.startOfDay(1));
+        for (U.Event e : all) if (!e.allDay && e.end >= now) ev.add(e);
+        dateChips.removeAllViews();
+        View chips = U.allDayChips(this, all, U.ON_DARK, 0xFF2A2A28, false);
+        if (chips != null) dateChips.addView(chips, U.full());
         List<Tasks.Task> tasks = Tasks.forToday(this, false, false);
         boolean todayEmpty = ev.isEmpty() && tasks.isEmpty();
         if (!ev.isEmpty()) next.addView(darkLabel("Prossimi"));
@@ -208,17 +219,19 @@ public class LockActivity extends Activity {
         int shown = 0;
         for (int i = 0; i < ev.size() && i < MAX_ROWS; i++) {
             final U.Event e = ev.get(i);
-            boolean strong = !nextMarked && !e.allDay;
+            boolean strong = !nextMarked;
             if (strong) nextMarked = true;
             next.addView(eventRow(e, strong));
             shown++;
         }
         if (ev.size() > MAX_ROWS) next.addView(more(ev.size() - MAX_ROWS));
         if (Quando.showTomorrow(U.hourNow(), todayEmpty)) {
-            List<U.Event> tom = U.events(this, U.startOfDay(1), U.startOfDay(2));
+            List<U.Event> tomAll = U.events(this, U.startOfDay(1), U.startOfDay(2)), tom = new java.util.ArrayList<U.Event>();
+            for (U.Event e : tomAll) if (!e.allDay) tom.add(e);
             int room = Math.max(2, MAX_ROWS - shown);
-            next.addView(MainActivity.dayRow(this, "Domani · " + U.dayLabel(U.startOfDay(1)), alTomorrow, U.ON_DARK_MUTED, U.ON_DARK), U.full());
-            if (tom.isEmpty()) next.addView(U.text(this, "Niente in programma", 16, U.ON_DARK_MUTED, false));
+            next.addView(MainActivity.dayRow(this, "Domani · " + U.dayLabel(U.startOfDay(1)), alTomorrow, U.ON_DARK_MUTED, U.ON_DARK,
+                    U.allDayChips(this, tomAll, U.ON_DARK, 0xFF2A2A28, false)), U.full());
+            if (tomAll.isEmpty()) next.addView(U.text(this, "Niente in programma", 16, U.ON_DARK_MUTED, false));
             for (int i = 0; i < tom.size() && i < room; i++) next.addView(eventRow(tom.get(i), false));
             if (tom.size() > room) next.addView(more(tom.size() - room));
         }
@@ -264,7 +277,7 @@ public class LockActivity extends Activity {
     }
 
     private View eventRow(final U.Event e, boolean strong) {
-        View r = row(e.allDay ? "giorno" : U.hhmm(e.begin), e.title, null, strong);
+        View r = row(U.hhmm(e.begin), e.title, null, strong);
         if (e.editable() && e.eventId >= 0) {
             r.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) { unlockThen(U.editIntent(LockActivity.this, e)); }
@@ -289,6 +302,7 @@ public class LockActivity extends Activity {
         l.setMinWidth(U.dp(this, 64));
         r.addView(l);
         TextView t = U.text(this, title, 16, strong ? U.ON_DARK : 0xFFD0D0CA, strong);
+        t.setTypeface(strong ? U.SERIF_M : U.SERIF); // 0.18 (Evolutiva 008): titoli in Literata
         t.setSingleLine(true);
         t.setEllipsize(TextUtils.TruncateAt.END);
         r.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));

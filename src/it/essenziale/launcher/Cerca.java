@@ -44,12 +44,12 @@ public final class Cerca {
     /** Pagine di Impostazioni cercabili: titolo | parole chiave | destinazione. */
     public static final String[][] SETTINGS = {
             {"Meno notifiche", "notifiche filtro per te altro avvisi chi conta silenzio", "area:2"},
-            {"Persone e gruppi", "conversazioni chat contatti chi passa sempre chi conta whatsapp telegram stella preferiti", "people"},
+            {"Contatti e gruppi", "persone gruppi conversazioni chat contatti chi passa sempre chi conta whatsapp telegram stella preferiti", "people"},
             {"Gruppi", "gruppi silenzio whatsapp telegram", "groups"},
             {"Servizi", "banca spid io otp codici accesso pagamenti poste identità digitale sms", "servizi"},
             {"Conversazioni aperte", "12 ore aperte risposta", "area:2"},
             {"App che aspettano in Notifiche", "in attesa contate", "waiting"},
-            {"Sblocchi senza scopo", "sblocco sblocchi noia annoiavo domanda completa un task una cosa adesso", "area:2"},
+            {"Sblocchi senza scopo", "sblocco sblocchi noia annoiavo domanda completa un task una cosa adesso", "area:3"},
             {"La tua home", "home app applicazioni tastiera", "area:0"},
             {"A portata", "preferite app persone gruppi ordine conversazioni attive ricerca recenti banca", "portata"},
             {"Apri subito la tastiera", "tastiera ricerca", "area:0"},

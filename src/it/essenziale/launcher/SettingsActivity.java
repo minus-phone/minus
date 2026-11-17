@@ -224,21 +224,8 @@ public class SettingsActivity extends BaseActivity {
             return;
         }
         goalHeader(Goals.NOTIF, "Ti raggiunge solo chi conta. Spegnendolo, le notifiche tornano quelle di Android");
-        int people = Onboarding.alwaysCount(this);
-        // 0.16: quattro gruppi: PERSONE, APP, COME TI AVVISA, BARRA DI STATO
-        body.addView(U.label(this, "Persone"));
-        nav("Persone e gruppi", people + (people == 1 ? " persona" : " persone") + (Stars.mineCount(this) > 0 ? " ★" : "") + " · chi passa sempre, chi aspetta, chi ti ha scritto",
-                peopleIntent(this, TITLES[NOTIF]), "›");
-        nav("Scegli dalla rubrica chi conta", "Anche con il silenzio, con la stella in rubrica", to(PeopleActivity.class), "›");
-        nav("Gruppi", "App per app: quali passano sempre", to(GroupsActivity.class), "›");
-        body.addView(U.label(this, "App"));
-        int sv = ServiziActivity.installed(this).size();
-        nav("Servizi", sv + " riconosciuti · banca, SPID, IO, salute, scuola: codici e accessi passano sempre", to(ServiziActivity.class), "›");
-        int ac = U.appChoices(this).size();
-        int waiting = U.rows(U.cfg(this, U.K_WAITING_APPS, U.DEF_WAITING_APPS)).size();
-        row("Notifiche delle app", "Per ogni app: passa sempre, in Per te o in Altro" + (ac > 0 ? " · " + ac + " scelte" : ""), "›", new Runnable() {
-            public void run() { AppChoice.list(SettingsActivity.this, new Runnable() { public void run() { render(); } }); }
-        });
+        // 0.18 (Evolutiva 009): COME TI AVVISA con «Contatti e gruppi», poi APP e BARRA DI STATO.
+        // Evolutiva 010: «Sblocchi senza scopo» passa in Meno doomscrolling; qui resta un rimando
         body.addView(U.label(this, "Come ti avvisa"));
         final boolean open = U.prefs(this).getBoolean(U.K_OPEN_ON, true);
         toggle("Conversazioni aperte", "Se rispondi a qualcuno, ti avvisa per 12 ore. Gruppi 1 ora, mai di notte", open, new Runnable() {
@@ -259,31 +246,37 @@ public class SettingsActivity extends BaseActivity {
                 render();
             }
         });
-        final boolean unlock = U.prefs(this).getBoolean(Sblocco.K_ON, false);
-        toggle("Sblocchi senza scopo", "Al terzo sblocco in 10 minuti senza aprire niente ti chiede per cosa l'hai preso. Al massimo 3 volte al giorno", unlock, new Runnable() {
-            public void run() {
-                Changes.track(SettingsActivity.this, unlock ? "Domanda sugli sblocchi senza scopo spenta" : "Domanda sugli sblocchi senza scopo accesa", new String[]{Sblocco.K_ON},
-                        new Runnable() { public void run() { U.prefs(SettingsActivity.this).edit().putBoolean(Sblocco.K_ON, !unlock).commit(); } },
-                        new Runnable() { public void run() { render(); } });
-            }
+        nav("Contatti e gruppi", contactsSummary(), peopleIntent(this, TITLES[NOTIF]), "›");
+        body.addView(U.label(this, "App"));
+        int sv = ServiziActivity.installed(this).size();
+        nav("Servizi", sv + " riconosciuti · banca, SPID, IO, salute, scuola: codici e accessi passano sempre", to(ServiziActivity.class), "›");
+        int ac = U.appChoices(this).size();
+        row("Notifiche delle app", "Per ogni app: passa sempre, in Per te o in Altro" + (ac > 0 ? " · " + ac + " scelte" : ""), "›", new Runnable() {
+            public void run() { AppChoice.list(SettingsActivity.this, new Runnable() { public void run() { render(); } }); }
         });
         body.addView(U.label(this, "Barra di stato"));
         int sticky = Sticky.recent(this).size();
         nav("Icone fisse nella barra", sticky == 0 ? "Nessuna negli ultimi 7 giorni" : sticky + " app negli ultimi 7 giorni · rendile silenziose", to(StickyActivity.class), "›");
-        note("Persone e gruppi si cambiano anche da Notifiche, tenendo premuto.");
+        // per qualche versione, per chi cerca qui la domanda sugli sblocchi
+        Intent dm = new Intent(this, SettingsActivity.class).putExtra("area", DOOM).putExtra("back", TITLES[NOTIF]);
+        nav("Sblocchi senza scopo", "Ora è in Meno doomscrolling", dm, "›");
+        note("Contatti e gruppi si cambiano anche da Notifiche, tenendo premuto.");
     }
 
     // ---------- 201 · Meno doomscrolling ----------
 
     private void doom() {
         if (!Goals.on(this, Goals.DOOM)) {
-            intro(Goals.DOOM, "Una pausa prima di Instagram, TikTok e le altre app che scegli. Il tempo dall'ultimo sblocco in home e, se vuoi, sopra le altre app.",
-                    "Due schermate, circa un minuto.");
+            intro(Goals.DOOM, "Una pausa prima di Instagram, TikTok e le altre app che scegli. Il tempo dall'ultimo sblocco in home e, se vuoi, sopra le altre app. E una domanda quando lo sblocchi senza motivo.",
+                    "Tre schermate, circa un minuto.");
             return;
         }
-        goalHeader(Goals.DOOM, "Spegnendolo, le app si aprono senza pausa; le scelte restano");
+        goalHeader(Goals.DOOM, "Spegnendolo, le app si aprono senza pausa e non ti chiede più niente allo sblocco; le scelte restano");
+        // 0.18 (Evolutiva 010): PRIMA DI APRIRE e QUANDO LO SBLOCCHI
+        body.addView(U.label(this, "Prima di aprire"));
         nav("App che rapiscono", U.pausedPkgs(this).size() + " app · " + Scope.scopePkgs(this).size() + " con pausa e scopo", to(PauseActivity.class), "›");
         pauseLength();
+        body.addView(U.label(this, "Quando lo sblocchi"));
         nav("Tempo dall'ultimo sblocco", Session.on(this) ? "Te lo fa notare dopo " + Session.threshold(this) + " min" : "Spento", to(SessionActivity.class), "›");
         final boolean pill = U.prefs(this).getBoolean(Pill.K_ON, false);
         final boolean draw = Pill.canDraw(this);
@@ -295,10 +288,19 @@ public class SettingsActivity extends BaseActivity {
                         new Runnable() { public void run() { render(); if (!pill && !Pill.canDraw(SettingsActivity.this)) Pill.openOverlaySettings(SettingsActivity.this); } });
             }
         });
+        final boolean unlock = U.prefs(this).getBoolean(Sblocco.K_ON, false);
+        toggle("Sblocchi senza scopo", "Al terzo sblocco in 10 minuti senza aprire niente ti chiede per cosa l'hai preso. Al massimo 3 volte al giorno, mai di notte", unlock, new Runnable() {
+            public void run() {
+                Changes.track(SettingsActivity.this, unlock ? "Domanda sugli sblocchi senza scopo spenta" : "Domanda sugli sblocchi senza scopo accesa", new String[]{Sblocco.K_ON},
+                        new Runnable() { public void run() { U.prefs(SettingsActivity.this).edit().putBoolean(Sblocco.K_ON, !unlock).commit(); } },
+                        new Runnable() { public void run() { render(); } });
+            }
+        });
+        body.addView(U.label(this, "Altro"));
         row("Hai un timer su −minus in Benessere digitale?", "Android conta anche la home: toglilo da lì", "↗", new Runnable() {
             public void run() { Session.openWellbeing(SettingsActivity.this); }
         });
-        note("−minus vede quanto tempo passi in ogni app, mai cosa fai dentro. Nessun dato d'uso esce dal telefono.");
+        note("−minus vede quanto tempo passi in ogni app e quando sblocchi il telefono, mai cosa fai dentro. Nessun dato d'uso esce dal telefono.");
     }
 
     // ---------- 202 · Meno interferenze sul sonno ----------
@@ -424,11 +426,27 @@ public class SettingsActivity extends BaseActivity {
         U.dlg(this).setTitle(U.brand("Cosa vede −minus")).setMessage(b.toString()).setPositiveButton("Ok", null).show();
     }
 
-    /** 0.7: la lista di persone e gruppi (era Conversazioni), aperta da Impostazioni o dalla ricerca. */
+    /** 0.18: «4 contatti e 1 gruppo passano sempre · 2 aperte ora»: lo stato di adesso. */
+    private String contactsSummary() {
+        int people = Onboarding.alwaysCount(this), groups = 0;
+        for (String[] g : U.rows(U.prefs(this).getString(U.K_GROUPS, ""))) if (g.length >= 2 && "sempre".equals(g[1])) groups++;
+        int open = Convs.openMap(this).size();
+        StringBuilder b = new StringBuilder();
+        if (people + groups == 0) b.append("Nessuno passa sempre");
+        else {
+            if (people > 0) b.append(people).append(people == 1 ? " contatto" : " contatti");
+            if (groups > 0) b.append(people > 0 ? " e " : "").append(groups).append(groups == 1 ? " gruppo" : " gruppi");
+            b.append(people + groups == 1 ? " passa sempre" : " passano sempre");
+        }
+        if (open > 0) b.append(" · ").append(open).append(open == 1 ? " aperta ora" : " aperte ora");
+        return b.toString();
+    }
+
+    /** 0.7: la lista di persone e gruppi (era Conversazioni). 0.18 (Evolutiva 009): «Contatti e gruppi», con i tab. */
     static Intent peopleIntent(android.content.Context c, String back) {
         Intent i = new Intent(c, ListActivity.class);
         i.putExtra(ListActivity.EXTRA_MODE, ListActivity.MODE_CONTACTS);
-        i.putExtra("title", "Persone e gruppi");
+        i.putExtra("title", "Contatti e gruppi");
         i.putExtra("back", back);
         return i;
     }

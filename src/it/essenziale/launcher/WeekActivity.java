@@ -178,11 +178,12 @@ public class WeekActivity extends BaseActivity {
                 r.setOnLongClickListener(new View.OnLongClickListener() { // 0.15: Modifica impegno, Elimina impegno
                     public boolean onLongClick(View v) { Menu.event(WeekActivity.this, e); return true; }
                 });
-                TextView t = U.text(this, e.allDay ? "giorno" : U.hhmm(e.begin), 14, U.MUTED, false);
+                TextView t = U.text(this, U.hhmm(e.begin), 14, U.MUTED, false);
                 t.setTypeface(U.SERIF);
                 t.setMinWidth(U.dp(this, 64));
                 r.addView(t);
                 TextView ti = U.text(this, e.title, 15, U.INK, false);
+                ti.setTypeface(U.SERIF); // 0.18 (Evolutiva 008)
                 ti.setSingleLine(true);
                 ti.setEllipsize(TextUtils.TruncateAt.END);
                 r.addView(ti, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));

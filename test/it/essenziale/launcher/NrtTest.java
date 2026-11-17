@@ -455,6 +455,12 @@ public class NrtTest {
         eq("Maiuscole indifferenti", Cerca.score("BNL", "bnl"), 3);
         eq("Niente in comune", Cerca.score("Satispay", "zqx"), 0);
         check("Le persone che passano sempre vengono prima a parità di nome", Cerca.rank("Marta", "ma", true) > Cerca.rank("Mamma", "ma", false), null);
+        // 0.18 (Evolutive 009 e 010)
+        check("Cerca «contatti» trova Contatti e gruppi", !Cerca.settings("contatti", 3).isEmpty() && "Contatti e gruppi".equals(Cerca.settings("contatti", 3).get(0)[0]), null);
+        String sbl = null; for (String[] e : Cerca.SETTINGS) if ("Sblocchi senza scopo".equals(e[0])) sbl = e[2];
+        eq("Sblocchi senza scopo ora sta in Meno doomscrolling", sbl, "area:3");
+        boolean oldName = false; for (String[] e : Cerca.SETTINGS) if ("Persone e gruppi".equals(e[0])) oldName = true;
+        check("Nessuna voce si chiama più «Persone e gruppi»", !oldName, null);
         check("Ma una corrispondenza migliore vince sulla preferenza", Cerca.rank("Mamma", "mam", false) > Cerca.rank("Tommaso", "mam", true) || Cerca.rank("Tommaso", "mam", true) == 0, null);
         eq("Impostazioni: «pausa» trova la pausa", Cerca.settings("pausa", 3).get(0)[0], "Pausa prima di aprire");
         eq("Impostazioni: «gruppi» trova i gruppi", Cerca.settings("grup", 3).get(0)[0], "Gruppi");

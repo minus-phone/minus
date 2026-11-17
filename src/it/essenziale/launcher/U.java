@@ -1118,23 +1118,30 @@ public final class U {
     }
 
     /** 0.17 (Evolutiva 007): gli eventi di tutto il giorno in riquadri sulla riga del giorno. Null se non ce ne sono. */
-    static View allDayChips(final android.app.Activity a, List<Event> ev) {
-        Flow f = null;
+    /** 0.18 (Evolutiva 008): i riquadri «tutto il giorno» uno sotto l'altro, tutti larghi quanto lo spazio rimasto, titolo in Literata. */
+    static View allDayChips(final android.app.Activity a, List<Event> ev) { return allDayChips(a, ev, INK, CHIP, true); }
+
+    static View allDayChips(final android.app.Activity a, List<Event> ev, int fg, int bg, boolean touch) {
+        LinearLayout f = null;
         for (final Event e : ev) {
             if (!e.allDay) continue;
-            if (f == null) f = new Flow(a, dp(a, 6));
-            TextView t = text(a, e.title, 14, INK, false);
+            if (f == null) { f = new LinearLayout(a); f.setOrientation(LinearLayout.VERTICAL); }
+            TextView t = text(a, e.title, 15, fg, false);
+            t.setTypeface(SERIF);
             t.setSingleLine(true);
             t.setEllipsize(TextUtils.TruncateAt.END);
-            t.setMaxWidth(dp(a, 240));
             t.setGravity(Gravity.CENTER_VERTICAL);
             t.setMinHeight(dp(a, 32));
             t.setPadding(dp(a, 10), 0, dp(a, 10), 0);
-            t.setBackground(box(a, CHIP, 0, 8));
+            t.setBackground(box(a, bg, 0, 8));
             t.setContentDescription(e.title + ", tutto il giorno");
-            t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { openEvent(a, e); } });
-            t.setOnLongClickListener(new View.OnLongClickListener() { public boolean onLongClick(View v) { Menu.event(a, e); return true; } });
-            f.addView(t);
+            if (touch) {
+                t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { openEvent(a, e); } });
+                t.setOnLongClickListener(new View.OnLongClickListener() { public boolean onLongClick(View v) { Menu.event(a, e); return true; } });
+            }
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            if (f.getChildCount() > 0) lp.topMargin = dp(a, 6);
+            f.addView(t, lp);
         }
         return f;
     }

@@ -222,7 +222,7 @@ public class SearchActivity extends BaseActivity {
                 public int compare(Rules.Conv a, Rules.Conv b) { return Long.compare(Rules.touched(b), Rules.touched(a)); }
             });
         }
-        blocks.add(sectionLabel("Persone e gruppi"));
+        blocks.add(sectionLabel("Contatti e gruppi")); // 0.18 (Evolutiva 009)
         LinearLayout av = hrow();
         av.setGravity(Gravity.TOP);
         for (final String[] f : byLastTouch(fixed)) av.addView(personChip(f));
@@ -236,7 +236,7 @@ public class SearchActivity extends BaseActivity {
         TextView all = U.text(this, "Vedi tutti  ›", 15, U.INK, false);
         all.setMinHeight(U.dp(this, 48));
         all.setGravity(Gravity.CENTER_VERTICAL);
-        all.setContentDescription("Vedi tutte le persone e i gruppi");
+        all.setContentDescription("Vedi tutti i contatti e i gruppi");
         all.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { startActivity(SettingsActivity.peopleIntent(SearchActivity.this, "Ricerca")); }
         });
@@ -436,7 +436,7 @@ public class SearchActivity extends BaseActivity {
         if (!people.isEmpty()) {
             List<View> g = new ArrayList<View>();
             for (int i = 0; i < people.size() && i < 4; i++) g.add(personRow(people.get(i)));
-            groups.add(g); titles.add("Persone e gruppi");
+            groups.add(g); titles.add("Contatti e gruppi");
             final Hit h = people.get(0);
             if (best == null) best = new Runnable() { public void run() { openHit(h); } };
         }
@@ -665,9 +665,9 @@ public class SearchActivity extends BaseActivity {
             statusLink.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
             statusLink.setPadding(U.dp(this, 8), 0, 0, 0);
             row.addView(statusLink);
-            statusLink.setPaintFlags(statusLink.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+            Pass.asLink(statusLink, h.sub); // 0.18: sottolineato tranne il pallino
             statusLink.setMinHeight(U.dp(this, 48));
-            statusLink.setContentDescription(h.name + ": " + h.sub + ". Cambia come passano i messaggi");
+            statusLink.setContentDescription(h.name + ": " + Pass.spoken(h.sub) + ". Cambia come passano i messaggi");
             statusLink.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) { Pass.sheet(SearchActivity.this, pkgOf(h.code), h.name, new Runnable() { public void run() { render(); } }); }
             });
@@ -784,7 +784,7 @@ public class SearchActivity extends BaseActivity {
             i.putExtra("area", Integer.parseInt(dest.substring(5)));
             i.putExtra("back", "Ricerca");
         } else if ("people".equals(dest)) i = SettingsActivity.peopleIntent(this, "Ricerca");
-        else if ("groups".equals(dest)) i = new Intent(this, GroupsActivity.class);
+        else if ("groups".equals(dest)) i = SettingsActivity.peopleIntent(this, "Ricerca").putExtra("tab", 1);
         else if ("servizi".equals(dest)) i = new Intent(this, ServiziActivity.class);
         else if ("waiting".equals(dest)) { i = new Intent(this, ContainerActivity.class); i.putExtra("tab", ContainerActivity.TAB_WAITING); }
         else if ("portata".equals(dest)) i = new Intent(this, PortataActivity.class);

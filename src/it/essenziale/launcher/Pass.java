@@ -95,12 +95,28 @@ public final class Pass {
 
     /**
      * 0.16: i quattro stati, scritti uguali ovunque: «passa sempre», «in Per te», «in Altro»,
-     * «aperta fino alle 21:01». null per chi non è in lista e non ha una conversazione aperta.
+     * «○ fino alle 21:01» (0.18, Evolutiva 008: pallino vuoto, senza «aperta» e senza «a domani»). null per chi non è in lista e non ha una conversazione aperta.
      */
+    /** 0.18: il pallino vuoto davanti allo stato di una conversazione aperta. */
+    static final String OPEN = "○ ";
+
+    /** 0.18: come lo legge TalkBack: il pallino non si sente, quindi «aperta fino alle…». */
+    static String spoken(String status) {
+        return status != null && status.startsWith(OPEN) ? "aperta " + status.substring(OPEN.length()) : status;
+    }
+
+    /** 0.18: lo stato come link: sottolineato, tranne il pallino. */
+    static void asLink(android.widget.TextView t, String status) {
+        android.text.SpannableString s = new android.text.SpannableString(status);
+        int from = status.startsWith(OPEN) ? OPEN.length() : 0;
+        s.setSpan(new android.text.style.UnderlineSpan(), from, status.length(), 0);
+        t.setText(s);
+    }
+
     static String state(android.content.Context c, boolean group, String groupRule, String code, Rules.Person p, long until, long now) {
         if (group) {
             if (Rules.groupAlways(groupRule)) return "passa sempre";
-            if (until > now) return "aperta " + Convs.until(until);
+            if (until > now) return OPEN + "fino alle " + U.hhmm(until);
             if ("altro".equals(groupRule)) return "in Altro";
             if ("notifiche".equals(groupRule)) return "in Per te";
             String dest = code == null ? null : U.groupDest(c).get(code);
@@ -109,7 +125,7 @@ public final class Pass {
             return "attesa".equals(groupRule) ? "in Per te" : "in Altro";
         }
         if (p != null && p.section.equalsIgnoreCase("Sempre")) return "passa sempre";
-        if (until > now) return "aperta " + Convs.until(until);
+        if (until > now) return OPEN + "fino alle " + U.hhmm(until);
         if (p != null) return "in Per te";
         return null;
     }
