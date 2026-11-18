@@ -78,20 +78,39 @@ public class SettingsActivity extends BaseActivity {
         open(Goals.NAMES[2], Goals.on(this, Goals.SLEEP) && Night.on(this) ? "Acceso · staccare alle " + Notte.hhmm(Night.offMin(this)) : "Spento", SLEEP);
         body.addView(U.label(this, "−minus"));
         row("La tua alternativa", U.prefs(this).getString(Night.K_ALT, "Da scrivere"), "›", new Runnable() { public void run() { editAlternative(); } });
-        int miss = permsMissing();
-        open("Permessi", miss == 0 ? "Tutto concesso" : miss + " da concedere", PERMS);
+        // 0.18 (Evolutiva 011): «Permessi» non sta più nella radice: quelli che mancano sono in Da completare
         int todo = Onboarding.todo(this).size();
         open("Da completare · Modifiche recenti · Segnala un problema", todo == 0 ? "Niente da completare" : todo + " da completare", MORE);
         // 0.18 (Evolutiva 011): in fondo versione, aggiornamenti e informativa
         String v = "?";
         try { v = getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (Exception ignored) {}
-        note("−minus " + v + " · gratis e open source");
-        row("Controlla aggiornamenti", "Apre l'ultima versione su GitHub", "↗", new Runnable() { public void run() { web(RELEASES); } });
-        row("Informativa sulla privacy", "Niente server, niente dati che escono dal telefono", "↗", new Runnable() { public void run() { web(PRIVACY); } });
+        LinearLayout foot = U.row(this);
+        foot.setPadding(0, U.dp(this, 28), 0, 0);
+        TextView ver = U.text(this, "", 13, U.MUTED, false);
+        android.text.SpannableString vs = new android.text.SpannableString("−minus · versione " + v);
+        vs.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.ITALIC), 0, 6, 0);
+        ver.setText(vs);
+        foot.addView(ver, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        foot.addView(link("Controlla aggiornamenti", RELEASES));
+        body.addView(foot, U.full());
+        LinearLayout lp = U.row(this);
+        lp.setPadding(0, 0, 0, U.dp(this, 24));
+        lp.addView(link("Informativa sulla privacy ↗", PRIVACY));
+        body.addView(lp, U.full());
     }
 
     static final String RELEASES = "https://github.com/minus-phone/minus/releases/latest",
             PRIVACY = "https://github.com/minus-phone/minus/blob/main/PRIVACY.md";
+
+    private TextView link(String text, final String url) {
+        TextView t = U.text(this, text, 14, U.INK, false);
+        t.setPaintFlags(t.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        t.setMinHeight(U.dp(this, 44));
+        t.setGravity(Gravity.CENTER_VERTICAL);
+        t.setContentDescription(text.replace(" ↗", "") + ", link");
+        t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { web(url); } });
+        return t;
+    }
 
     private void web(String url) {
         try { startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))); }
