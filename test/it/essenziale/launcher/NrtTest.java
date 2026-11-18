@@ -478,6 +478,9 @@ public class NrtTest {
         check("Nessuna voce si chiama più «Persone e gruppi»", !oldName, null);
         boolean noDay = true; for (String[] e : Cerca.SETTINGS) if ("area:1".equals(e[2])) noDay = false;
         check("E011: nessuna voce porta più a La tua giornata", noDay, null);
+        boolean noPerms = true; for (String[] e : Cerca.SETTINGS) if ("area:5".equals(e[2])) noPerms = false;
+        check("Nessuna voce porta più alla pagina Permessi", noPerms, null);
+        eq("«permessi» porta a Da completare", Cerca.settings("permessi", 3).get(0)[2], "area:6");
         eq("E011: «giornata» porta a La tua home", Cerca.settings("giornata", 3).get(0)[2], "area:0");
         String ses = null; for (String[] e : Cerca.SETTINGS) if ("session".equals(e[2])) ses = e[0];
         eq("E012: la voce si chiama Tempo nelle app che rapiscono", ses, "Tempo nelle app che rapiscono");

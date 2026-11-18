@@ -35,6 +35,7 @@ public class SettingsActivity extends BaseActivity {
         area = getIntent().getIntExtra("area", MAIN);
         if (area >= TITLES.length) area = MAIN;
         if (area == DAY) area = HOME; // 0.18 (Evolutiva 011): La tua giornata è dentro La tua home
+        if (area == PERMS) area = TODO; // 0.18: Permessi tolta, i permessi mancanti sono in Da completare
         LinearLayout root = U.screen(this, area == MAIN ? "Impostazioni" : TITLES[area]);
         ScrollView sv = new ScrollView(this);
         body = U.col(this);
@@ -60,7 +61,6 @@ public class SettingsActivity extends BaseActivity {
             case NOTIF: notif(); break;
             case DOOM: doom(); break;
             case SLEEP: sleep(); break;
-            case PERMS: perms(); break;
             case TODO: todo(); break;
             case MORE: more(); break;
             default: main();
@@ -363,44 +363,7 @@ public class SettingsActivity extends BaseActivity {
         return min % 60 == 0 ? String.valueOf(min / 60) : (min / 60) + "½";
     }
 
-    // ---------- 203 · Permessi ----------
-
-    private int permsMissing() {
-        int n = 0;
-        for (String[] t : Onboarding.todo(this)) if (!"portata".equals(t[0])) n++;
-        return n;
-    }
-
-    private void perms() {
-        intro("Cosa ha −minus e a cosa serve. Ogni permesso si può togliere da Android.");
-        body.addView(U.label(this, "Base"));
-        perm("App Home", "La tua home", Onboarding.isDefaultHome(this), "home");
-        perm("Calendario", "La tua giornata", U.canWriteCalendar(this), "calendario");
-        if (Goals.on(this, Goals.NOTIF)) {
-            body.addView(U.label(this, Goals.NAMES[0]));
-            perm("Contatti (lettura e modifica)", "Chi conta, stella in rubrica", Onboarding.hasContacts(this) && Stars.canWrite(this), "contatti");
-            perm("Accesso alle notifiche", "Il resto aspetta", U.listenerEnabled(this), "notifiche");
-            perm("Non disturbare", "Silenzio, tranne chi conta", Onboarding.policy(this), "silenzio");
-        }
-        if (Goals.on(this, Goals.DOOM)) {
-            body.addView(U.label(this, Goals.NAMES[1]));
-            perm("Dati di utilizzo", "La pausa anche da notifiche e app recenti", Pill.usageGranted(this), "utilizzo");
-            if (U.prefs(this).getBoolean(Pill.K_ON, false)) perm("Mostra sopra altre app", "La pillola del tempo", Pill.canDraw(this), "sopra");
-        }
-        // 0.16: la scala di grigi non è un permesso: sta solo in «Meno interferenze sul sonno»
-        if (Goals.on(this, Goals.SLEEP) && Night.on(this) && !Goals.on(this, Goals.NOTIF)) {
-            body.addView(U.label(this, Goals.NAMES[2]));
-            perm("Accesso alle notifiche", "Di notte, solo chi conta", U.listenerEnabled(this), "notifiche");
-        }
-        row("Cosa vede −minus", "Le ultime notifiche di chat arrivate e dove sono finite", "›", new Runnable() { public void run() { showLog(); } });
-        note("Raggruppati come gli obiettivi: chi non ha un obiettivo acceso non vede i suoi permessi.");
-    }
-
-    private void perm(String title, String sub, boolean done, final String key) {
-        row(title, sub, done ? "✓" : "Concedi ›", done ? new Runnable() { public void run() {} } : new Runnable() {
-            public void run() { Onboarding.fix(SettingsActivity.this, key); }
-        });
-    }
+    // 0.18: la pagina «Permessi» non c'è più: quelli che mancano sono in Da completare, gli altri si tolgono da Android
 
     // ---------- Da completare ----------
 

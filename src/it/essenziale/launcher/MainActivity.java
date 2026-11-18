@@ -189,9 +189,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         filterOff.setGravity(Gravity.CENTER_VERTICAL);
         filterOff.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                Intent i = new Intent(MainActivity.this, SettingsActivity.class);
-                i.putExtra("area", SettingsActivity.SETUP); // 0.6: dritto in Attivazione
-                startActivity(i);
+                Onboarding.fix(MainActivity.this, "notifiche"); // 0.18: dritto nelle impostazioni di Android
             }
         });
         content.addView(filterOff, U.full());

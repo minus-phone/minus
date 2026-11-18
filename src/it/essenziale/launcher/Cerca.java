@@ -67,13 +67,13 @@ public final class Cerca {
             {"Impegni e task nella schermata di blocco", "schermata di blocco lock privacy", "area:0"},
             {"Meno interferenze sul sonno", "notte sonno sveglia buio letto insonnia sera staccare dormire", "area:4"},
             {"La tua alternativa", "alternativa invece di scorrere scrollare leggere", "area:-1"},
-            {"Permessi", "permessi silenzio non disturbare home predefinita attivazione", "area:5"},
+            {"Permessi che mancano", "permessi silenzio non disturbare home predefinita attivazione concedi", "area:6"},
             {"Da completare", "da completare configurazione mancano", "area:6"},
             {"Modifiche recenti", "annulla ripristina storico", "changes"},
             {"Segnala un problema", "bug problema errore non funziona segnala aiuto", "bug"},
             {"App frenate di notte", "notte app chiuse frenate", "night"},
             {"Aspetto", "tema scuro chiaro testo grande dimensione caratteri colori", "aspetto"},
-            {"Cosa vede −minus", "registro notifiche diagnosi", "area:5"},
+            {"Cosa vede −minus", "registro notifiche diagnosi", "area:7"},
     };
 
 
