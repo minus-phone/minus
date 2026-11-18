@@ -189,9 +189,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         filterOff.setGravity(Gravity.CENTER_VERTICAL);
         filterOff.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                Intent i = new Intent(MainActivity.this, SettingsActivity.class);
-                i.putExtra("area", SettingsActivity.SETUP); // 0.6: dritto in Attivazione
-                startActivity(i);
+                Onboarding.fix(MainActivity.this, "notifiche"); // 0.18: dritto nelle impostazioni di Android
             }
         });
         content.addView(filterOff, U.full());
@@ -321,7 +319,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     @Override
     public boolean dispatchTouchEvent(android.view.MotionEvent e) {
         if (swipe == null) swipe = new Swipe(this, upOk, new Swipe.Act() {
-            public void up() { startActivity(new Intent(MainActivity.this, SearchActivity.class).putExtra("kb", true)); }
+            public void up() { startActivity(new Intent(MainActivity.this, SearchActivity.class)); } // E013: tastiera chiusa
             public void left() { startActivity(new Intent(MainActivity.this, WeekActivity.class)); overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out); }
             public void right() {}
         });
@@ -737,11 +735,12 @@ public class MainActivity extends BaseActivity implements Store.Listener {
             public boolean onLongClick(View v) { Menu.event(MainActivity.this, e); return true; }
         });
         int color = past ? U.MUTED : U.INK;
-        TextView time = U.text(this, e.allDay ? "giorno" : U.hhmm(e.begin), sp - 1, strong ? U.INK : U.MUTED, strong);
+        TextView time = U.text(this, U.hhmm(e.begin), sp - 1, strong ? U.INK : U.MUTED, strong);
         time.setTypeface(strong ? U.SERIF_M : U.SERIF);
         time.setMinWidth(U.dp(this, 64));
         r.addView(time);
         TextView title = U.text(this, e.title, sp, color, strong);
+        title.setTypeface(strong ? U.SERIF_M : U.SERIF); // 0.18 (Evolutiva 008): titoli degli impegni in Literata
         title.setSingleLine(true);
         title.setEllipsize(TextUtils.TruncateAt.END);
         r.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));

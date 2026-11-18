@@ -399,7 +399,7 @@ public class FilterService extends NotificationListenerService implements Store.
             Pill.setPaused(sessionPaused());
             Pill.update(FilterService.this);
             Sera.tick(FilterService.this, Pill.minusFront()); // E002: l'avviso all'ora di staccare
-            handler.postDelayed(this, 30000L);
+            handler.postDelayed(this, 10000L); // 0.18 (E012): la pillola compare presto entrando in un'app frenata
         }
     };
 
@@ -424,7 +424,8 @@ public class FilterService extends NotificationListenerService implements Store.
     private void checkSession() {
         long start = Session.start(this);
         if (start <= 0 || !Session.on(this) || sessionAlerted) return;
-        if (Rules.sessionMinutes(start, System.currentTimeMillis(), Session.threshold(this)) < 0) { scheduleCheck(); return; }
+        // 0.18 (Evolutiva 012): conta solo il tempo nelle app frenate; si ricontrolla ogni minuto
+        if (Pill.brakedMinutes(this) < 0) { handler.postDelayed(sessionCheck, 60000L); return; }
         if (sessionPaused()) { handler.postDelayed(sessionCheck, 60000L); return; }
         sessionAlerted = true;
         if (Pill.active(this)) return; // un segnale alla volta: c'è già la pillola
@@ -446,7 +447,7 @@ public class FilterService extends NotificationListenerService implements Store.
         try {
             long start = Session.start(this);
             if (start <= 0) return;
-            int min = Math.max(0, (int) ((System.currentTimeMillis() - start) / 60000L));
+            int min = Math.max(0, Pill.brakedMinutes(this)); // 0.18 (E012): tempo nelle app che rapiscono
             Intent home = new Intent(this, MainActivity.class);
             home.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             PendingIntent homePi = PendingIntent.getActivity(this, 21, home, PendingIntent.FLAG_UPDATE_CURRENT);
@@ -454,11 +455,9 @@ public class FilterService extends NotificationListenerService implements Store.
             PendingIntent gonePi = PendingIntent.getBroadcast(this, 23, new Intent(ACT_SESSION_GONE).setPackage(getPackageName()), PendingIntent.FLAG_UPDATE_CURRENT);
             Notification.Builder b = new Notification.Builder(this)
                     .setSmallIcon(Icon.createWithResource("android", android.R.drawable.ic_lock_idle_alarm))
-                    .setContentTitle(alert ? "Telefono acceso da " + min + " min" : "Acceso dall'ultimo sblocco")
-                    .setContentText(alert ? "Dall'ultimo sblocco, senza pause." : "Si azzera quando spegni lo schermo.")
-                    .setWhen(start)
-                    .setShowWhen(true)
-                    .setUsesChronometer(true)
+                    .setContentTitle(alert ? min + " min nelle app che rapiscono" : "Tempo nelle app che rapiscono")
+                    .setContentText(alert ? "Dall'ultimo sblocco. Si ferma nelle altre app." : "Si azzera quando spegni lo schermo.")
+                    .setShowWhen(false)
                     .setOnlyAlertOnce(!alert)
                     .setDefaults(0)
                     .setSound(null)

@@ -34,6 +34,8 @@ public class SettingsActivity extends BaseActivity {
         Goals.migrate(this);
         area = getIntent().getIntExtra("area", MAIN);
         if (area >= TITLES.length) area = MAIN;
+        if (area == DAY) area = HOME; // 0.18 (Evolutiva 011): La tua giornata è dentro La tua home
+        if (area == PERMS) area = TODO; // 0.18: Permessi tolta, i permessi mancanti sono in Da completare
         LinearLayout root = U.screen(this, area == MAIN ? "Impostazioni" : TITLES[area]);
         ScrollView sv = new ScrollView(this);
         body = U.col(this);
@@ -59,7 +61,6 @@ public class SettingsActivity extends BaseActivity {
             case NOTIF: notif(); break;
             case DOOM: doom(); break;
             case SLEEP: sleep(); break;
-            case PERMS: perms(); break;
             case TODO: todo(); break;
             case MORE: more(); break;
             default: main();
@@ -69,8 +70,7 @@ public class SettingsActivity extends BaseActivity {
     // ---------- 198 · Radice ----------
 
     private void main() {
-        open("La tua home", "Home, aspetto, a portata, ricerca, voce", HOME);
-        open("La tua giornata", "Calendari, task, schermata di blocco", DAY);
+        open("La tua home", "Aspetto, calendario, a portata, tastiera, comandi vocali", HOME); // 0.18 (Evolutiva 011)
         body.addView(U.label(this, "I tuoi obiettivi"));
         int people = Onboarding.alwaysCount(this);
         open(Goals.NAMES[0], Goals.on(this, Goals.NOTIF) ? "Acceso · " + people + (people == 1 ? " persona" : " persone") + " che contano" : "Spento", NOTIF);
@@ -78,10 +78,43 @@ public class SettingsActivity extends BaseActivity {
         open(Goals.NAMES[2], Goals.on(this, Goals.SLEEP) && Night.on(this) ? "Acceso · staccare alle " + Notte.hhmm(Night.offMin(this)) : "Spento", SLEEP);
         body.addView(U.label(this, "−minus"));
         row("La tua alternativa", U.prefs(this).getString(Night.K_ALT, "Da scrivere"), "›", new Runnable() { public void run() { editAlternative(); } });
-        int miss = permsMissing();
-        open("Permessi", miss == 0 ? "Tutto concesso" : miss + " da concedere", PERMS);
+        // 0.18 (Evolutiva 011): «Permessi» non sta più nella radice: quelli che mancano sono in Da completare
         int todo = Onboarding.todo(this).size();
         open("Da completare · Modifiche recenti · Segnala un problema", todo == 0 ? "Niente da completare" : todo + " da completare", MORE);
+        // 0.18 (Evolutiva 011): in fondo versione, aggiornamenti e informativa
+        String v = "?";
+        try { v = getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (Exception ignored) {}
+        LinearLayout foot = U.row(this);
+        foot.setPadding(0, U.dp(this, 28), 0, 0);
+        TextView ver = U.text(this, "", 13, U.MUTED, false);
+        android.text.SpannableString vs = new android.text.SpannableString("−minus · versione " + v);
+        vs.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.ITALIC), 0, 6, 0);
+        ver.setText(vs);
+        foot.addView(ver, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        foot.addView(link("Controlla aggiornamenti", RELEASES));
+        body.addView(foot, U.full());
+        LinearLayout lp = U.row(this);
+        lp.setPadding(0, 0, 0, U.dp(this, 24));
+        lp.addView(link("Informativa sulla privacy ↗", PRIVACY));
+        body.addView(lp, U.full());
+    }
+
+    static final String RELEASES = "https://github.com/minus-phone/minus/releases/latest",
+            PRIVACY = "https://github.com/minus-phone/minus/blob/main/PRIVACY.md";
+
+    private TextView link(String text, final String url) {
+        TextView t = U.text(this, text, 14, U.INK, false);
+        t.setPaintFlags(t.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        t.setMinHeight(U.dp(this, 44));
+        t.setGravity(Gravity.CENTER_VERTICAL);
+        t.setContentDescription(text.replace(" ↗", "") + ", link");
+        t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { web(url); } });
+        return t;
+    }
+
+    private void web(String url) {
+        try { startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))); }
+        catch (Exception e) { U.toast(this, "Non trovo un browser"); }
     }
 
     private void open(String title, String sub, int a) {
@@ -114,41 +147,33 @@ public class SettingsActivity extends BaseActivity {
     // ---------- La tua home ----------
 
     private void home() {
-        row("App Home predefinita", Onboarding.isDefaultHome(this) ? "−minus" : "Non è −minus · tocca per sceglierla", "↗", new Runnable() {
-            public void run() { Onboarding.openHomeSettings(SettingsActivity.this); }
-        });
+        // 0.18 (Evolutiva 011): La tua home unisce La tua giornata. Tolti App Home predefinita
+        // (si sceglie nell'onboarding e in Permessi), Sveglia (è nell'Orologio) e le due note
         String th = U.prefs(this).getString(U.K_THEME, U.THEME_LIGHT);
         nav("Aspetto", "Tema " + th + " · testo " + (U.prefs(this).getBoolean(U.K_TEXT_BIG, false) ? "grande" : "normale"), to(AspettoActivity.class), "›");
-        nav("A portata", "Persone e gruppi, " + SearchActivity.portata(this).size() + " app · cosa vedi appena tocchi la ricerca", to(PortataActivity.class), "›");
+        if (!U.hasCalendar(this)) row("Calendario", "Non collegato · senza, la home mostra solo i task e la sveglia", "Concedi ›", new Runnable() {
+            public void run() { Onboarding.fix(SettingsActivity.this, "calendario"); }
+        });
+        else {
+            int shown = U.shownCalendars(this).size();
+            String def = U.prefs(this).getString("last_cal_name", null);
+            nav("Calendario", (shown > 0 ? shown + " mostrati" : "Tutti quelli sincronizzati") + (def != null ? " · nuovi impegni in " + def : ""), to(CalendarsActivity.class), "›");
+        }
+        nav("A portata nella ricerca", "Contatti e gruppi, " + SearchActivity.portata(this).size() + " app", to(PortataActivity.class), "›");
         prefToggle("Apri subito la tastiera", "Nella ricerca. Spento: vedi prima recenti, app a portata e persone", U.K_KEYBOARD, false,
                 "Tastiera aperta subito nella ricerca", "Tastiera chiusa all'apertura della ricerca");
         nav("Comandi vocali", "Cosa puoi dire dalla home", to(VoiceHelpActivity.class), "›");
-        note("Tutte le app si aprono anche scrivendone il nome nella ricerca in home.");
-    }
-
-    // ---------- 199 · La tua giornata ----------
-
-    private void day() {
-        if (!U.hasCalendar(this)) row("Collega il calendario", "Senza, la home mostra solo i task e la sveglia", "Concedi ›", new Runnable() {
-            public void run() { Onboarding.fix(SettingsActivity.this, "calendario"); }
-        });
-        int shown = U.shownCalendars(this).size();
-        String def = U.prefs(this).getString("last_cal_name", null);
-        nav("Calendari", (shown > 0 ? shown + " mostrati" : "Tutti quelli sincronizzati") + (def != null ? " · nuovi impegni in " + def : ""), to(CalendarsActivity.class), "›");
-        String al = U.nextAlarm(this);
-        row("Sveglia", (al != null ? "Prossima: " + al + " · " : "") + "si imposta nell'Orologio", "↗", new Runnable() {
-            public void run() { if (!U.openAlarms(SettingsActivity.this)) U.toast(SettingsActivity.this, "Non trovo l'app Orologio"); }
-        });
         final boolean lockOn = U.prefs(this).getBoolean(U.K_LOCK, true);
-        toggle("Schermata di blocco −minus", "Ora, impegni, task, sveglia", lockOn, new Runnable() {
+        toggle("Impegni e task nella schermata di blocco", "Si vedono senza sbloccare il telefono", lockOn, new Runnable() {
             public void run() {
-                Changes.track(SettingsActivity.this, lockOn ? "Schermata di blocco −minus spenta" : "Schermata di blocco −minus attiva", new String[]{U.K_LOCK},
+                Changes.track(SettingsActivity.this, lockOn ? "Impegni e task nella schermata di blocco: spenti" : "Impegni e task nella schermata di blocco: accesi", new String[]{U.K_LOCK},
                         new Runnable() { public void run() { U.prefs(SettingsActivity.this).edit().putBoolean(U.K_LOCK, !lockOn).commit(); } },
                         new Runnable() { public void run() { render(); } });
             }
         });
-        note("Cosa compare in home e quando (domani dalle 17, la sveglia dalle 19) non si imposta: è parte di −minus.");
     }
+
+    private void day() { home(); }
 
     // ---------- Interruttore dell'obiettivo ----------
 
@@ -224,21 +249,8 @@ public class SettingsActivity extends BaseActivity {
             return;
         }
         goalHeader(Goals.NOTIF, "Ti raggiunge solo chi conta. Spegnendolo, le notifiche tornano quelle di Android");
-        int people = Onboarding.alwaysCount(this);
-        // 0.16: quattro gruppi: PERSONE, APP, COME TI AVVISA, BARRA DI STATO
-        body.addView(U.label(this, "Persone"));
-        nav("Persone e gruppi", people + (people == 1 ? " persona" : " persone") + (Stars.mineCount(this) > 0 ? " ★" : "") + " · chi passa sempre, chi aspetta, chi ti ha scritto",
-                peopleIntent(this, TITLES[NOTIF]), "›");
-        nav("Scegli dalla rubrica chi conta", "Anche con il silenzio, con la stella in rubrica", to(PeopleActivity.class), "›");
-        nav("Gruppi", "App per app: quali passano sempre", to(GroupsActivity.class), "›");
-        body.addView(U.label(this, "App"));
-        int sv = ServiziActivity.installed(this).size();
-        nav("Servizi", sv + " riconosciuti · banca, SPID, IO, salute, scuola: codici e accessi passano sempre", to(ServiziActivity.class), "›");
-        int ac = U.appChoices(this).size();
-        int waiting = U.rows(U.cfg(this, U.K_WAITING_APPS, U.DEF_WAITING_APPS)).size();
-        row("Notifiche delle app", "Per ogni app: passa sempre, in Per te o in Altro" + (ac > 0 ? " · " + ac + " scelte" : ""), "›", new Runnable() {
-            public void run() { AppChoice.list(SettingsActivity.this, new Runnable() { public void run() { render(); } }); }
-        });
+        // 0.18 (Evolutiva 009): COME TI AVVISA con «Contatti e gruppi», poi APP e BARRA DI STATO.
+        // Evolutiva 010: «Sblocchi senza scopo» passa in Meno doomscrolling; qui resta un rimando
         body.addView(U.label(this, "Come ti avvisa"));
         final boolean open = U.prefs(this).getBoolean(U.K_OPEN_ON, true);
         toggle("Conversazioni aperte", "Se rispondi a qualcuno, ti avvisa per 12 ore. Gruppi 1 ora, mai di notte", open, new Runnable() {
@@ -259,35 +271,44 @@ public class SettingsActivity extends BaseActivity {
                 render();
             }
         });
-        final boolean unlock = U.prefs(this).getBoolean(Sblocco.K_ON, false);
-        toggle("Sblocchi senza scopo", "Al terzo sblocco in 10 minuti senza aprire niente ti chiede per cosa l'hai preso. Al massimo 3 volte al giorno", unlock, new Runnable() {
-            public void run() {
-                Changes.track(SettingsActivity.this, unlock ? "Domanda sugli sblocchi senza scopo spenta" : "Domanda sugli sblocchi senza scopo accesa", new String[]{Sblocco.K_ON},
-                        new Runnable() { public void run() { U.prefs(SettingsActivity.this).edit().putBoolean(Sblocco.K_ON, !unlock).commit(); } },
-                        new Runnable() { public void run() { render(); } });
-            }
+        nav("Contatti e gruppi", contactsSummary(), peopleIntent(this, TITLES[NOTIF]), "›");
+        body.addView(U.label(this, "App"));
+        int sv = ServiziActivity.installed(this).size();
+        nav("Servizi", sv + " riconosciuti · banca, SPID, IO, salute, scuola: codici e accessi passano sempre", to(ServiziActivity.class), "›");
+        int ac = U.appChoices(this).size();
+        row("Notifiche delle app", "Per ogni app: passa sempre, in Per te o in Altro" + (ac > 0 ? " · " + ac + " scelte" : ""), "›", new Runnable() {
+            public void run() { AppChoice.list(SettingsActivity.this, new Runnable() { public void run() { render(); } }); }
         });
         body.addView(U.label(this, "Barra di stato"));
         int sticky = Sticky.recent(this).size();
         nav("Icone fisse nella barra", sticky == 0 ? "Nessuna negli ultimi 7 giorni" : sticky + " app negli ultimi 7 giorni · rendile silenziose", to(StickyActivity.class), "›");
-        note("Persone e gruppi si cambiano anche da Notifiche, tenendo premuto.");
+        // per qualche versione, per chi cerca qui la domanda sugli sblocchi
+        Intent dm = new Intent(this, SettingsActivity.class).putExtra("area", DOOM).putExtra("back", TITLES[NOTIF]);
+        nav("Sblocchi senza scopo", "Ora è in Meno doomscrolling", dm, "›");
+        note("Contatti e gruppi si cambiano anche da Notifiche, tenendo premuto.");
     }
 
     // ---------- 201 · Meno doomscrolling ----------
 
     private void doom() {
         if (!Goals.on(this, Goals.DOOM)) {
-            intro(Goals.DOOM, "Una pausa prima di Instagram, TikTok e le altre app che scegli. Il tempo dall'ultimo sblocco in home e, se vuoi, sopra le altre app.",
-                    "Due schermate, circa un minuto.");
+            intro(Goals.DOOM, "Una pausa prima di Instagram, TikTok e le altre app che scegli. Il tempo nelle app che rapiscono in home e, se vuoi, sopra di loro. E una domanda quando lo sblocchi senza motivo.",
+                    "Tre schermate, circa un minuto.");
             return;
         }
-        goalHeader(Goals.DOOM, "Spegnendolo, le app si aprono senza pausa; le scelte restano");
+        goalHeader(Goals.DOOM, "Spegnendolo, le app si aprono senza pausa e non ti chiede più niente allo sblocco; le scelte restano");
+        // 0.18 (Evolutiva 010): PRIMA DI APRIRE e QUANDO LO SBLOCCHI
+        body.addView(U.label(this, "Prima di aprire"));
         nav("App che rapiscono", U.pausedPkgs(this).size() + " app · " + Scope.scopePkgs(this).size() + " con pausa e scopo", to(PauseActivity.class), "›");
         pauseLength();
-        nav("Tempo dall'ultimo sblocco", Session.on(this) ? "Te lo fa notare dopo " + Session.threshold(this) + " min" : "Spento", to(SessionActivity.class), "›");
+        body.addView(U.label(this, "Quando lo sblocchi"));
+        // 0.18 (Evolutiva 012): conta solo il tempo nelle app frenate; senza accesso ai dati di utilizzo non conta
+        if (Session.on(this) && !Pill.usageGranted(this))
+            row("Tempo nelle app che rapiscono", "Serve l'accesso ai dati di utilizzo per sapere quale app hai davanti", "Concedi ›", new Runnable() { public void run() { Pill.openUsageSettings(SettingsActivity.this); } });
+        else nav("Tempo nelle app che rapiscono", Session.on(this) ? "Avvisami dopo " + Session.threshold(this) + " min · si ferma nelle altre app" : "Spento", to(SessionActivity.class), "›");
         final boolean pill = U.prefs(this).getBoolean(Pill.K_ON, false);
         final boolean draw = Pill.canDraw(this);
-        toggle("Anche sopra le altre app", pill && !draw ? "Manca il permesso «Mostra sopra altre app» · tocca per darlo" : "La pillola «25 min», solo oltre la soglia · mai sopra −minus", pill, new Runnable() {
+        toggle("Anche sopra le app che rapiscono", pill && !draw ? "Manca il permesso «Mostra sopra altre app» · tocca per darlo" : !Pill.usageGranted(this) ? "Spenta finché manca l'accesso ai dati di utilizzo" : "La pillola «18 min» dentro Instagram, solo oltre la soglia", pill, new Runnable() {
             public void run() {
                 if (pill && !draw) { Pill.openOverlaySettings(SettingsActivity.this); return; }
                 Changes.track(SettingsActivity.this, pill ? "Pillola del tempo spenta" : "Pillola del tempo accesa", new String[]{Pill.K_ON},
@@ -295,10 +316,19 @@ public class SettingsActivity extends BaseActivity {
                         new Runnable() { public void run() { render(); if (!pill && !Pill.canDraw(SettingsActivity.this)) Pill.openOverlaySettings(SettingsActivity.this); } });
             }
         });
+        final boolean unlock = U.prefs(this).getBoolean(Sblocco.K_ON, false);
+        toggle("Sblocchi senza scopo", "Al terzo sblocco in 10 minuti senza aprire niente ti chiede per cosa l'hai preso. Al massimo 3 volte al giorno, mai di notte", unlock, new Runnable() {
+            public void run() {
+                Changes.track(SettingsActivity.this, unlock ? "Domanda sugli sblocchi senza scopo spenta" : "Domanda sugli sblocchi senza scopo accesa", new String[]{Sblocco.K_ON},
+                        new Runnable() { public void run() { U.prefs(SettingsActivity.this).edit().putBoolean(Sblocco.K_ON, !unlock).commit(); } },
+                        new Runnable() { public void run() { render(); } });
+            }
+        });
+        body.addView(U.label(this, "Altro"));
         row("Hai un timer su −minus in Benessere digitale?", "Android conta anche la home: toglilo da lì", "↗", new Runnable() {
             public void run() { Session.openWellbeing(SettingsActivity.this); }
         });
-        note("−minus vede quanto tempo passi in ogni app, mai cosa fai dentro. Nessun dato d'uso esce dal telefono.");
+        note("−minus vede quanto tempo passi in ogni app e quando sblocchi il telefono, mai cosa fai dentro. Nessun dato d'uso esce dal telefono.");
     }
 
     // ---------- 202 · Meno interferenze sul sonno ----------
@@ -333,44 +363,7 @@ public class SettingsActivity extends BaseActivity {
         return min % 60 == 0 ? String.valueOf(min / 60) : (min / 60) + "½";
     }
 
-    // ---------- 203 · Permessi ----------
-
-    private int permsMissing() {
-        int n = 0;
-        for (String[] t : Onboarding.todo(this)) if (!"portata".equals(t[0])) n++;
-        return n;
-    }
-
-    private void perms() {
-        intro("Cosa ha −minus e a cosa serve. Ogni permesso si può togliere da Android.");
-        body.addView(U.label(this, "Base"));
-        perm("App Home", "La tua home", Onboarding.isDefaultHome(this), "home");
-        perm("Calendario", "La tua giornata", U.canWriteCalendar(this), "calendario");
-        if (Goals.on(this, Goals.NOTIF)) {
-            body.addView(U.label(this, Goals.NAMES[0]));
-            perm("Contatti (lettura e modifica)", "Chi conta, stella in rubrica", Onboarding.hasContacts(this) && Stars.canWrite(this), "contatti");
-            perm("Accesso alle notifiche", "Il resto aspetta", U.listenerEnabled(this), "notifiche");
-            perm("Non disturbare", "Silenzio, tranne chi conta", Onboarding.policy(this), "silenzio");
-        }
-        if (Goals.on(this, Goals.DOOM)) {
-            body.addView(U.label(this, Goals.NAMES[1]));
-            perm("Dati di utilizzo", "La pausa anche da notifiche e app recenti", Pill.usageGranted(this), "utilizzo");
-            if (U.prefs(this).getBoolean(Pill.K_ON, false)) perm("Mostra sopra altre app", "La pillola del tempo", Pill.canDraw(this), "sopra");
-        }
-        // 0.16: la scala di grigi non è un permesso: sta solo in «Meno interferenze sul sonno»
-        if (Goals.on(this, Goals.SLEEP) && Night.on(this) && !Goals.on(this, Goals.NOTIF)) {
-            body.addView(U.label(this, Goals.NAMES[2]));
-            perm("Accesso alle notifiche", "Di notte, solo chi conta", U.listenerEnabled(this), "notifiche");
-        }
-        row("Cosa vede −minus", "Le ultime notifiche di chat arrivate e dove sono finite", "›", new Runnable() { public void run() { showLog(); } });
-        note("Raggruppati come gli obiettivi: chi non ha un obiettivo acceso non vede i suoi permessi.");
-    }
-
-    private void perm(String title, String sub, boolean done, final String key) {
-        row(title, sub, done ? "✓" : "Concedi ›", done ? new Runnable() { public void run() {} } : new Runnable() {
-            public void run() { Onboarding.fix(SettingsActivity.this, key); }
-        });
-    }
+    // 0.18: la pagina «Permessi» non c'è più: quelli che mancano sono in Da completare, gli altri si tolgono da Android
 
     // ---------- Da completare ----------
 
@@ -424,11 +417,27 @@ public class SettingsActivity extends BaseActivity {
         U.dlg(this).setTitle(U.brand("Cosa vede −minus")).setMessage(b.toString()).setPositiveButton("Ok", null).show();
     }
 
-    /** 0.7: la lista di persone e gruppi (era Conversazioni), aperta da Impostazioni o dalla ricerca. */
+    /** 0.18: «4 contatti e 1 gruppo passano sempre · 2 aperte ora»: lo stato di adesso. */
+    private String contactsSummary() {
+        int people = Onboarding.alwaysCount(this), groups = 0;
+        for (String[] g : U.rows(U.prefs(this).getString(U.K_GROUPS, ""))) if (g.length >= 2 && "sempre".equals(g[1])) groups++;
+        int open = Convs.openMap(this).size();
+        StringBuilder b = new StringBuilder();
+        if (people + groups == 0) b.append("Nessuno passa sempre");
+        else {
+            if (people > 0) b.append(people).append(people == 1 ? " contatto" : " contatti");
+            if (groups > 0) b.append(people > 0 ? " e " : "").append(groups).append(groups == 1 ? " gruppo" : " gruppi");
+            b.append(people + groups == 1 ? " passa sempre" : " passano sempre");
+        }
+        if (open > 0) b.append(" · ").append(open).append(open == 1 ? " aperta ora" : " aperte ora");
+        return b.toString();
+    }
+
+    /** 0.7: la lista di persone e gruppi (era Conversazioni). 0.18 (Evolutiva 009): «Contatti e gruppi», con i tab. */
     static Intent peopleIntent(android.content.Context c, String back) {
         Intent i = new Intent(c, ListActivity.class);
         i.putExtra(ListActivity.EXTRA_MODE, ListActivity.MODE_CONTACTS);
-        i.putExtra("title", "Persone e gruppi");
+        i.putExtra("title", "Contatti e gruppi");
         i.putExtra("back", back);
         return i;
     }
