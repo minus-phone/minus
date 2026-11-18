@@ -105,20 +105,18 @@ final class Pill {
         if (pre != null && canDraw(a) && resumed == 0 && !paused) { show(a, pre); return; }
         // 0.15: appena finito uno scopo non parte subito la pillola del tempo dall'ultimo sblocco
         if (Tempo.quietAfterScope(U.prefs(a).getLong(Scope.K_ENDED_AT, 0), now)) { hideOwn(); return; }
+        // 0.18 (Evolutiva 012): conta solo il tempo nelle app frenate; la pillola solo sopra di loro
         long start = Session.start(a);
-        int min = Rules.sessionMinutes(start, now, Session.threshold(a));
+        java.util.Set<String> braked = U.pausedPkgs(a);
+        Tempo.Braked bk = brakedNow(a, start, now, braked);
+        boolean inBraked = Tempo.inBraked(bk, braked);
+        if (!inBraked && U.prefs(a).getLong(K_DOT, 0) > 0) U.prefs(a).edit().putLong(K_DOT, 0).apply(); // uscendo il puntino sparisce
+        int min = inBraked ? Tempo.brakedMinutes(bk, Session.threshold(a)) : -1;
         int st = Tempo.state(on(a), canDraw(a), Session.on(a), min, resumed > 0, paused, U.prefs(a).getLong(K_DOT, 0), now);
         if (st == Tempo.HIDE) { hide(); return; }
         if (st == Tempo.DOT) { show(a, null); return; }
-        String label = null;
-        int appMin = 0;
-        if (usageGranted(a)) {
-            String[] top = topApp(a, start, now);
-            if (top != null) {
-                label = U.appLabel(a, top[0]);
-                appMin = (int) (Long.parseLong(top[1]) / 60000L);
-            }
-        }
+        String label = bk.top == null ? null : U.appLabel(a, bk.top);
+        int appMin = (int) (bk.topMs / 60000L);
         show(a, Tempo.pillText(min, label, appMin));
     }
 
@@ -131,21 +129,17 @@ final class Pill {
         if (!Session.on(c) || !U.listenerEnabled(c)) return null;
         long start = Session.start(c), now = System.currentTimeMillis();
         if (Tempo.quietAfterScope(U.prefs(c).getLong(Scope.K_ENDED_AT, 0), now)) return null;
-        int min = Rules.sessionMinutes(start, now, Session.threshold(c));
+        Tempo.Braked bk = brakedNow(c, start, now, U.pausedPkgs(c)); // 0.18 (Evolutiva 012)
+        int min = Tempo.brakedMinutes(bk, Session.threshold(c));
         if (min < 0) return null;
-        String label = null;
-        int appMin = 0;
-        if (usageGranted(c)) {
-            String[] top = topApp(c, start, now);
-            if (top != null) {
-                label = U.appLabel(c, top[0]);
-                appMin = (int) (Long.parseLong(top[1]) / 60000L);
-            }
-        }
+        String label = bk.top == null ? null : U.appLabel(c, bk.top);
+        int appMin = (int) (bk.topMs / 60000L);
         return "●  " + Tempo.pillText(min, label, appMin);
     }
 
-    private static String[] topApp(Context c, long start, long now) {
+    /** 0.18 (Evolutiva 012): null senza accesso ai dati di utilizzo o senza sessione: allora non si conta. */
+    static Tempo.Braked brakedNow(Context c, long start, long now, java.util.Set<String> braked) {
+        if (start <= 0 || !usageGranted(c)) return null;
         try {
             UsageStatsManager um = (UsageStatsManager) c.getSystemService("usagestats");
             UsageEvents ev = um.queryEvents(start - 3 * 3600000L, now);
@@ -164,10 +158,15 @@ final class Pill {
             long[] ta = new long[t.size()];
             int[] tya = new int[t.size()];
             for (int i = 0; i < ta.length; i++) { ta[i] = t.get(i); tya[i] = ty.get(i); }
-            return Tempo.top(ta, p.toArray(new String[0]), tya, start, now, c.getPackageName());
-        } catch (Exception e) {
+            return Tempo.braked(ta, p.toArray(new String[0]), tya, start, now, braked);
+        } catch (Exception ex) {
             return null;
         }
+    }
+
+    /** I minuti nelle app frenate oltre la soglia, o -1 (anche senza accesso ai dati di utilizzo). */
+    static int brakedMinutes(Context c) {
+        return Tempo.brakedMinutes(brakedNow(c, Session.start(c), System.currentTimeMillis(), U.pausedPkgs(c)), Session.threshold(c));
     }
 
     // ---------- La finestra ----------

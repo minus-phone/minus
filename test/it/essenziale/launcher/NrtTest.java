@@ -433,6 +433,21 @@ public class NrtTest {
         int[] ty2 = {Tempo.FG, Tempo.FG};
         eq("Pillola: Essenziale non conta mai", Tempo.top(t2, p2, ty2, 0, 6 * m, "ess")[0], "ig");
         check("Pillola: senza eventi nessuna app", Tempo.top(new long[0], new String[0], new int[0], 0, m, "ess") == null, null);
+        // 0.18 (Evolutiva 012): solo il tempo nelle app frenate, fermo nelle altre
+        java.util.Set<String> fr = new java.util.HashSet<String>(java.util.Arrays.asList("ig", "tt"));
+        long[] t3 = {0, 6 * m, 6 * m, 20 * m, 20 * m};
+        String[] p3 = {"tt", "tt", "wa", "wa", "ig"};
+        int[] ty3 = {Tempo.FG, Tempo.BG, Tempo.FG, Tempo.BG, Tempo.FG};
+        Tempo.Braked bk = Tempo.braked(t3, p3, ty3, 0, 32 * m, fr);
+        eq("E012: 6 min di TikTok + 12 di Instagram, WhatsApp non conta", bk.totalMs / m, 18L);
+        eq("E012: l'app frenata con più tempo", bk.top + " " + bk.topMs / m, "ig 12");
+        check("E012: la pillola c'è dentro Instagram", Tempo.inBraked(bk, fr), null);
+        eq("E012: oltre la soglia di 10 min", Tempo.brakedMinutes(bk, 10), 18);
+        eq("E012: sotto la soglia di 20 min niente", Tempo.brakedMinutes(bk, 20), -1);
+        Tempo.Braked bk2 = Tempo.braked(new long[]{0, 6 * m, 6 * m}, new String[]{"ig", "ig", "wa"}, new int[]{Tempo.FG, Tempo.BG, Tempo.FG}, 0, 40 * m, fr);
+        check("E012: in WhatsApp niente pillola", !Tempo.inBraked(bk2, fr), null);
+        eq("E012: in WhatsApp il conteggio è fermo", bk2.totalMs / m, 6L);
+        eq("E012: senza accesso ai dati di utilizzo non si conta", Tempo.brakedMinutes(null, 10), -1);
         eq("Pillola: l'app si nomina se pesa più di metà", Tempo.pillText(25, "Instagram", 18), "25 min · 18 su Instagram");
         eq("Pillola: altrimenti solo il totale", Tempo.pillText(25, "Instagram", 12), "25 min");
         eq("Pillola: senza dati di utilizzo solo il totale", Tempo.pillText(25, null, 0), "25 min");
@@ -461,6 +476,11 @@ public class NrtTest {
         eq("Sblocchi senza scopo ora sta in Meno doomscrolling", sbl, "area:3");
         boolean oldName = false; for (String[] e : Cerca.SETTINGS) if ("Persone e gruppi".equals(e[0])) oldName = true;
         check("Nessuna voce si chiama più «Persone e gruppi»", !oldName, null);
+        boolean noDay = true; for (String[] e : Cerca.SETTINGS) if ("area:1".equals(e[2])) noDay = false;
+        check("E011: nessuna voce porta più a La tua giornata", noDay, null);
+        eq("E011: «giornata» porta a La tua home", Cerca.settings("giornata", 3).get(0)[2], "area:0");
+        String ses = null; for (String[] e : Cerca.SETTINGS) if ("session".equals(e[2])) ses = e[0];
+        eq("E012: la voce si chiama Tempo nelle app che rapiscono", ses, "Tempo nelle app che rapiscono");
         check("Ma una corrispondenza migliore vince sulla preferenza", Cerca.rank("Mamma", "mam", false) > Cerca.rank("Tommaso", "mam", true) || Cerca.rank("Tommaso", "mam", true) == 0, null);
         eq("Impostazioni: «pausa» trova la pausa", Cerca.settings("pausa", 3).get(0)[0], "Pausa prima di aprire");
         eq("Impostazioni: «gruppi» trova i gruppi", Cerca.settings("grup", 3).get(0)[0], "Gruppi");

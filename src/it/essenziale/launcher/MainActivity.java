@@ -321,7 +321,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     @Override
     public boolean dispatchTouchEvent(android.view.MotionEvent e) {
         if (swipe == null) swipe = new Swipe(this, upOk, new Swipe.Act() {
-            public void up() { startActivity(new Intent(MainActivity.this, SearchActivity.class).putExtra("kb", true)); }
+            public void up() { startActivity(new Intent(MainActivity.this, SearchActivity.class)); } // E013: tastiera chiusa
             public void left() { startActivity(new Intent(MainActivity.this, WeekActivity.class)); overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out); }
             public void right() {}
         });

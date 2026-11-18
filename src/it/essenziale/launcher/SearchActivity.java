@@ -54,6 +54,8 @@ public class SearchActivity extends BaseActivity {
     private TextView clear;
     private List<U.AppInfo> apps;
     private Runnable best;
+    private View bestView; // 0.18 (Evolutiva 013)
+    private String bestName;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -132,7 +134,7 @@ public class SearchActivity extends BaseActivity {
         });
         // 0.12: la tastiera resta chiusa (si vedono recenti, app e persone); si apre toccando il campo.
         // Impostazioni › App › «Apri subito la tastiera» la riporta come prima
-        if (U.prefs(this).getBoolean(U.K_KEYBOARD, false) || getIntent().getBooleanExtra("kb", false)) { // E003: dal gesto, tastiera aperta
+        if (U.prefs(this).getBoolean(U.K_KEYBOARD, false)) { // 0.18 (Evolutiva 013): anche dal gesto Su la tastiera resta chiusa
             query.requestFocus();
             getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE | android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         } else {
@@ -154,6 +156,7 @@ public class SearchActivity extends BaseActivity {
     private void render() {
         results.removeAllViews();
         best = null;
+        bestView = null;
         String q = query.getText().toString().trim();
         clear.setVisibility(q.length() > 0 ? View.VISIBLE : View.GONE);
         if (q.length() == 0) empty(); else found(q);
@@ -438,7 +441,7 @@ public class SearchActivity extends BaseActivity {
             for (int i = 0; i < people.size() && i < 4; i++) g.add(personRow(people.get(i)));
             groups.add(g); titles.add("Contatti e gruppi");
             final Hit h = people.get(0);
-            if (best == null) best = new Runnable() { public void run() { openHit(h); } };
+            if (best == null) { best = new Runnable() { public void run() { openHit(h); } }; bestView = g.get(0); bestName = h.name; }
         }
         // App
         List<U.AppInfo> appHits = appHits(q);
@@ -451,8 +454,10 @@ public class SearchActivity extends BaseActivity {
             }
             groups.add(g); titles.add("App");
             final U.AppInfo a0 = appHits.get(0);
-            if (best == null || Cerca.score(a0.label, q) > (people.isEmpty() ? 0 : Cerca.score(people.get(0).name, q)))
+            if (best == null || Cerca.score(a0.label, q) > (people.isEmpty() ? 0 : Cerca.score(people.get(0).name, q))) {
                 best = new Runnable() { public void run() { openApp(a0.pkg, a0.label); } };
+                bestView = g.get(0); bestName = a0.label;
+            }
         }
         // Impegni dei prossimi 30 giorni
         if (U.hasCalendar(this) && q.length() >= 2) {
@@ -499,6 +504,13 @@ public class SearchActivity extends BaseActivity {
         }
         groups.add(ask); titles.add("Chiedi");
         if (best == null) best = new Runnable() { public void run() { ask(q); } };
+        // 0.18 (Evolutiva 013): il risultato che Invio apre è già scelto: solo il riquadro più scuro
+        if (bestView instanceof ViewGroup && ((ViewGroup) bestView).getChildCount() > 0) {
+            View r = ((ViewGroup) bestView).getChildAt(0);
+            r.setBackground(U.box(this, U.CHIP, 0, 12));
+            r.setPadding(U.dp(this, 10), r.getPaddingTop(), U.dp(this, 10), r.getPaddingBottom());
+            r.setContentDescription(bestName + ", primo risultato");
+        }
 
         // dall'alto il meno importante: il primo gruppo finisce attaccato al campo
         if (!anything) {

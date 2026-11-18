@@ -1206,7 +1206,7 @@ public class OnboardingActivity extends BaseActivity {
         chips(new String[]{"4 s", "6 s", "8 s"}, sel, new ChipPick() {
             public void pick(int i) { U.prefs(OnboardingActivity.this).edit().putInt(U.K_PAUSE_SEC, secs[i]).apply(); render(); }
         });
-        caption("Tempo dall'ultimo sblocco, avvisami dopo");
+        caption("Tempo nelle app che rapiscono, avvisami dopo"); // 0.18 (Evolutiva 012)
         final int[] mins = {10, 20, 30};
         int m = U.prefs(this).getInt(Session.K_MIN, 10), ms = 0;
         for (int i = 0; i < mins.length; i++) if (mins[i] == m) ms = i;
@@ -1214,7 +1214,7 @@ public class OnboardingActivity extends BaseActivity {
             public void pick(int i) { U.prefs(OnboardingActivity.this).edit().putBoolean(Session.K_ON, true).putInt(Session.K_MIN, mins[i]).apply(); render(); }
         });
         final boolean pill = U.prefs(this).getBoolean(Pill.K_ON, false);
-        line("Anche sopra le altre app", "La pillola «25 min» dentro Instagram", pill, null, new Runnable() {
+        line("Anche sopra le app che rapiscono", "La pillola «18 min» dentro Instagram", pill, null, new Runnable() {
             public void run() { U.prefs(OnboardingActivity.this).edit().putBoolean(Pill.K_ON, !pill).apply(); render(); }
         });
         if (pill && !Pill.canDraw(this))

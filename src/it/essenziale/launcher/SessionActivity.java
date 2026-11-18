@@ -15,8 +15,8 @@ public class SessionActivity extends BaseActivity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
-        LinearLayout root = U.screen(this, "Tempo dall'ultimo sblocco");
-        TextView intro = U.text(this, "Quando il telefono resta acceso a lungo senza pause, −minus te lo fa notare. Non conta il tempo per app, ma la sessione intera.", 14, U.MUTED, false);
+        LinearLayout root = U.screen(this, "Tempo nelle app che rapiscono");
+        TextView intro = U.text(this, "Conta solo il tempo nelle app che rapiscono, sommato da quando sblocchi il telefono. Nelle altre app e in home si ferma.", 14, U.MUTED, false);
         intro.setPadding(0, U.dp(this, 4), 0, U.dp(this, 6));
         root.addView(intro);
         body = U.col(this);
@@ -32,10 +32,10 @@ public class SessionActivity extends BaseActivity {
         r.setMinimumHeight(U.dp(this, 54));
         r.addView(U.text(this, "Attivo", 16, U.INK, false), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         r.addView(toggle(on), new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 26)));
-        r.setContentDescription(on ? "Tempo dall'ultimo sblocco attivo" : "Tempo dall'ultimo sblocco spento");
+        r.setContentDescription(on ? "Tempo nelle app che rapiscono attivo" : "Tempo nelle app che rapiscono spento");
         r.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                Changes.track(SessionActivity.this, on ? "Tempo dall'ultimo sblocco spento" : "Tempo dall'ultimo sblocco attivo", new String[]{Session.K_ON},
+                Changes.track(SessionActivity.this, on ? "Tempo nelle app che rapiscono spento" : "Tempo nelle app che rapiscono attivo", new String[]{Session.K_ON},
                         new Runnable() { public void run() { U.prefs(SessionActivity.this).edit().putBoolean(Session.K_ON, !on).commit(); } },
                         new Runnable() { public void run() { render(); } });
             }
@@ -55,7 +55,7 @@ public class SessionActivity extends BaseActivity {
                 t.setBackground(sel ? U.box(this, U.INK, 0, 20) : U.box(this, U.BG, U.LINE, 20));
                 t.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
-                        Changes.track(SessionActivity.this, "Tempo dall'ultimo sblocco: dopo " + m + " min", new String[]{Session.K_MIN},
+                        Changes.track(SessionActivity.this, "Tempo nelle app che rapiscono: dopo " + m + " min", new String[]{Session.K_MIN},
                                 new Runnable() { public void run() { U.prefs(SessionActivity.this).edit().putInt(Session.K_MIN, m).commit(); } },
                                 new Runnable() { public void run() { render(); } });
                     }
@@ -66,7 +66,7 @@ public class SessionActivity extends BaseActivity {
             }
             body.addView(chips, U.full());
         }
-        TextView n = U.text(this, "Si azzera quando spegni lo schermo. Non compare mentre sei in chiamata o usi la navigazione. Serve il filtro notifiche attivo.", 12, U.MUTED, false);
+        TextView n = U.text(this, "Si azzera quando spegni lo schermo. Non compare mentre sei in chiamata o usi la navigazione. Servono il filtro notifiche e l'accesso ai dati di utilizzo.", 12, U.MUTED, false);
         n.setPadding(0, U.dp(this, 14), 0, U.dp(this, 6));
         body.addView(n);
         body.addView(U.divider(this));

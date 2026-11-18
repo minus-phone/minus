@@ -12,7 +12,7 @@ public final class Tempo {
 
     public static final int HIDE = 0, DOT = 1, PILL = 2;
     public static final int FG = 1, BG = 2; // UsageEvents: MOVE_TO_FOREGROUND, MOVE_TO_BACKGROUND
-    public static final long DOT_MS = 10 * 60000L;
+    public static final long DOT_MS = 12 * 3600000L; // 0.18 (E012): il puntino resta finché resti nell'app frenata
 
     /**
      * L'app rimasta più a lungo in primo piano tra start e now. Gli eventi sono in ordine di tempo;
@@ -42,6 +42,50 @@ public final class Tempo {
             if (e.getValue() > bestMs) { best = e.getKey(); bestMs = e.getValue(); }
         }
         return best == null ? null : new String[]{best, String.valueOf(bestMs)};
+    }
+
+    /** 0.18 (Evolutiva 012): il tempo in primo piano nelle sole app frenate, dall'ultimo sblocco. */
+    public static final class Braked {
+        public long totalMs, topMs;
+        public String top, current;
+    }
+
+    public static Braked braked(long[] t, String[] p, int[] type, long start, long now, java.util.Set<String> pkgs) {
+        Map<String, Long> ms = new HashMap<String, Long>();
+        String cur = null;
+        long since = 0;
+        for (int i = 0; i < t.length; i++) {
+            if (t[i] > now) break;
+            if (type[i] == FG) {
+                if (cur != null) add(ms, cur, since, t[i], start);
+                cur = p[i];
+                since = t[i];
+            } else if (type[i] == BG && p[i] != null && p[i].equals(cur)) {
+                add(ms, cur, since, t[i], start);
+                cur = null;
+            }
+        }
+        if (cur != null) add(ms, cur, since, now, start);
+        Braked b = new Braked();
+        b.current = cur;
+        for (Map.Entry<String, Long> e : ms.entrySet()) {
+            if (!pkgs.contains(e.getKey())) continue;
+            b.totalMs += e.getValue();
+            if (e.getValue() > b.topMs) { b.top = e.getKey(); b.topMs = e.getValue(); }
+        }
+        return b;
+    }
+
+    /** I minuti nelle app frenate, solo da soglia in su; altrimenti -1. */
+    public static int brakedMinutes(Braked b, int thresholdMin) {
+        if (b == null) return -1;
+        int m = (int) (b.totalMs / 60000L);
+        return m >= thresholdMin ? m : -1;
+    }
+
+    /** La pillola sta solo sopra un'app frenata. */
+    public static boolean inBraked(Braked b, java.util.Set<String> pkgs) {
+        return b != null && b.current != null && pkgs.contains(b.current);
     }
 
     private static void add(Map<String, Long> ms, String pkg, long from, long to, long start) {
