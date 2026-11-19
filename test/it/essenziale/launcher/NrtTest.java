@@ -358,8 +358,8 @@ public class NrtTest {
         eq("Blocco dalle 19 senza sveglia: lo dice (anche il venerdì)", Quando.lockAlarm(21, at(2026, 10, 23, 21, 34), -1, d1, d2), "Nessuna sveglia per domani");
         eq("Blocco, sveglia di oggi tra 1 ora e mezza: compare", Quando.lockAlarm(5, at(2026, 10, 23, 5, 15), at(2026, 10, 23, 6, 45), d1, d2), "Sveglia oggi 6:45");
         eq("Blocco, sveglia di oggi tra 3 ore: non ancora", Quando.lockAlarm(3, at(2026, 10, 23, 3, 45), at(2026, 10, 23, 6, 45), d1, d2), null);
-        eq("+ Aggiungi di giorno: oggi", Quando.addDayOffset(18), 0);
-        eq("+ Aggiungi dalle 19: domani", Quando.addDayOffset(19), 1);
+        eq("+ Aggiungi di giorno: oggi", Quando.addDayOffset(17), 0);
+        eq("+ Aggiungi dalle 18: domani", Quando.addDayOffset(18), 1);
         check("Giorni di prova coerenti", d0 < d1 && d1 < d2, null);
     }
 
@@ -898,9 +898,9 @@ public class NrtTest {
         eq("WhatsApp con +: solo le cifre", Cerca.waDigits("+39 333 123 4567"), "393331234567");
         eq("WhatsApp con 00: si toglie il prefisso", Cerca.waDigits("0039 333 123 4567"), "393331234567");
         eq("WhatsApp senza prefisso: le cifre come scritte", Cerca.waDigits("333 123 4567"), "3331234567");
-        eq("«Nuovo» di giorno propone oggi", Quando.nuovoDayOffset(16), 0);
-        eq("«Nuovo» dalle 17 propone domani", Quando.nuovoDayOffset(17), 1);
-        eq("«Nuovo» di sera propone domani", Quando.nuovoDayOffset(22), 1);
+        eq("«Nuovo» alle 17:59 propone oggi", Quando.addDayOffset(17), 0);
+        eq("«Nuovo» dalle 18 propone domani", Quando.addDayOffset(18), 1);
+        eq("«Nuovo» di sera propone domani", Quando.addDayOffset(22), 1);
     }
 
     static void serale() {

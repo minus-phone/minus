@@ -98,7 +98,7 @@ echo -e "\n## I. Novità della 0.6" >> "$REPORT"
 S=src/it/essenziale/launcher
 check "Home: «+ Aggiungi al calendario» in basso, niente + nell'intestazione" "grep -q '\"+ Aggiungi al calendario\"' $H && ! grep -q 'TextView plus' $H"
 check "Home: Domani secondo le regole «quando serve»" "grep -q 'Quando.showTomorrow' $H && grep -q 'Quando.homeAlarm' $H"
-check "Home: «+ Aggiungi» propone domani dopo le 19" "grep -q 'Quando.addDayOffset' $H"
+check "Home: «Nuovo» propone domani dalle 18" "grep -q 'Quando.addDayOffset' $H"
 check "Blocco: sveglia secondo le regole «quando serve»" "grep -q 'Quando.lockAlarm' $L"
 check "Settimana: un + per ogni giorno con il giorno già scelto" "grep -q 'putExtra(\"day\", dayF)' $S/WeekActivity.java"
 check "0.14: Impostazioni per obiettivi (198–203)" "grep -q '\"La tua home\", \"La tua giornata\", \"Meno notifiche\", \"Meno doomscrolling\", \"Meno interferenze sul sonno\"' $S/SettingsActivity.java && grep -q 'goalHeader' $S/SettingsActivity.java"

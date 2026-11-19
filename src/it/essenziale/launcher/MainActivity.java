@@ -224,7 +224,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         add.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 Intent i = new Intent(MainActivity.this, AddActivity.class);
-                i.putExtra("day", U.startOfDay(Quando.nuovoDayOffset(U.hourNow()))); // dalle 17 propone domani
+                i.putExtra("day", U.startOfDay(Quando.addDayOffset(U.hourNow()))); // dalle 18 propone domani
                 startActivity(i);
             }
         });
