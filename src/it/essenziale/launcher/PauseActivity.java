@@ -111,7 +111,7 @@ public class PauseActivity extends BaseActivity {
             TextView t = U.text(this, LEVELS[i], 13, sel ? U.BG : U.INK, false);
             t.setGravity(Gravity.CENTER);
             t.setMinHeight(U.dp(this, 44));
-            if (sel) t.setBackground(U.box(this, U.INK, 0, 9));
+            if (sel) Press.chipOn(t, 9); else Press.row(t);
             t.setContentDescription(a.label + ": " + LEVELS[i] + (sel ? ", scelto" : ""));
             t.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {

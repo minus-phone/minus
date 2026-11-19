@@ -83,7 +83,7 @@ public class CheckActivity extends BaseActivity {
         TextView done = U.text(this, "Fatto", 16, U.BG, true);
         done.setGravity(Gravity.CENTER);
         done.setMinHeight(U.dp(this, 52));
-        done.setBackground(U.box(this, U.INK, 0, 26));
+        Press.primary(done, U.INK, 26);
         done.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { finishCheck(); } });
         box.addView(done, gap(12));
         if (next > 0) {
@@ -130,7 +130,7 @@ public class CheckActivity extends BaseActivity {
             TextView t = U.text(this, a, 14, on ? U.BG : U.INK, true);
             t.setGravity(Gravity.CENTER);
             t.setMinHeight(U.dp(this, 44));
-            t.setBackground(on ? U.box(this, U.INK, 0, 22) : U.box(this, U.BG, U.INK, 22));
+            if (on) Press.chipOn(t, 22); else Press.outlined(t, U.BG, U.INK, 22);
             t.setContentDescription(a + (on ? ", scelto" : ""));
             t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { answer = a; renderChips(); } });
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);

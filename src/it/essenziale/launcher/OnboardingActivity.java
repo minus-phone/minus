@@ -411,7 +411,7 @@ public class OnboardingActivity extends BaseActivity {
         TextView t = U.text(this, s, 16, U.BG, true);
         t.setGravity(Gravity.CENTER);
         t.setMinHeight(U.dp(this, 52));
-        t.setBackground(U.box(this, U.INK, 0, 26));
+        Press.primary(t, U.INK, 26);
         t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
         foot.addView(t, U.full());
         if (second != null) {
@@ -503,7 +503,7 @@ public class OnboardingActivity extends BaseActivity {
             t.setGravity(Gravity.CENTER);
             t.setMinHeight(U.dp(this, 44));
             t.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
-            t.setBackground(sel ? U.box(this, U.INK, 0, 18) : U.box(this, U.BG, U.BORDER, 18));
+            if (sel) Press.chipOn(t, 18); else Press.chip(t, U.BG, U.BORDER, 18);
             t.setContentDescription(labels[i] + (sel ? ", scelto" : ""));
             t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pick.pick(k); } });
             LinearLayout.LayoutParams lp = U.wrap();
@@ -672,7 +672,7 @@ public class OnboardingActivity extends BaseActivity {
             TextView b = U.text(this, "Collega il calendario", 15, U.INK, true);
             b.setGravity(Gravity.CENTER);
             b.setMinHeight(U.dp(this, 48));
-            b.setBackground(U.box(this, U.BG, U.INK, 24));
+            Press.outlined(b, U.BG, U.INK, 24);
             b.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     if (!askedCal || shouldShowRequestPermissionRationale(android.Manifest.permission.READ_CALENDAR)) {
@@ -801,7 +801,7 @@ public class OnboardingActivity extends BaseActivity {
         r.setPadding(0, U.dp(this, 14), 0, U.dp(this, 4));
         TextView t = U.text(this, name, 12, filled ? U.BG : U.INK, true);
         t.setPadding(U.dp(this, 10), U.dp(this, 3), U.dp(this, 10), U.dp(this, 3));
-        t.setBackground(filled ? U.box(this, U.INK, 0, 12) : U.box(this, U.BG, U.INK, 12));
+        if (filled) Press.primary(t, U.INK, 12); else Press.outlined(t, U.BG, U.INK, 12);
         r.addView(t);
         TextView d = U.text(this, desc, 12, U.MUTED, false);
         d.setPadding(U.dp(this, 8), 0, 0, 0);
@@ -848,7 +848,7 @@ public class OnboardingActivity extends BaseActivity {
             TextView pick = U.text(this, "Scegli dalla rubrica", 15, U.INK, true);
             pick.setGravity(Gravity.CENTER);
             pick.setMinHeight(U.dp(this, 48));
-            pick.setBackground(U.box(this, U.BG, U.INK, 24));
+            Press.outlined(pick, U.BG, U.INK, 24);
             pick.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     try { startActivityForResult(new Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI), REQ_PICK); }
@@ -1160,7 +1160,7 @@ public class OnboardingActivity extends BaseActivity {
                 t.setGravity(Gravity.CENTER);
                 t.setMinHeight(U.dp(this, 40));
                 t.setPadding(U.dp(this, 12), 0, U.dp(this, 12), 0);
-                t.setBackground(sel ? U.box(this, U.INK, 0, 18) : U.box(this, U.BG, U.BORDER, 18));
+                if (sel) Press.chipOn(t, 18); else Press.chip(t, U.BG, U.BORDER, 18);
                 t.setContentDescription(a.label + ": " + opts[i] + (sel ? ", scelto. Tocca per toglierla" : ""));
                 t.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) { Scope.setLevel(OnboardingActivity.this, a.pkg, lv == level ? Scopo.NONE : level); render(); }

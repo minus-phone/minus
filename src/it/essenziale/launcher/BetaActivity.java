@@ -150,7 +150,7 @@ public class BetaActivity extends BaseActivity {
         TextView t = U.text(this, s, 16, primary ? U.BG : U.INK, true);
         t.setGravity(Gravity.CENTER);
         t.setMinHeight(U.dp(this, 52));
-        t.setBackground(primary ? U.box(this, U.INK, 0, 26) : U.box(this, U.BG, U.LINE, 26));
+        if (primary) Press.chipOn(t, 26); else Press.chip(t, U.BG, U.LINE, 26);
         return t;
     }
 }

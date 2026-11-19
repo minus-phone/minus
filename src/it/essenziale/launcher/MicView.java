@@ -12,6 +12,9 @@ public class MicView extends View {
     private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private final boolean outline;
+    private final Paint halo = new Paint(Paint.ANTI_ALIAS_FLAG); // 0.20 (Evolutiva 016): alone circolare da premuto
+    private float haloP;
+    private android.animation.ValueAnimator haloAnim;
 
     public MicView(Context c) { this(c, false); }
 
@@ -29,10 +32,27 @@ public class MicView extends View {
     }
 
     @Override
+    protected void drawableStateChanged() {
+        super.drawableStateChanged();
+        if (haloAnim != null) haloAnim.cancel();
+        haloAnim = android.animation.ValueAnimator.ofFloat(haloP, isPressed() ? 1f : 0f);
+        haloAnim.setDuration(Motion.dur(getContext(), Motion.RAPIDO));
+        haloAnim.setInterpolator(Motion.DECELERA);
+        haloAnim.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+            public void onAnimationUpdate(android.animation.ValueAnimator a) { haloP = (Float) a.getAnimatedValue(); invalidate(); }
+        });
+        haloAnim.start();
+    }
+
+    @Override
     protected void onDraw(Canvas cv) {
         float w = getWidth(), h = getHeight(), cx = w / 2f, cy = h / 2f;
         float r = Math.min(w, h) / 2f;
         cv.drawCircle(cx, cy, r, fill);
+        if (haloP > 0.001f) { // premuto: alone INK al 10%, da scala 0,8 a 1
+            halo.setColor(Press.alpha(U.INK, 0.10f * haloP));
+            cv.drawCircle(cx, cy, Math.min(r, U.dp(getContext(), 20)) * (0.8f + 0.2f * haloP), halo);
+        }
         if (outline) { drawOutline(cv, cx, cy, r); return; }
         float u = r / 10f;
         RectF body = new RectF(cx - 2.6f * u, cy - 5.5f * u, cx + 2.6f * u, cy + 1.5f * u);

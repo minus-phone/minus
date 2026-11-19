@@ -71,6 +71,7 @@ public class NrtTest {
         urgenti();
         serale();
         telefono();
+        movimento();
         System.out.println("\nTotale: " + pass + " superati, " + fail + " falliti");
         FileWriter w = new FileWriter(a.length > 0 ? a[0] : "nrt-report.md");
         w.write("# Essenziale 0.6 · NRT automatico\n\nSuperati: " + pass + " · Falliti: " + fail + "\n");
@@ -927,5 +928,52 @@ public class NrtTest {
         eq("Prima settimana: il consiglio 1", Serale.tipIndex(2900, 2900), 0);
         eq("Dopo 26 settimane il giro ricomincia", Serale.tipIndex(2926, 2900), 0);
         eq("Settimana 27: il consiglio 2", Serale.tipIndex(2927, 2900), 1);
+    }
+
+    static void movimento() {
+        sec("E016 · Movimento e feedback (parte pura di Motion)");
+        eq("Rapido 120 ms", MotionLogic.RAPIDO, 120);
+        eq("Base 240 ms", MotionLogic.BASE, 240);
+        eq("Lento 480 ms", MotionLogic.LENTO, 480);
+        eq("Ridotto: dissolvenza di 80 ms", MotionLogic.RIDOTTO, 80);
+        check("Scala degli animatori 0 = «Rimuovi animazioni»", MotionLogic.reducedFromScale(0f), null);
+        check("Scala 1 = animazioni normali", !MotionLogic.reducedFromScale(1f), null);
+        check("Scala 0,5 = animazioni normali, più veloci", !MotionLogic.reducedFromScale(0.5f), null);
+        check("Scala 10 = animazioni normali", !MotionLogic.reducedFromScale(10f), null);
+        eq("Ridotto: ogni durata diventa 80 ms (Rapido)", MotionLogic.dur(true, MotionLogic.RAPIDO), 80);
+        eq("Ridotto: ogni durata diventa 80 ms (Lento)", MotionLogic.dur(true, MotionLogic.LENTO), 80);
+        eq("Normale: la durata resta quella del token", MotionLogic.dur(false, MotionLogic.BASE), 240);
+        check("Ridotto: niente traslazioni né scale", !MotionLogic.allowsTravel(true), null);
+        check("Normale: le traslazioni sono permesse", MotionLogic.allowsTravel(false), null);
+        eq("La riga spuntata resta 1 secondo", MotionLogic.SPUNTA_RESTA, 1000);
+        eq("La scheda dello sblocco si chiude dopo 300 ms", MotionLogic.SBLOCCO_ATTESA, 300);
+        check("Rapporto: sceso rispetto alla settimana scorsa, il numero scende", MotionLogic.countDown(14, 9), null);
+        check("Rapporto: salito, il numero c'è già", !MotionLogic.countDown(9, 14), null);
+        check("Rapporto: uguale, il numero c'è già", !MotionLogic.countDown(9, 9), null);
+        check("Rapporto: settimana scorsa non salvata, niente conto", !MotionLogic.countDown(-1, 9), null);
+        check("Rapporto: sceso fino a zero, il conto parte", MotionLogic.countDown(3, 0), null);
+        eq("Il conto parte dal valore di prima", MotionLogic.countValue(14, 9, 0f), 14);
+        eq("Il conto finisce sul valore nuovo", MotionLogic.countValue(14, 9, 1f), 9);
+        eq("Il conto rallenta: a metà tempo è già vicino alla fine", MotionLogic.countValue(14, 9, 0.5f), 10);
+        eq("Il conto non esce dai limiti (t oltre 1)", MotionLogic.countValue(14, 9, 2f), 9);
+        eq("Il conto non esce dai limiti (t sotto 0)", MotionLogic.countValue(14, 9, -1f), 14);
+        boolean mono = true;
+        int prev = 14;
+        for (int k = 0; k <= 20; k++) { int v = MotionLogic.countValue(14, 9, k / 20f); if (v > prev) mono = false; prev = v; }
+        check("Il conto non risale mai", mono, null);
+        eq("Le righe del rapporto entrano a 80 ms l'una (terza)", MotionLogic.rowDelay(false, 2), 160);
+        eq("Ridotto: le righe entrano insieme", MotionLogic.rowDelay(true, 2), 0);
+        eq("Anello all'inizio della pausa", MotionLogic.ring(0, 8), 0f);
+        eq("Anello a metà della pausa", MotionLogic.ring(4, 8), 0.5f);
+        eq("Anello alla fine della pausa", MotionLogic.ring(8, 8), 1f);
+        eq("Anello oltre la fine resta pieno", MotionLogic.ring(9, 8), 1f);
+        eq("Anello con pausa di 4 secondi", MotionLogic.ring(1, 4), 0.25f);
+        eq("Anello senza durata: pieno", MotionLogic.ring(3, 0), 1f);
+        check("Ultimo urgente: urgente e nessun altro da fare", MotionLogic.lastUrgent(true, 0), null);
+        check("Non è l'ultimo se ce n'è un altro da fare", !MotionLogic.lastUrgent(true, 1), null);
+        check("Un task non urgente non scioglie nessun «!»", !MotionLogic.lastUrgent(false, 0), null);
+        eq("Colore: a metà tra nero e bianco", MotionLogic.mix(0xFF000000, 0xFFFFFFFF, 0.5f), 0xFF808080);
+        eq("Colore: il «!» rosso alla fine non c'è più (trasparente)", MotionLogic.mix(0xFFB3261E, 0x00B3261E, 1f), 0x00B3261E);
+        eq("Colore: t=0 è il colore di partenza", MotionLogic.mix(0xFF171716, 0xFFF3F1EB, 0f), 0xFF171716);
     }
 }

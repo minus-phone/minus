@@ -52,7 +52,7 @@ public class SessionActivity extends BaseActivity {
                 t.setGravity(Gravity.CENTER);
                 t.setMinHeight(U.dp(this, 44));
                 t.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
-                t.setBackground(sel ? U.box(this, U.INK, 0, 20) : U.box(this, U.BG, U.LINE, 20));
+                if (sel) Press.chipOn(t, 20); else Press.chip(t, U.BG, U.LINE, 20);
                 t.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         Changes.track(SessionActivity.this, "Tempo nelle app che rapiscono: dopo " + m + " min", new String[]{Session.K_MIN},

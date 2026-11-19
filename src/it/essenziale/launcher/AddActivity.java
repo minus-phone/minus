@@ -300,7 +300,7 @@ public class AddActivity extends BaseActivity {
         TextView save = U.text(this, editing() || editTask != null ? "Salva modifiche" : "Salva", 16, U.BG, true);
         save.setGravity(Gravity.CENTER);
         save.setMinHeight(U.dp(this, 52));
-        save.setBackground(U.box(this, U.INK, 0, 26));
+        Press.primary(save, U.INK, 26);
         save.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { save(); } });
         LinearLayout.LayoutParams slp = U.full();
         slp.topMargin = U.dp(this, 10);
@@ -366,7 +366,7 @@ public class AddActivity extends BaseActivity {
     }
 
     private void render() {
-        tabEvent.setBackground(isEvent ? U.box(this, U.INK, 0, 20) : null);
+        if (isEvent) Press.chipOn(tabEvent, 20);
         tabEvent.setTextColor(isEvent ? U.BG : U.INK);
         tabTask.setBackground(!isEvent ? U.box(this, U.INK, 0, 20) : null);
         tabTask.setTextColor(!isEvent ? U.BG : U.INK);
@@ -418,7 +418,7 @@ public class AddActivity extends BaseActivity {
         t.setGravity(Gravity.CENTER);
         t.setMinHeight(U.dp(this, 44));
         t.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
-        t.setBackground(on ? U.box(this, U.INK, 0, 21) : U.box(this, U.BG, U.LINE, 21));
+        if (on) Press.chipOn(t, 21); else Press.chip(t, U.BG, U.LINE, 21);
         t.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 if (value == -1) pickDate();

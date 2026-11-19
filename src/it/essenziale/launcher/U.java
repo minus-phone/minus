@@ -197,17 +197,14 @@ public final class U {
         return root;
     }
 
-    /** Interruttore disegnato come nei wireframe (0.6: condiviso). */
-    public static View toggle(Context c, boolean on) {
-        LinearLayout sw = row(c);
-        sw.setGravity(on ? Gravity.END | Gravity.CENTER_VERTICAL : Gravity.START | Gravity.CENTER_VERTICAL);
-        sw.setPadding(dp(c, 3), dp(c, 3), dp(c, 3), dp(c, 3));
-        sw.setBackground(box(c, on ? INK : TRACK_OFF, 0, 13));
-        View knob = new View(c);
-        knob.setBackground(box(c, BG, 0, 10));
-        sw.addView(knob, new LinearLayout.LayoutParams(dp(c, 20), dp(c, 20)));
-        return sw;
-    }
+    /** Interruttore disegnato come nei wireframe (0.6: condiviso). 0.20: il pallino scorre, la pista cambia colore. */
+    public static View toggle(Context c, boolean on) { return toggle(c, on, null); }
+
+    /**
+     * Con una chiave, se la pagina si ridisegna con lo stato cambiato (tocco, «Annulla») l'interruttore parte dalla
+     * posizione di prima e scorre fino a quella nuova (Evolutiva 016, momento 9).
+     */
+    public static View toggle(Context c, boolean on, String key) { return new SwitchView(c, on, key); }
 
     /** 0.15: una riga con un'etichetta e l'interruttore a destra (Tutto il giorno, ! Urgente). */
     public static LinearLayout switchRow(Context c, CharSequence label, String spoken, boolean on, View.OnClickListener l) {
@@ -868,7 +865,7 @@ public final class U {
 
     /** Chiavi per i tag delle viste (id fissi, senza risorse). */
     static final class R {
-        static final int id_insets = 0x7f0f0001, id_base = 0x7f0f0002, id_anim = 0x7f0f0003, id_shown = 0x7f0f0004;
+        static final int id_insets = 0x7f0f0001, id_base = 0x7f0f0002, id_anim = 0x7f0f0003, id_shown = 0x7f0f0004, id_task = 0x7f0f0005;
     }
 
     private static final java.util.WeakHashMap<Activity, Runnable> REHIDE = new java.util.WeakHashMap<Activity, Runnable>();

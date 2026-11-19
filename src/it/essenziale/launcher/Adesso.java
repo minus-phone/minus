@@ -110,6 +110,7 @@ final class Adesso {
         alt.addView(U.text(c, t != null ? "Oppure:  " : "", 15, muted, false));
         alt.addView(U.text(c, Night.alternative(c), 15, ink, t == null));
         alt.setContentDescription("Oppure: " + Night.alternative(c));
+        if (!dark) Press.row(alt);
         alt.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { if (onAlt != null) onAlt.run(); } });
         box.addView(alt, U.full());
         if (t == null) {
@@ -117,6 +118,7 @@ final class Adesso {
             TextView add = U.text(c, "+ Aggiungi un task", 15, ink, false);
             add.setMinHeight(U.dp(c, 44));
             add.setGravity(Gravity.CENTER_VERTICAL);
+            if (!dark) Press.link(add, ink);
             add.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     Intent i = new Intent(c, AddActivity.class);
@@ -135,7 +137,7 @@ final class Adesso {
         TextView t = U.text(c, s, 15, primary ? bg : ink, true);
         t.setGravity(Gravity.CENTER);
         t.setMinHeight(U.dp(c, 48));
-        t.setBackground(primary ? U.box(c, ink, 0, 24) : U.box(c, bg, ink, 24));
+        if (primary) Press.primary(t, ink, MotionLogic.mix(ink, bg, 0.2f), 24); else Press.outlined(t, bg, ink, 24); // 0.20: premuto cambia solo lo sfondo
         return t;
     }
 }

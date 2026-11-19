@@ -84,7 +84,7 @@ public class GroupsActivity extends BaseActivity {
             t.setGravity(Gravity.CENTER);
             t.setMinHeight(U.dp(this, 44));
             t.setPadding(U.dp(this, 16), 0, U.dp(this, 16), 0);
-            t.setBackground(on ? U.box(this, U.INK, 0, 20) : U.box(this, U.BG, U.LINE, 20));
+            if (on) Press.chipOn(t, 20); else Press.chip(t, U.BG, U.LINE, 20);
             t.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) { code = c; render(); }
             });
@@ -163,7 +163,7 @@ public class GroupsActivity extends BaseActivity {
         LinearLayout c = U.col(this);
         c.setGravity(Gravity.CENTER);
         c.setMinimumHeight(U.dp(this, 52));
-        c.setBackground(on ? U.box(this, U.INK, 0, 14) : U.box(this, U.BG, U.LINE, 14));
+        if (on) Press.chipOn(c, 14); else Press.chip(c, U.BG, U.LINE, 14);
         TextView t = U.text(this, title, 15, on ? U.BG : U.INK, true);
         t.setGravity(Gravity.CENTER);
         c.addView(t);

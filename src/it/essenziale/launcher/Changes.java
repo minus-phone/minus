@@ -52,6 +52,35 @@ public final class Changes {
         snackbar(a, desc, c, refresh);
     }
 
+    private static Change pending;
+    private static long pendingAt;
+
+    /**
+     * Come track, ma per le schermate che si chiudono subito dopo la scelta: l'avviso con «Annulla» compare nella
+     * schermata che si apre dopo (BaseActivity.onResume), non in quella che sta per sparire (0.20).
+     */
+    public static void later(Activity a, String desc, String[] keys, Runnable change) {
+        JSONObject before = snapshot(a, keys);
+        change.run();
+        if (sameAsNow(a, before)) return;
+        Change c = new Change();
+        c.time = System.currentTimeMillis();
+        c.desc = desc;
+        c.before = before;
+        save(a, c);
+        pending = c;
+        pendingAt = c.time;
+    }
+
+    /** Mostra l'avviso rimandato da {@link #later}, se è recente. «Annulla» ridisegna la schermata. */
+    static void showPending(final Activity a) {
+        Change c = pending;
+        if (c == null) return;
+        pending = null;
+        if (System.currentTimeMillis() - pendingAt > 10000L) return;
+        snackbar(a, c.desc, c, new Runnable() { public void run() { a.recreate(); } });
+    }
+
     /** Registra senza avviso (per le schermate che si chiudono subito dopo il salvataggio). */
     public static void record(Context c, String desc, String[] keys) {
         Change ch = new Change();
@@ -161,12 +190,14 @@ public final class Changes {
         bar.setMinimumHeight(U.dp(a, 48));
         TextView t = U.text(a, desc, 14, U.BG, false);
         t.setMaxLines(2);
+        t.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE); // 0.20: «Comandi vocali: acceso» lo dice TalkBack, una volta
         bar.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         TextView undo = U.text(a, "Annulla", 14, U.BG, true);
         undo.setPaintFlags(undo.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
         undo.setGravity(Gravity.CENTER);
         undo.setPadding(U.dp(a, 12), 0, U.dp(a, 12), 0);
         undo.setMinHeight(U.dp(a, 44));
+        Press.on(undo, null, U.box(a, Press.alpha(U.BG, 0.16f), 0, 10)); // 0.20: premuto, un alone chiaro sul fondo scuro dell'avviso
         final View barF = bar;
         undo.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
@@ -181,8 +212,15 @@ public final class Changes {
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
         lp.setMargins(U.dp(a, 16), 0, U.dp(a, 16), U.dp(a, 16));
         content.addView(bar, lp);
+        // 0.20 (Evolutiva 016): entra in BASE (dissolvenza e 16 dp in su, decelera), esce in RAPIDO in dissolvenza
+        Motion.enter(bar, 0, Motion.BASE, 16);
         new Handler().postDelayed(new Runnable() {
-            public void run() { content.removeView(barF); }
+            public void run() {
+                if (barF.getParent() != content) return;
+                barF.animate().alpha(0f).setDuration(Motion.dur(a, Motion.RAPIDO)).setInterpolator(Motion.DECELERA).withEndAction(new Runnable() {
+                    public void run() { content.removeView(barF); }
+                }).start();
+            }
         }, SHOW_MS);
     }
 

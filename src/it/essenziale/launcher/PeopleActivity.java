@@ -94,7 +94,7 @@ public class PeopleActivity extends BaseActivity {
         cta = U.text(this, "", 16, U.BG, true);
         cta.setGravity(Gravity.CENTER);
         cta.setMinHeight(U.dp(this, 52));
-        cta.setBackground(U.box(this, U.INK, 0, 26));
+        Press.primary(cta, U.INK, 26);
         cta.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 if (step == 1) { step = 2; render(); } else save();
@@ -185,7 +185,7 @@ public class PeopleActivity extends BaseActivity {
                     t.setGravity(Gravity.CENTER);
                     t.setMinHeight(U.dp(this, 44));
                     t.setPadding(U.dp(this, 12), 0, U.dp(this, 12), 0);
-                    t.setBackground(on ? U.box(this, U.INK, 0, 20) : U.box(this, U.BG, U.LINE, 20));
+                    if (on) Press.chipOn(t, 20); else Press.chip(t, U.BG, U.LINE, 20);
                     AppIcons.beside(t, AppIcons.pkgOfCode(this, code), on ? U.BG : U.INK); // 0.13: dove si sceglie, icona e nome
                     t.setOnClickListener(new View.OnClickListener() {
                         public void onClick(View v) {

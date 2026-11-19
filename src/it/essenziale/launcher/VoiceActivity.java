@@ -162,7 +162,7 @@ public class VoiceActivity extends BaseActivity {
         TextView b = U.text(this, label, 16, U.BG, true);
         b.setGravity(Gravity.CENTER);
         b.setMinHeight(U.dp(this, 52));
-        b.setBackground(U.box(this, U.INK, 0, 26));
+        Press.primary(b, U.INK, 26);
         b.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
         LinearLayout.LayoutParams lp = U.full();
         lp.topMargin = U.dp(this, 20);

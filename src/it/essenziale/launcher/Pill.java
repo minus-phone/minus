@@ -14,7 +14,9 @@ import android.os.Process;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import java.util.ArrayList;
@@ -30,7 +32,9 @@ final class Pill {
 
     static final String K_ON = "pill_on", K_DOT = "pill_dot_until";
     private static final Handler H = new Handler(Looper.getMainLooper());
-    private static TextView view;
+    private static FrameLayout view;    // la pillola (o il puntino) sopra le altre app
+    private static RollText roll;        // 0.20 (Evolutiva 016): il testo scorre quando cambia
+    private static View dotView;
     private static boolean viewDot;
     private static int resumed = 0;
     private static boolean paused = false;
@@ -175,14 +179,15 @@ final class Pill {
         try {
             WindowManager wm = (WindowManager) a.getSystemService(Context.WINDOW_SERVICE);
             boolean dot = text == null;
-            if (view != null && viewDot != dot) hide(); // puntino e pillola hanno misure diverse: si ricrea
+            if (view != null && viewDot != dot) hideOwn(false); // puntino e pillola hanno misure diverse: si ricrea
+            boolean existed = view != null;
             if (view == null) {
                 viewDot = dot;
-                view = new TextView(a);
-                view.setTextColor(U.BG);
-                view.setTextSize(13);
-                view.setGravity(Gravity.CENTER);
-                view.setSingleLine(true);
+                view = new FrameLayout(a);
+                roll = new RollText(a, 13, U.BG);
+                view.addView(roll, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+                dotView = new View(a);
+                view.addView(dotView, new FrameLayout.LayoutParams(U.dp(a, 12), U.dp(a, 12), Gravity.CENTER));
                 view.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         U.prefs(a).edit().putLong(K_DOT, System.currentTimeMillis() + Tempo.DOT_MS).apply();
@@ -199,38 +204,61 @@ final class Pill {
                 wm.addView(view, lp);
             }
             if (dot) {
-                view.setText("");
+                roll.setVisibility(View.GONE);
+                dotView.setVisibility(View.VISIBLE);
                 view.setPadding(0, 0, 0, 0);
-                view.setWidth(U.dp(a, 12));
-                view.setHeight(U.dp(a, 12));
+                view.setMinimumHeight(0);
                 view.setBackground(U.box(a, U.INK, 0, 6));
                 view.setContentDescription("Tempo al telefono, ridotto");
             } else {
-                view.setMaxWidth(U.dp(a, 300));
-                view.setMinHeight(U.dp(a, 32));
+                dotView.setVisibility(View.GONE);
+                roll.setVisibility(View.VISIBLE);
+                view.setMinimumHeight(U.dp(a, 32));
                 view.setPadding(U.dp(a, 14), 0, U.dp(a, 14), 0);
                 boolean pre = text.startsWith("Tra ");
-                view.setText(text.startsWith("◷") || pre ? U.brand(text) : "●  " + text);
+                // 0.20: se la pillola c'era già, i minuti scorrono in su invece di saltare
+                roll.set(text.startsWith("◷") || pre ? U.brand(text) : "●  " + text, existed);
                 view.setBackground(U.box(a, U.INK, 0, 16));
                 view.setContentDescription(pre ? text : "Al telefono da " + text + ". Tocca per ridurlo per 10 minuti.");
             }
             view.requestLayout();
         } catch (Exception ignored) {
             view = null;
+            roll = null;
         }
     }
 
     static void hide() {
         ScopePill.hide();
-        hideOwn();
+        hideOwn(true);
     }
 
-    private static void hideOwn() {
+    private static void hideOwn() { hideOwn(true); }
+
+    /**
+     * 0.20 (Evolutiva 016): uscendo dall'app frenata la pillola si stringe in un punto e svanisce in BASE (il testo
+     * prima, in RAPIDO); con «Rimuovi animazioni», una dissolvenza di 80 ms. Il tempo oltre la soglia non cambia colore né vibra.
+     */
+    private static void hideOwn(boolean animate) {
         if (view == null) return;
-        try {
-            WindowManager wm = (WindowManager) view.getContext().getSystemService(Context.WINDOW_SERVICE);
-            wm.removeView(view);
-        } catch (Exception ignored) {}
+        final FrameLayout v = view;
+        final RollText r = roll;
         view = null;
+        roll = null;
+        final Context c = v.getContext();
+        final Runnable remove = new Runnable() {
+            public void run() {
+                try { ((WindowManager) c.getSystemService(Context.WINDOW_SERVICE)).removeView(v); } catch (Exception ignored) {}
+            }
+        };
+        if (!animate || !v.isAttachedToWindow()) { remove.run(); return; }
+        if (Motion.reduced(c)) {
+            v.animate().alpha(0f).setDuration(MotionLogic.RIDOTTO).withEndAction(remove).start();
+            return;
+        }
+        if (r != null && r.getVisibility() == View.VISIBLE) r.animate().alpha(0f).setDuration(Motion.RAPIDO).setInterpolator(Motion.DECELERA).start();
+        v.setPivotX(v.getWidth() / 2f);
+        v.setPivotY(v.getHeight() / 2f);
+        v.animate().scaleX(0.3f).scaleY(0.3f).alpha(0f).setDuration(Motion.BASE).setInterpolator(Motion.DECELERA).withEndAction(remove).start();
     }
 }

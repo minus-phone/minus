@@ -57,7 +57,7 @@ final class Telefono {
         g.setShape(GradientDrawable.OVAL);
         g.setColor(android.graphics.Color.TRANSPARENT);
         g.setStroke(Math.max(1, U.dp(a, 1)), U.INK);
-        b.setBackground(g);
+        Press.icon(b, g); // 0.20: premuto, alone circolare
         b.setClickable(true);
         b.setFocusable(true);
         b.setContentDescription("Telefono, apre il tastierino");

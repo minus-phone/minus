@@ -56,6 +56,12 @@ public class SearchActivity extends BaseActivity {
     private Runnable best;
     private View bestView; // 0.18 (Evolutiva 013)
     private String bestName;
+    // 0.20 (Evolutiva 016), momento 7: i risultati si riordinano senza sfarfallio
+    private boolean insetRows;          // in «mentre scrivi» ogni riga riserva sempre 10 dp ai lati (il testo non si sposta mai)
+    private boolean rendered;           // la prima volta niente movimento
+    private String lastBestName;
+    private int hitCount;
+    private final android.os.Handler announce = new android.os.Handler();
 
     @Override
     protected void onCreate(Bundle b) {
@@ -73,6 +79,7 @@ public class SearchActivity extends BaseActivity {
         setT.setPadding(U.dp(this, 10), 0, 0, 0);
         set.addView(setT);
         set.setContentDescription("Cambia impostazioni di −minus");
+        Press.row(set);
         set.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { startActivity(new Intent(SearchActivity.this, SettingsActivity.class).putExtra("back", "Ricerca")); }
         });
@@ -80,6 +87,7 @@ public class SearchActivity extends BaseActivity {
         TextView close = U.text(this, "✕", 18, U.INK, false);
         close.setGravity(Gravity.CENTER);
         close.setContentDescription("Chiudi la ricerca");
+        Press.icon(close, null);
         close.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { finish(); } });
         top.addView(close, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
         root.addView(top, U.full());
@@ -108,6 +116,7 @@ public class SearchActivity extends BaseActivity {
         clear = U.text(this, "✕", 16, U.MUTED, false);
         clear.setGravity(Gravity.CENTER);
         clear.setContentDescription("Cancella");
+        Press.icon(clear, null);
         clear.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { query.setText(""); } });
         field.addView(clear, new LinearLayout.LayoutParams(U.dp(this, 40), U.dp(this, 44)));
         MicView mic = new MicView(this, true); // 0.19 (Evolutiva 014): microfono a contorno
@@ -140,8 +149,17 @@ public class SearchActivity extends BaseActivity {
         // 0.12: la tastiera resta chiusa (si vedono recenti, app e persone); si apre toccando il campo.
         // Impostazioni › App › «Apri subito la tastiera» la riporta come prima
         if (U.prefs(this).getBoolean(U.K_KEYBOARD, false)) { // 0.18 (Evolutiva 013): anche dal gesto Su la tastiera resta chiusa
-            query.requestFocus();
-            getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE | android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+            // 0.20 (Evolutiva 016): il campo prende il focus (e la tastiera si apre) a fine transizione, non a metà
+            root.setFocusableInTouchMode(true);
+            root.requestFocus();
+            root.postDelayed(new Runnable() {
+                public void run() {
+                    if (isFinishing()) return;
+                    query.requestFocus();
+                    android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                    if (imm != null) imm.showSoftInput(query, 0);
+                }
+            }, Motion.dur(this, Motion.BASE) + 20);
         } else {
             root.setFocusableInTouchMode(true);
             root.requestFocus();
@@ -156,16 +174,140 @@ public class SearchActivity extends BaseActivity {
         render();
     }
 
+    /** 0.20 (Evolutiva 016): esce verso il basso (salita al contrario, BASE), prima si chiude la tastiera. */
+    @Override
+    public void finish() {
+        android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (imm != null && query != null) imm.hideSoftInputFromWindow(query.getWindowToken(), 0);
+        super.finish();
+        Motion.closeSearch(this);
+    }
+
+    @Override
+    protected void onDestroy() {
+        announce.removeCallbacksAndMessages(null);
+        super.onDestroy();
+    }
+
     // ---------------------------------------------------------------------
 
     private void render() {
+        // 0.20 (Evolutiva 016): se arriva un altro carattere mentre qualcosa si muove, quel movimento finisce subito (mai code)
+        for (int i = 0; i < results.getChildCount(); i++) {
+            View c = results.getChildAt(i);
+            c.animate().cancel();
+            c.setTranslationY(0f);
+            c.setAlpha(1f);
+        }
+        results.getOverlay().clear();
+        final java.util.Map<String, Integer> oldTop = new java.util.HashMap<String, Integer>();
+        final java.util.Map<String, View> oldView = new java.util.HashMap<String, View>();
+        final java.util.List<String> oldKeys = new java.util.ArrayList<String>();
+        final boolean animate = rendered;
+        if (animate) {
+            java.util.Map<String, Integer> seen = new java.util.HashMap<String, Integer>();
+            int[] loc = new int[2];
+            for (int i = 0; i < results.getChildCount(); i++) {
+                View c = results.getChildAt(i);
+                String k = uniqueKey(c, seen);
+                c.getLocationInWindow(loc);
+                oldTop.put(k, loc[1]);
+                oldView.put(k, c);
+                oldKeys.add(k);
+            }
+        }
         results.removeAllViews();
         best = null;
         bestView = null;
+        bestName = null;
         String q = query.getText().toString().trim();
-        clear.setVisibility(q.length() > 0 ? View.VISIBLE : View.GONE);
+        boolean clearWas = clear.getVisibility() == View.VISIBLE;
+        // ✕ del campo: compare e sparisce in dissolvenza (RAPIDO), senza scala
+        if (q.length() > 0 && !clearWas) { clear.setVisibility(View.VISIBLE); if (animate) Motion.enter(clear, 0, Motion.RAPIDO, 0); }
+        else if (q.length() == 0 && clearWas) clear.setVisibility(View.GONE);
+        insetRows = q.length() > 0;
+        hitCount = 0;
         if (q.length() == 0) empty(); else found(q);
+        rendered = true;
+        lastBestName = bestName;
+        final java.util.Map<String, View> ghosts = oldView;
+        final android.view.ViewTreeObserver vto = results.getViewTreeObserver();
+        vto.addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
+            public boolean onPreDraw() {
+                results.getViewTreeObserver().removeOnPreDrawListener(this);
+                scroll.scrollTo(0, Math.max(0, results.getHeight() - scroll.getHeight())); // i risultati restano ancorati in basso
+                if (animate) transitions(oldTop, ghosts, oldKeys);
+                return true;
+            }
+        });
         scroll.post(new Runnable() { public void run() { scroll.fullScroll(View.FOCUS_DOWN); } });
+        // un solo annuncio, 600 ms dopo l'ultimo carattere («3 risultati», «Nessun risultato»), mai uno a tasto
+        announce.removeCallbacksAndMessages(null);
+        if (q.length() > 0) {
+            final int n = hitCount;
+            announce.postDelayed(new Runnable() {
+                public void run() { Motion.say(results, n == 0 ? "Nessun risultato" : n + (n == 1 ? " risultato" : " risultati")); }
+            }, 600);
+        }
+    }
+
+    /** Una chiave stabile per una riga: il suo primo testo (stessa riga = stesso elemento fra un carattere e l'altro). */
+    private static String uniqueKey(View v, java.util.Map<String, Integer> seen) {
+        String k = firstText(v);
+        if (k == null) k = v.getClass().getSimpleName();
+        Integer n = seen.get(k);
+        seen.put(k, n == null ? 1 : n + 1);
+        return k + "#" + (n == null ? 0 : n);
+    }
+
+    private static String firstText(View v) {
+        if (v instanceof TextView) return ((TextView) v).getText().toString();
+        if (v instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) { String t = firstText(g.getChildAt(i)); if (t != null && t.length() > 0) return t; }
+        }
+        return null;
+    }
+
+    /**
+     * Le righe che restano si spostano al loro posto (RAPIDO, decelera), quelle nuove entrano in dissolvenza, quelle che
+     * spariscono svaniscono dov'erano. Con «Rimuovi animazioni»: solo dissolvenze da 80 ms, niente spostamenti.
+     */
+    private void transitions(java.util.Map<String, Integer> oldTop, java.util.Map<String, View> oldView, java.util.List<String> oldKeys) {
+        boolean red = Motion.reduced(this);
+        int ms = Motion.dur(this, Motion.RAPIDO);
+        java.util.Map<String, Integer> seen = new java.util.HashMap<String, Integer>();
+        java.util.Set<String> kept = new java.util.HashSet<String>();
+        int[] loc = new int[2];
+        for (int i = 0; i < results.getChildCount(); i++) {
+            View c = results.getChildAt(i);
+            String k = uniqueKey(c, seen);
+            Integer was = oldTop.get(k);
+            if (was == null) {
+                c.setAlpha(0f);
+                c.animate().alpha(1f).setDuration(ms).setInterpolator(Motion.DECELERA).start();
+                continue;
+            }
+            kept.add(k);
+            c.getLocationInWindow(loc);
+            int dy = was - loc[1];
+            if (!red && Math.abs(dy) > 1) {
+                c.setTranslationY(dy);
+                c.animate().translationY(0f).setDuration(ms).setInterpolator(Motion.DECELERA).start();
+            }
+        }
+        results.getLocationInWindow(loc);
+        final int base = loc[1];
+        for (String k : oldKeys) {
+            if (kept.contains(k)) continue;
+            final View g = oldView.get(k);
+            g.setAlpha(1f);
+            g.setTranslationY(red ? 0f : oldTop.get(k) - base - g.getTop());
+            results.getOverlay().add(g);
+            g.animate().alpha(0f).setDuration(ms).setInterpolator(Motion.DECELERA).withEndAction(new Runnable() {
+                public void run() { results.getOverlay().remove(g); }
+            }).start();
+        }
     }
 
     // ---------- Al tocco (0.8): recenti, app, persone e gruppi ----------
@@ -245,6 +387,7 @@ public class SearchActivity extends BaseActivity {
         all.setMinHeight(U.dp(this, 48));
         all.setGravity(Gravity.CENTER_VERTICAL);
         all.setContentDescription("Vedi tutti i contatti e i gruppi");
+        Press.link(all, U.INK);
         all.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { startActivity(SettingsActivity.peopleIntent(SearchActivity.this, "Ricerca")); }
         });
@@ -355,6 +498,7 @@ public class SearchActivity extends BaseActivity {
         t.setPadding(0, U.dp(this, 8), 0, 0);
         c.addView(t);
         if (r != null) {
+            Press.row(c);
             c.setContentDescription(name);
             c.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
         }
@@ -393,6 +537,7 @@ public class SearchActivity extends BaseActivity {
         t.setEllipsize(TextUtils.TruncateAt.END);
         t.setMinHeight(U.dp(this, 46));
         t.setGravity(Gravity.CENTER_VERTICAL);
+        Press.row(t);
         t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
         wrap.addView(t, U.full());
         wrap.addView(U.divider(this));
@@ -445,6 +590,7 @@ public class SearchActivity extends BaseActivity {
 
         // Persone e gruppi
         List<Hit> people = phone != null ? new ArrayList<Hit>() : peopleHits(q);
+        hitCount += people.size();
         if (!people.isEmpty()) {
             List<View> g = new ArrayList<View>();
             for (int i = 0; i < people.size() && i < 4; i++) g.add(personRow(people.get(i)));
@@ -454,6 +600,7 @@ public class SearchActivity extends BaseActivity {
         }
         // App
         List<U.AppInfo> appHits = appHits(q);
+        hitCount += appHits.size();
         if (!appHits.isEmpty()) {
             List<View> g = new ArrayList<View>();
             Set<String> paused = U.pausedPkgs(this);
@@ -516,19 +663,22 @@ public class SearchActivity extends BaseActivity {
         // 0.18 (Evolutiva 013): il risultato che Invio apre è già scelto: solo il riquadro più scuro
         if (bestView instanceof ViewGroup && ((ViewGroup) bestView).getChildCount() > 0) {
             View r = ((ViewGroup) bestView).getChildAt(0);
-            r.setBackground(U.box(this, U.CHIP, 0, 12));
-            r.setPadding(U.dp(this, 10), r.getPaddingTop(), U.dp(this, 10), r.getPaddingBottom());
+            // 0.20: il riquadro entra in dissolvenza (RAPIDO) invece di comparire; i 10 dp ai lati ci sono sempre (insetRows)
+            Press.Fade f = Press.rowBest(r);
+            if (rendered && !bestName.equals(lastBestName)) f.appear();
             r.setContentDescription(bestName + ", primo risultato");
         }
 
         // dall'alto il meno importante: il primo gruppo finisce attaccato al campo
         if (!anything) {
             TextView t = U.text(this, "Nessuna persona, app o impegno con «" + q + "».", 15, U.INK, false);
-            t.setPadding(0, 0, 0, U.dp(this, 6));
+            t.setPadding(U.dp(this, 10), 0, U.dp(this, 10), U.dp(this, 6));
             results.addView(t, U.full());
         }
         for (int i = groups.size() - 1; i >= 0; i--) {
-            results.addView(U.label(this, titles.get(i)), U.full());
+            TextView lab = U.label(this, titles.get(i));
+            lab.setPadding(U.dp(this, 10), lab.getPaddingTop(), U.dp(this, 10), lab.getPaddingBottom()); // come le righe, che hanno sempre 10 dp ai lati
+            results.addView(lab, U.full());
             for (View v : groups.get(i)) results.addView(v, U.full());
         }
     }
@@ -679,7 +829,7 @@ public class SearchActivity extends BaseActivity {
         t.setGravity(Gravity.CENTER);
         t.setMinHeight(U.dp(this, 44));
         t.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
-        t.setBackground(U.box(this, U.SURFACE, U.BORDER, 20));
+        Press.chip(t, U.SURFACE, U.BORDER, 20);
         t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
         return t;
     }
@@ -687,7 +837,9 @@ public class SearchActivity extends BaseActivity {
     private View row(String title, String sub, String right, String icon, final Runnable r) {
         LinearLayout row = U.row(this);
         row.setMinimumHeight(U.dp(this, 50));
-        row.setPadding(0, U.dp(this, 4), 0, U.dp(this, 4));
+        int inset = insetRows ? U.dp(this, 10) : 0; // 0.20: sempre riservati, così il testo non si sposta quando il riquadro compare
+        row.setPadding(inset, U.dp(this, 4), inset, U.dp(this, 4));
+        Press.row(row);
         if (icon != null) {
             TextView ic = U.text(this, icon, 14, U.MUTED, false);
             ic.setGravity(Gravity.CENTER);
@@ -714,8 +866,10 @@ public class SearchActivity extends BaseActivity {
     private View personRow(final Hit h) {
         LinearLayout row = U.row(this);
         row.setMinimumHeight(U.dp(this, 54));
+        if (insetRows) row.setPadding(U.dp(this, 10), 0, U.dp(this, 10), 0);
         String n0 = h.name.replace("[", "").trim();
         View ini = U.initial(this, h.name, h.group, 32);
+        Press.rowWithBadge(row, (TextView) ini); // 0.20: premuto, il cerchio con l'iniziale si riempie d'inchiostro
         row.addView(ini, new LinearLayout.LayoutParams(U.dp(this, 32), U.dp(this, 32)));
         LinearLayout tx = U.col(this);
         tx.setPadding(U.dp(this, 12), 0, U.dp(this, 6), 0);
@@ -745,6 +899,7 @@ public class SearchActivity extends BaseActivity {
             row.addView(statusLink);
             Pass.asLink(statusLink, h.sub); // 0.18: sottolineato tranne il pallino
             statusLink.setMinHeight(U.dp(this, 48));
+            Press.link(statusLink, U.INK);
             statusLink.setContentDescription(h.name + ": " + Pass.spoken(h.sub) + ". Cambia come passano i messaggi");
             statusLink.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) { Pass.sheet(SearchActivity.this, pkgOf(h.code), h.name, new Runnable() { public void run() { render(); } }); }
@@ -785,7 +940,7 @@ public class SearchActivity extends BaseActivity {
             ok = U.launchPkg(this, U.chatPkg(this, h.code));
             if (ok && h.group) U.toast(this, "Cerca «" + h.name + "» nell'app: −minus apre il gruppo direttamente dal prossimo messaggio");
         }
-        if (ok) { Convs.started(this, h.code, h.name, h.group); remember("person", h.name, h.name); }
+        if (ok) { Motion.scatto(query); Convs.started(this, h.code, h.name, h.group); remember("person", h.name, h.name); }
         else U.toast(this, "Non riesco ad aprire questa conversazione");
     }
 
@@ -820,6 +975,7 @@ public class SearchActivity extends BaseActivity {
             ok = ListActivity.contact(this, app, t, null);
         }
         if (ok) {
+            Motion.scatto(query);
             if (!"TEL".equals(app) && !"MAIL".equals(app)) Convs.started(this, app, name, false);
             remember("person", name, name);
         }
@@ -830,7 +986,7 @@ public class SearchActivity extends BaseActivity {
         if (apps == null) apps = U.sortedApps(this);
         for (U.AppInfo x : apps) if (x.pkg.equals(pkg)) { a = x; break; }
         if (a == null) { U.toast(this, label + " non è installata"); return; }
-        if (U.open(this, a)) { remember("app", a.pkg, a.label); logOpen(tapped); }
+        if (U.open(this, a)) { Motion.scatto(query); remember("app", a.pkg, a.label); logOpen(tapped); } // 0.20: aprire un risultato dà lo scatto
         tapped = false;
     }
 
@@ -971,6 +1127,7 @@ public class SearchActivity extends BaseActivity {
     }
 
     private void ask(String q) {
+        Motion.scatto(query);
         if (U.installed(this, CLAUDE_PKG)) {
             Intent i = new Intent(Intent.ACTION_SEND);
             i.setType("text/plain");
@@ -983,6 +1140,7 @@ public class SearchActivity extends BaseActivity {
     }
 
     private void web(String q) {
+        Motion.scatto(query);
         Intent s = new Intent(Intent.ACTION_WEB_SEARCH);
         s.putExtra(android.app.SearchManager.QUERY, q);
         if (!U.start(this, s) && !U.start(this, new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=" + Uri.encode(q)))))

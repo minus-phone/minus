@@ -9,11 +9,16 @@ public class AspettoActivity extends BaseActivity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        build();
+    }
+
+    /** 0.20: la pagina si rifà da sola quando cambia il tema, così «Annulla» resta in basso. */
+    private void build() {
         LinearLayout root = U.screen(this, "Aspetto");
         LinearLayout.LayoutParams lp = U.full();
         lp.topMargin = U.dp(this, 6);
         root.addView(Aspetto.preview(this), lp);
-        Aspetto.controls(this, root, true, null);
+        Aspetto.controls(this, root, true, new Runnable() { public void run() { build(); } });
         TextView n = U.text(this, "Ogni scelta ha «Annulla». Niente sfondi né griglie di icone: la home resta testo, per non tornare a una vetrina di app.", 12, U.MUTED, false);
         n.setPadding(0, U.dp(this, 16), 0, 0);
         root.addView(n);

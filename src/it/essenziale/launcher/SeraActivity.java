@@ -99,10 +99,12 @@ public class SeraActivity extends BaseActivity {
         tx.addView(U.text(this, title, 16, U.INK, on)); // 0.16: grassetto se acceso
         tx.addView(U.text(this, sub, 13, U.MUTED, false));
         r.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        r.addView(U.toggle(this, on), new LinearLayout.LayoutParams(U.dp(this, 48), U.dp(this, 28)));
+        r.addView(U.toggle(this, on, "sera:" + key), new LinearLayout.LayoutParams(U.dp(this, 48), U.dp(this, 28)));
         r.setContentDescription(title + ", interruttore, " + (on ? "acceso" : "spento"));
+        Press.row(r);
         r.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
+                Motion.scatto(v);
                 Changes.track(SeraActivity.this, title + (on ? " spento" : " acceso"), new String[]{key},
                         new Runnable() { public void run() { U.prefs(SeraActivity.this).edit().putBoolean(key, !on).commit(); } },
                         new Runnable() { public void run() { render(); } });
