@@ -1,7 +1,8 @@
 # Due lavori separati, perché la chiave delle release esca solo quando serve.
 # - prova: a ogni pull request. Compila e prova con una chiave usa e getta; nessun segreto.
 #   L'APK serve a controllare la build, non si installa sopra quello firmato.
-# - firmata: a ogni tag v* (crea la Release) o a mano da Actions (solo l'artefatto).
+# - firmata: a ogni tag v* (crea la Release) o a mano da Actions: solo l'artefatto, oppure
+#   con «pubblica» spuntato crea il tag v<versionName> sul commit scelto e la Release.
 #   Gira nell'ambiente "release", che chiede la tua approvazione prima di partire.
 # Segreti: KEYSTORE_BASE64 (obbligatorio); KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
 # (facoltativi: senza, valgono quelli di build.sh). Meglio come segreti dell'ambiente "release".
@@ -10,6 +11,11 @@ name: Build e release
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      pubblica:
+        description: "Crea il tag v<versione> e la Release (versione letta da AndroidManifest.xml)"
+        type: boolean
+        default: false
   push:
     tags: ["v*"]
 permissions:
@@ -74,9 +80,11 @@ jobs:
           name: minus-${{ env.V }}
           path: build/minus-*.apk
       - name: Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.pubblica)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" build/minus-*.apk --repo "$GITHUB_REPOSITORY" --title "−minus $V" \
+          TAG="$GITHUB_REF_NAME"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then TAG="v$V"; fi
+          gh release create "$TAG" build/minus-*.apk --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "−minus $V" \
             --notes "Come installarla: [guida](https://github.com/minus-phone/minus/blob/main/INSTALLARE.md)."
