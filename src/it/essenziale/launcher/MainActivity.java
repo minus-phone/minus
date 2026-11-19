@@ -230,6 +230,8 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         });
         LinearLayout.LayoutParams alp = U.full();
         alp.topMargin = U.dp(this, 8);
+        alp.leftMargin = -U.dp(this, 10); // la casella «+» sta in colonna con le caselle dei task
+        alp.rightMargin = -U.dp(this, 10);
         root.addView(add, alp);
 
         // Barra in basso
