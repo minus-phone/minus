@@ -45,6 +45,11 @@ public final class Quando {
         return hour >= ALARM_FROM ? 1 : 0;
     }
 
+    /** 0.19 (Evolutiva 014): «Nuovo» in home propone domani dalle 17, quando compare Domani. */
+    public static int nuovoDayOffset(int hour) {
+        return hour >= TOMORROW_FROM ? 1 : 0;
+    }
+
     static String hm(long t) {
         return new java.text.SimpleDateFormat("H:mm", Locale.ITALY).format(new java.util.Date(t));
     }
