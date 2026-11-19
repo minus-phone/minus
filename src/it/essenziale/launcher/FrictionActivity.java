@@ -12,6 +12,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -31,7 +32,11 @@ public class FrictionActivity extends Activity {
 
     private int seconds = 8, left = 8;
     private LinearLayout cosaBox;
-    private TextView count, openBtn;
+    private TextView count, openBtn, homeBtn;
+    private RingView ring; // 0.20 (Evolutiva 016): l'anello attorno al conto
+    private boolean leaving;
+    private View rootView, bodyView, btnsView;
+    private int openState = -1;
     private U.AppInfo app;
     private boolean demo, scope, night, outside;
     private String purpose = null;
@@ -43,7 +48,7 @@ public class FrictionActivity extends Activity {
         public void run() {
             left--;
             render();
-            if (left > 0) h.postDelayed(this, 1000);
+            if (left > 0) { h.postDelayed(this, 1000); ringStep(); } else if (ring != null) ring.set(1f);
         }
     };
 
@@ -85,7 +90,15 @@ public class FrictionActivity extends Activity {
             TextView name = U.text(this, app.label, 28, U.ON_DARK, true);
             name.setPadding(0, U.dp(this, 6), 0, U.dp(this, 30));
             body.addView(name);
-            body.addView(count, new LinearLayout.LayoutParams(size, size));
+            // 0.20 (Evolutiva 016): l'anello è 6 dp fuori dal cerchio; i margini negativi lasciano la pagina com'era
+            FrameLayout ringWrap = new FrameLayout(this);
+            ringWrap.addView(count, new FrameLayout.LayoutParams(size, size, Gravity.CENTER));
+            ring = new RingView(this);
+            ringWrap.addView(ring, new FrameLayout.LayoutParams(size + U.dp(this, 12), size + U.dp(this, 12), Gravity.CENTER));
+            LinearLayout.LayoutParams rwlp = new LinearLayout.LayoutParams(size + U.dp(this, 12), size + U.dp(this, 12));
+            rwlp.topMargin = -U.dp(this, 6);
+            rwlp.bottomMargin = -U.dp(this, 6);
+            body.addView(ringWrap, rwlp);
             TextView q = U.text(this, "Un respiro. Ti serve adesso?", 18, U.ON_DARK, false);
             q.setGravity(Gravity.CENTER);
             q.setPadding(0, U.dp(this, 30), 0, 0);
@@ -161,10 +174,12 @@ public class FrictionActivity extends Activity {
         // In fondo: «Non ora» e «Apri» con lo stesso peso
         LinearLayout btns = scope ? U.row(this) : U.col(this);
         TextView home = U.text(this, scope ? "Non ora" : "Non ora, torna alla home", 16, scope ? U.ON_DARK : U.DARK, true);
+        homeBtn = home;
         home.setGravity(Gravity.CENTER);
         home.setMinHeight(U.dp(this, 52));
-        home.setBackground(scope ? U.box(this, U.DARK, U.ON_DARK, 26) : U.box(this, U.ON_DARK, 0, 26));
-        home.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { notNow(); } });
+        // 0.20 (Evolutiva 016): premuto cambia solo lo sfondo (il testo non si muove); poi lo scatto e la pausa si schiarisce
+        if (scope) Press.outlined(home, U.DARK, U.ON_DARK, 26); else Press.primary(home, U.ON_DARK, MotionLogic.mix(U.ON_DARK, U.DARK, 0.12f), 26);
+        home.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { notNow(true); } });
         openBtn = U.text(this, "", 15, U.ON_DARK_MUTED, true);
         openBtn.setGravity(Gravity.CENTER);
         openBtn.setMinHeight(U.dp(this, 52));
@@ -183,6 +198,9 @@ public class FrictionActivity extends Activity {
         LinearLayout.LayoutParams blp = U.full();
         blp.topMargin = U.dp(this, 12);
         root.addView(btns, blp);
+        rootView = root;
+        bodyView = sv;
+        btnsView = btns;
         setContentView(root);
         render();
     }
@@ -191,7 +209,7 @@ public class FrictionActivity extends Activity {
     private boolean renderCosa() {
         cosaBox.removeAllViews();
         View card = Adesso.card(this, true, new Runnable() {
-            public void run() { notNow(); }
+            public void run() { notNow(false); }
         }, new Runnable() {
             public void run() { renderCosa(); }
         });
@@ -267,9 +285,10 @@ public class FrictionActivity extends Activity {
         t.setGravity(Gravity.CENTER);
         t.setMinHeight(U.dp(this, 44));
         t.setPadding(U.dp(this, 12), 0, U.dp(this, 12), 0);
-        t.setBackground(on ? U.box(this, U.ON_DARK, 0, 20) : U.box(this, U.DARK, 0xFF62625C, 20));
+        if (on) Press.primary(t, U.ON_DARK, MotionLogic.mix(U.ON_DARK, U.DARK, 0.12f), 20);
+        else Press.box(t, U.DARK, 0xFF62625C, 20, MotionLogic.mix(U.DARK, U.ON_DARK, 0.10f));
         t.setContentDescription(s + (on ? ", scelto" : ""));
-        t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
+        t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { Motion.scatto(v); r.run(); } });
         LinearLayout.LayoutParams lp = U.wrap();
         lp.rightMargin = U.dp(this, 6);
         t.setLayoutParams(lp);
@@ -285,23 +304,59 @@ public class FrictionActivity extends Activity {
         left = scope ? 0 : seconds; // 0.16: pausa e scopo senza timer: si apre quando scegli per cosa
         render();
         h.postDelayed(tick, 1000);
+        if (ring != null) { ring.set(MotionLogic.ring(seconds - left, seconds)); ringStep(); }
+    }
+
+    /** L'anello cresce di un passo nel secondo che sta per passare (in sincrono con il conto). */
+    private void ringStep() {
+        if (ring == null || left <= 0) return;
+        ring.to(MotionLogic.ring(seconds - left + 1, seconds), 1000);
     }
 
     @Override
     protected void onPause() {
         h.removeCallbacks(tick);
+        if (ring != null) ring.stop();
         super.onPause();
         Pill.pausedActivity(this);
     }
 
     @Override
-    public void onBackPressed() { notNow(); }
+    public void onBackPressed() { notNow(false); }
 
-    private void notNow() {
+    /**
+     * «Non ora»: lo scatto (solo al tocco), poi la pausa si schiarisce verso lo sfondo della home in LENTO mentre la
+     * home arriva morbida. Con «Rimuovi animazioni», un taglio rapido.
+     */
+    private void notNow(boolean tap) {
+        if (leaving) return;
+        leaving = true;
+        h.removeCallbacks(tick);
+        if (ring != null) ring.stop();
+        if (tap) Motion.scatto(homeBtn);
         if (!demo) { Scope.notNow(this, app.pkg); Beta.add(this, Registro.PAUSE_NOT_NOW); Checks.add(this, Registro.PAUSE_NOT_NOW); }
+        Motion.say(rootView, "Pausa chiusa, sei in home");
+        h.postDelayed(new Runnable() { public void run() { goHome(); } }, tap ? 90 : 0); // il tempo di vedere il tasto premuto
+    }
+
+    private void goHome() {
         Intent i = new Intent(this, MainActivity.class);
         i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
         U.start(this, i);
+        Motion.softHome(this);
+        if (!Motion.reduced(this)) {
+            final int to = U.BG;
+            final android.view.Window w = getWindow();
+            bodyView.animate().alpha(0f).setDuration(Motion.LENTO).setInterpolator(Motion.DECELERA).start();
+            btnsView.animate().alpha(0f).setDuration(Motion.LENTO).setInterpolator(Motion.DECELERA).start();
+            Motion.color(Motion.LENTO, U.DARK, to, new Motion.ColorSink() {
+                public void set(int c) {
+                    rootView.setBackgroundColor(c);
+                    w.setStatusBarColor(c);
+                    w.setNavigationBarColor(c);
+                }
+            });
+        }
         finish();
     }
 
@@ -314,6 +369,7 @@ public class FrictionActivity extends Activity {
         if (scope) Beta.add(this, Registro.SCOPE);
         if (app.cls != null) U.launch(this, app); else U.launchPkg(this, app.pkg);
         finish();
+        Motion.quickCut(this); // «Apri»: un taglio rapido e neutro (RAPIDO), senza vibrazione
     }
 
     private boolean ready() {
@@ -326,7 +382,13 @@ public class FrictionActivity extends Activity {
         if (scope) openBtn.setText(!timeOk ? "Apri tra " + left + " s" : purpose == null ? "Scegli per cosa" : "Apri · " + minutes + " min");
         else openBtn.setText(ok ? "Apri " + app.label : "Apri tra " + left + " s");
         openBtn.setTextColor(ok ? (scope ? U.DARK : U.ON_DARK) : 0xFF8A8A84);
-        openBtn.setBackground(ok && scope ? U.box(this, U.ON_DARK, 0, 26) : U.box(this, U.DARK, ok ? U.ON_DARK : 0xFF5F5F5A, 26));
+        int st = ok ? (scope ? 1 : 2) : 0;
+        if (st != openState) { // lo sfondo si rifà solo quando cambia stato: lo stato premuto non si interrompe a ogni secondo
+            openState = st;
+            if (st == 1) Press.primary(openBtn, U.ON_DARK, MotionLogic.mix(U.ON_DARK, U.DARK, 0.12f), 26);
+            else if (st == 2) Press.outlined(openBtn, U.DARK, U.ON_DARK, 26);
+            else openBtn.setBackground(U.box(this, U.DARK, 0xFF5F5F5A, 26));
+        }
         openBtn.setEnabled(ok);
     }
 }

@@ -80,13 +80,19 @@ final class Aspetto {
             public void run() {
                 U.applyTheme(a);
                 if (a instanceof BaseActivity) ((BaseActivity) a).syncTheme();
+                a.getWindow().setStatusBarColor(U.BG);
+                a.getWindow().setNavigationBarColor(U.BG);
                 if (refresh != null) refresh.run(); else a.recreate();
             }
         };
-        // la pagina si ridisegna con il nuovo tema: «Annulla» resta in Impostazioni › Modifiche recenti
-        if (track) Changes.record(a, desc, new String[]{key});
-        change.run();
-        after.run();
+        // 0.20: come le altre impostazioni, la scelta ha «Annulla» (prima solo in Modifiche recenti, perché la pagina
+        // si ridisegna: ora si ridisegna da sola, senza ricrearsi, e l'avviso resta; «Annulla» rimette anche i colori)
+        if (track && refresh != null) Changes.track(a, desc, new String[]{key}, change, after);
+        else {
+            if (track) Changes.record(a, desc, new String[]{key});
+            change.run();
+            after.run();
+        }
     }
 
     private static LinearLayout seg(Activity a) {
@@ -100,7 +106,7 @@ final class Aspetto {
         TextView t = U.text(a, s, 13, sel ? U.BG : U.INK, false);
         t.setGravity(Gravity.CENTER);
         t.setMinHeight(U.dp(a, 44));
-        if (sel) t.setBackground(U.box(a, U.INK, 0, 9));
+        if (sel) Press.chipOn(t, 9); else Press.row(t);
         t.setContentDescription(s + (sel ? ", scelto" : ""));
         t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
         return t;

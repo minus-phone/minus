@@ -14,6 +14,8 @@ final class Night {
             K_OFF_AT = "screen_off_at", K_UNLOCKS = "night_unlocks", K_ALTS = "night_alts", K_OPENS = "night_opens",
             K_OPEN_MIN = "night_open_min", K_REPORT_SEEN = "night_report_seen",
             K_WAKE = "night_wake_min", K_SLEEP = "night_sleep_min", K_LEAD = "night_lead_min", K_MORNING = "night_morning", K_EVENING = "night_evening";
+    /** 0.20 (Evolutiva 016): i numeri della settimana prima, per il conto alla rovescia del rapporto (-1 = non c'è). */
+    static final String K_UNLOCKS_PREV = "night_unlocks_prev", K_ALTS_PREV = "night_alts_prev", K_OPENS_PREV = "night_opens_prev", K_OPEN_MIN_PREV = "night_open_min_prev";
     static final String DEF_ALT = "Resto al buio e ascolto il respiro";
     static final long WEEK = 7L * 24 * 3600000L;
 
@@ -85,10 +87,26 @@ final class Night {
         return Notte.inWindow(m, offMin(c), wakeMin(c));
     }
 
-    /** Prova di una settimana: accende Di notte e azzera i conteggi. */
+    /** Prova di una settimana: accende Di notte e azzera i conteggi (quelli della settimana scorsa restano in *_PREV). */
     static void startTrial(Context c) {
         p(c).edit().putBoolean(K_ON, true).putLong(K_TRIAL, System.currentTimeMillis() + WEEK).putBoolean(K_REPORT_SEEN, false)
                 .putInt(K_UNLOCKS, 0).putInt(K_ALTS, 0).putInt(K_OPENS, 0).putInt(K_OPEN_MIN, 0).apply();
+    }
+
+    /**
+     * Il rapporto si chiude (visto, o tolto con ✕): i numeri della settimana si tengono come «settimana scorsa», così dal
+     * rapporto dopo il numero può scendere davanti a te (E016, momento 6). Va chiamato PRIMA di segnare il rapporto
+     * come visto. MotionLogic.prevWeek decide cosa vale (nessuna prova o nessun dato = -1).
+     */
+    static void closeWeek(Context c) {
+        SharedPreferences p = p(c);
+        boolean had = p.contains(K_TRIAL);
+        p.edit()
+                .putInt(K_UNLOCKS_PREV, MotionLogic.prevWeek(had, true, p.getInt(K_UNLOCKS, -1)))
+                .putInt(K_ALTS_PREV, MotionLogic.prevWeek(had, true, p.getInt(K_ALTS, -1)))
+                .putInt(K_OPENS_PREV, MotionLogic.prevWeek(had, true, p.getInt(K_OPENS, -1)))
+                .putInt(K_OPEN_MIN_PREV, MotionLogic.prevWeek(had, true, p.getInt(K_OPEN_MIN, -1)))
+                .apply();
     }
 
     static boolean trialOver(Context c) {

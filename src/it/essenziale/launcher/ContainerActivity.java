@@ -198,7 +198,7 @@ public class ContainerActivity extends BaseActivity {
                 pz.setPadding(U.dp(this, 10), 0, U.dp(this, 10), 0);
                 pz.setMinHeight(U.dp(this, 44));
                 pz.setContentDescription(p ? "Pausa attiva, tocca per toglierla" : "Aggiungi la pausa");
-                pz.setBackground(p ? U.box(this, U.INK, 0, 17) : U.box(this, U.BG, U.LINE, 17));
+                if (p) Press.chipOn(pz, 17); else Press.chip(pz, U.BG, U.LINE, 17);
                 pz.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         Changes.track(ContainerActivity.this, a.label + (p ? ": pausa tolta" : ": pausa attiva"), new String[]{U.K_PAUSE},

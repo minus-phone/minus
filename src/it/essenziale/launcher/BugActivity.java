@@ -36,7 +36,7 @@ public class BugActivity extends BaseActivity {
         TextView send = U.text(this, "Invia", 16, U.BG, true);
         send.setGravity(Gravity.CENTER);
         send.setMinHeight(U.dp(this, 52));
-        send.setBackground(U.box(this, U.INK, 0, 26));
+        Press.primary(send, U.INK, 26);
         send.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { send(); } });
         LinearLayout.LayoutParams lp = U.full();
         lp.bottomMargin = U.dp(this, 16);
@@ -77,7 +77,7 @@ public class BugActivity extends BaseActivity {
             t.setGravity(Gravity.CENTER);
             t.setMinHeight(U.dp(this, 44));
             t.setPadding(U.dp(this, 12), 0, U.dp(this, 12), 0);
-            t.setBackground(on ? U.box(this, U.INK, 0, 19) : U.box(this, U.BG, U.BORDER, 19));
+            if (on) Press.chipOn(t, 19); else Press.chip(t, U.BG, U.BORDER, 19);
             t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { kind = k; render(); } });
             LinearLayout.LayoutParams lp = U.wrap();
             lp.rightMargin = U.dp(this, 6);

@@ -78,7 +78,7 @@ public class NightActivity extends BaseActivity {
         TextView t = U.text(this, s, 15, U.INK, true);
         t.setGravity(Gravity.CENTER);
         t.setMinHeight(U.dp(this, 52));
-        t.setBackground(U.box(this, U.BG, U.INK, 26));
+        Press.outlined(t, U.BG, U.INK, 26);
         t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
         return t;
     }

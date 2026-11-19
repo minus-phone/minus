@@ -154,7 +154,7 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
     private void usedLong() { U.prefs(this).edit().putBoolean(K_LONG_USED, true).apply(); }
 
     private void style(TextView t, boolean on) {
-        t.setBackground(on ? U.box(this, U.INK, 0, 20) : null);
+        if (on) Press.chipOn(t, 20);
         t.setTextColor(on ? U.BG : U.INK);
     }
 
@@ -174,7 +174,7 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
             t.setGravity(Gravity.CENTER);
             t.setMinHeight(U.dp(this, 44));
             t.setPadding(U.dp(this, 10), 0, U.dp(this, 10), 0);
-            t.setBackground(U.box(this, U.BG, U.INK, 22));
+            Press.outlined(t, U.BG, U.INK, 22);
             t.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     Changes.track(InboxActivity.this, app + ": " + o[1].toLowerCase(java.util.Locale.ITALY), new String[]{U.K_APP_CHOICE},

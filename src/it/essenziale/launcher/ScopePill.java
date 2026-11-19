@@ -283,7 +283,7 @@ final class ScopePill {
             TextView close = U.text(a, t[2], 16, U.BG, true);
             close.setGravity(Gravity.CENTER);
             close.setMinHeight(U.dp(a, 50));
-            close.setBackground(U.box(a, U.INK, 0, 25));
+            Press.primary(close, U.INK, 25);
             close.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { hideSheet(); finish(); } });
             LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             clp.topMargin = U.dp(a, 12);
@@ -291,7 +291,7 @@ final class ScopePill {
             TextView more = U.text(a, t[3], 15, U.INK, false);
             more.setGravity(Gravity.CENTER);
             more.setMinHeight(U.dp(a, 46));
-            more.setBackground(U.box(a, U.BG, U.INK, 23));
+            Press.outlined(more, U.BG, U.INK, 23);
             more.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { hideSheet(); Scope.extend(a); } });
             LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             mlp.topMargin = U.dp(a, 10);

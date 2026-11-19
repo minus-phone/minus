@@ -12,6 +12,9 @@ public class MicView extends View {
     private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private final boolean outline;
+    private final Paint halo = new Paint(Paint.ANTI_ALIAS_FLAG); // 0.20 (Evolutiva 016): alone circolare da premuto
+    private float haloP;
+    private android.animation.ValueAnimator haloAnim;
 
     public MicView(Context c) { this(c, false); }
 
@@ -28,11 +31,61 @@ public class MicView extends View {
         setFocusable(true);
     }
 
+    private android.animation.ObjectAnimator pulse;
+
+    /**
+     * 0.20 (Evolutiva 016, momento 12): solo mentre ascolta, il microfono respira: scala 1 → 1,04 → 1 in 1,6 s, a ciclo.
+     * Con «Rimuovi animazioni» resta fermo; lo stato («Sto ascoltando») lo dice TalkBack, mai il movimento.
+     */
+    void setListening(boolean on) {
+        if (pulse != null) { pulse.cancel(); pulse = null; }
+        setScaleX(1f);
+        setScaleY(1f);
+        if (!on) return;
+        Motion.say(this, "Sto ascoltando");
+        if (!MotionLogic.allowsTravel(Motion.reduced(getContext()))) return;
+        android.animation.Keyframe a = android.animation.Keyframe.ofFloat(0f, 1f), b = android.animation.Keyframe.ofFloat(0.5f, 1.04f), c = android.animation.Keyframe.ofFloat(1f, 1f);
+        b.setInterpolator(Motion.DECELERA);
+        c.setInterpolator(Motion.DECELERA);
+        pulse = android.animation.ObjectAnimator.ofPropertyValuesHolder(this,
+                android.animation.PropertyValuesHolder.ofKeyframe("scaleX", a, b, c),
+                android.animation.PropertyValuesHolder.ofKeyframe("scaleY", android.animation.Keyframe.ofFloat(0f, 1f), copy(b), copy(c)));
+        pulse.setDuration(1600);
+        pulse.setRepeatCount(android.animation.ValueAnimator.INFINITE);
+        pulse.setInterpolator(new android.view.animation.LinearInterpolator());
+        pulse.start();
+    }
+
+    private static android.animation.Keyframe copy(android.animation.Keyframe k) { return k.clone(); }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        if (pulse != null) { pulse.cancel(); pulse = null; }
+        super.onDetachedFromWindow();
+    }
+
+    @Override
+    protected void drawableStateChanged() {
+        super.drawableStateChanged();
+        if (haloAnim != null) haloAnim.cancel();
+        haloAnim = android.animation.ValueAnimator.ofFloat(haloP, isPressed() ? 1f : 0f);
+        haloAnim.setDuration(Motion.dur(getContext(), Motion.RAPIDO));
+        haloAnim.setInterpolator(Motion.DECELERA);
+        haloAnim.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+            public void onAnimationUpdate(android.animation.ValueAnimator a) { haloP = (Float) a.getAnimatedValue(); invalidate(); }
+        });
+        haloAnim.start();
+    }
+
     @Override
     protected void onDraw(Canvas cv) {
         float w = getWidth(), h = getHeight(), cx = w / 2f, cy = h / 2f;
         float r = Math.min(w, h) / 2f;
         cv.drawCircle(cx, cy, r, fill);
+        if (haloP > 0.001f) { // premuto: alone INK al 10%, da scala 0,8 a 1
+            halo.setColor(Press.alpha(U.INK, 0.10f * haloP));
+            cv.drawCircle(cx, cy, Math.min(r, U.dp(getContext(), 20)) * (0.8f + 0.2f * haloP), halo);
+        }
         if (outline) { drawOutline(cv, cx, cy, r); return; }
         float u = r / 10f;
         RectF body = new RectF(cx - 2.6f * u, cy - 5.5f * u, cx + 2.6f * u, cy + 1.5f * u);

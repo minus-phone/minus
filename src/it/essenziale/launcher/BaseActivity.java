@@ -29,6 +29,7 @@ public class BaseActivity extends Activity {
         U.applyTheme(this);
         if (stamp != U.themeStamp) { recreate(); return; } // il tema è cambiato altrove
         U.immersive(this);
+        Changes.showPending(this); // 0.20: l'«Annulla» di una schermata che si è chiusa subito dopo la scelta
     }
 
     @Override

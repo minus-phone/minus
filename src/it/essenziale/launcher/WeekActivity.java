@@ -93,6 +93,7 @@ public class WeekActivity extends BaseActivity {
     protected void onResume() {
         super.onResume();
         U.watchCalendar(this, observer, true);
+        if (busyRows == 0) hiddenDone.clear(); // tornando in Settimana, i task fatti stanno di nuovo tra i completati
         render();
     }
 
@@ -106,6 +107,7 @@ public class WeekActivity extends BaseActivity {
     public void onRequestPermissionsResult(int code, String[] p, int[] r) { render(); }
 
     private void render() {
+        if (busyRows > 0) { dirty = true; return; } // una riga si sta chiudendo: la pagina si rifà alla fine
         list.removeAllViews();
         int base = week * 7;
         java.text.SimpleDateFormat fd = new java.text.SimpleDateFormat("d MMM", java.util.Locale.ITALY);
@@ -127,7 +129,7 @@ public class WeekActivity extends BaseActivity {
                 });
                 uh.addView(up, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
                 list.addView(uh, U.full());
-                for (Tasks.Task k : und) list.addView(taskRow(k));
+                for (Tasks.Task k : und) if (!hiddenDone.contains(k.id)) list.addView(taskRow(k));
             }
         }
         for (int d = base; d < base + 7; d++) {
@@ -166,7 +168,7 @@ public class WeekActivity extends BaseActivity {
             if (d == 0) { for (Tasks.Task k : Tasks.forToday(this, false, false)) tasks.add(k); }
             else if (d > 0) tasks.addAll(Tasks.forDay(this, day));
             // E001: in ogni giorno gli urgenti vanno in cima, prima degli impegni
-            for (Tasks.Task k : tasks) if (k.urgent) list.addView(taskRow(k));
+            for (Tasks.Task k : tasks) if (k.urgent && !hiddenDone.contains(k.id)) list.addView(taskRow(k));
             List<U.Event> ev = new java.util.ArrayList<U.Event>();
             for (U.Event e : allEv) if (!e.allDay) ev.add(e);
             for (final U.Event e : ev) {
@@ -190,9 +192,9 @@ public class WeekActivity extends BaseActivity {
                 if (e.repeats()) r.addView(U.text(this, "↻", 13, U.MUTED, false));
                 list.addView(r);
             }
-            for (Tasks.Task k : tasks) if (!k.urgent) list.addView(taskRow(k));
+            for (Tasks.Task k : tasks) if (!k.urgent && !hiddenDone.contains(k.id)) list.addView(taskRow(k));
             tasks.addAll(Tasks.doneOn(this, day));
-            for (Tasks.Task k : tasks) if (k.done) list.addView(taskRow(k));
+            for (Tasks.Task k : tasks) if (k.done && !hiddenDone.contains(k.id)) list.addView(taskRow(k));
             if (allEv.isEmpty() && tasks.isEmpty()) {
                 TextView n = U.text(this, "Niente in programma", 14, U.MUTED, false);
                 n.setPadding(0, 0, 0, U.dp(this, 6));
@@ -200,6 +202,21 @@ public class WeekActivity extends BaseActivity {
             }
         }
     }
+
+    // 0.20 (Evolutiva 016): la casella dei task è quella della home (TaskBox + TaskRows): stesso gesto, stessa vibrazione,
+    // stessa riga che se ne va; la pagina si rifà solo quando tutte le righe in movimento hanno finito
+    private int busyRows;
+    private boolean dirty;
+    private final java.util.Set<String> hiddenDone = new java.util.HashSet<String>();
+    private final TaskRows.Host taskHost = new TaskRows.Host() {
+        public void setDone(String id, boolean done) { Tasks.setDone(WeekActivity.this, id, done); }
+        public void gone(String id) { hiddenDone.add(id); }
+        public void reopened(String id) { hiddenDone.remove(id); }
+        public void busy(int delta) {
+            busyRows = Math.max(0, busyRows + delta);
+            if (busyRows == 0) { dirty = false; render(); }
+        }
+    };
 
     /** 0.15: un task con la casella, il collegamento alla sua app (come in home) e «scaduto» in rosso. */
     private View taskRow(final Tasks.Task k) {
@@ -209,11 +226,13 @@ public class WeekActivity extends BaseActivity {
         w.setMinimumWidth(U.dp(this, 30));
         w.setMinimumHeight(U.dp(this, 44));
         w.setGravity(Gravity.CENTER_VERTICAL);
-        w.addView(U.checkbox(this, k.done, U.INK), new LinearLayout.LayoutParams(U.dp(this, 18), U.dp(this, 18)));
+        final TaskBox tbox = new TaskBox(this, k.done);
+        w.addView(tbox, new LinearLayout.LayoutParams(U.dp(this, 18), U.dp(this, 18)));
         r.addView(w);
         r.setMinimumHeight(U.dp(this, 44));
         TextView ti = U.text(this, k.title, 15, k.done ? U.BORDER : U.INK, false);
-        if (k.urgent && !k.done) ti.setText(U.bang(k.title));
+        final TaskRows.BangSpan bang = k.urgent && !k.done ? new TaskRows.BangSpan(U.URGENT) : null;
+        if (bang != null) ti.setText(TaskRows.bangTitle(k.title, bang));
         if (Tasks.overdue(k)) ti.setTypeface(android.graphics.Typeface.create(ti.getTypeface(), android.graphics.Typeface.ITALIC));
         if (k.done) ti.setPaintFlags(ti.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
         ti.setSingleLine(true);
@@ -225,7 +244,7 @@ public class WeekActivity extends BaseActivity {
             r.addView(sc);
         }
         View.OnClickListener toggle = new View.OnClickListener() {
-            public void onClick(View v) { Tasks.setDone(WeekActivity.this, k.id, !k.done); render(); }
+            public void onClick(View v) { hiddenDone.remove(k.id); Tasks.setDone(WeekActivity.this, k.id, !k.done); render(); }
         };
         // 0.16: come in home: la casella segna fatto, la riga apre (l'app o «Modifica task»)
         if (k.done) {
@@ -233,9 +252,15 @@ public class WeekActivity extends BaseActivity {
             r.setContentDescription(k.title + ", completato. Tocca per riaprirlo");
             return r;
         }
-        w.setOnClickListener(toggle);
+        final TaskRows.State st = new TaskRows.State();
+        st.id = k.id; st.title = k.title; st.urgent = k.urgent; st.box = tbox; st.titleView = ti; st.bang = bang; st.row = r;
+        r.setTag(U.R.id_task, st);
+        w.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { TaskRows.toggle(st, taskHost); }
+        });
         w.setContentDescription("Segna fatto: " + k.title);
         w.setMinimumHeight(U.dp(this, 48));
+        Press.checkHalo(w, 36, 9); // come in home: l'alone è alla casella, 36 dp
         U.widenLeft(r, w, 18);
         if (k.app != null && U.installed(this, k.app)) {
             final String label = U.appLabel(this, k.app);

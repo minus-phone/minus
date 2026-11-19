@@ -138,7 +138,7 @@ final class RepeatDialog {
         t.setMinHeight(U.dp(a, 44));
         t.setMinWidth(U.dp(a, 40));
         t.setPadding(U.dp(a, 10), 0, U.dp(a, 10), 0);
-        t.setBackground(on ? U.box(a, U.INK, 0, 21) : U.box(a, U.SURFACE, U.BORDER, 21));
+        if (on) Press.chipOn(t, 21); else Press.chip(t, U.SURFACE, U.BORDER, 21);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.rightMargin = U.dp(a, 4);
         lp.topMargin = U.dp(a, 6);

@@ -52,12 +52,13 @@ final class Telefono {
 
     /** Il pulsante tondo da 62 dp: bordo di 1 dp, trasparente, cornetta. Un tocco = tastierino, pressione lunga = Nuovo contatto. */
     static View button(final Activity a) {
-        View b = new Icon(a);
+        Icon b = new Icon(a);
+        b.tilt = true; // 0.20 (momento 12): premuta, la cornetta si inclina di 8° e torna
         GradientDrawable g = new GradientDrawable();
         g.setShape(GradientDrawable.OVAL);
         g.setColor(android.graphics.Color.TRANSPARENT);
         g.setStroke(Math.max(1, U.dp(a, 1)), U.INK);
-        b.setBackground(g);
+        Press.icon(b, g); // 0.20: premuto, alone circolare
         b.setClickable(true);
         b.setFocusable(true);
         b.setContentDescription("Telefono, apre il tastierino");
@@ -86,6 +87,7 @@ final class Telefono {
         private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Path path = new Path();
         private final int color;
+        boolean tilt;
 
         Icon(Context c) { this(c, U.INK); }
 
@@ -96,6 +98,14 @@ final class Telefono {
             line.setStrokeJoin(Paint.Join.ROUND);
             line.setStrokeCap(Paint.Cap.ROUND);
             line.setColor(color);
+        }
+
+        /** Premuta, la cornetta si inclina di −8° e torna (RAPIDO, DECELERA); con «Rimuovi animazioni» resta ferma. */
+        @Override
+        protected void drawableStateChanged() {
+            super.drawableStateChanged();
+            if (!tilt || Motion.reduced(getContext())) return;
+            animate().rotation(isPressed() ? -8f : 0f).setDuration(Motion.RAPIDO).setInterpolator(Motion.DECELERA).start();
         }
 
         @Override

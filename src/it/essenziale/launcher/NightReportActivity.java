@@ -10,6 +10,8 @@ import android.widget.TextView;
 
 /** Fine della prova di «Di notte» (0.10, wireframe 154): solo numeri, senza voti. Poi decidi tu. */
 public class NightReportActivity extends BaseActivity {
+    private static String unlocksLine(int n) { return "Di notte hai preso il telefono " + n + (n == 1 ? " volta" : " volte"); }
+
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -19,9 +21,16 @@ public class NightReportActivity extends BaseActivity {
         LinearLayout c = U.col(this);
         c.setPadding(U.dp(this, 16), U.dp(this, 12), U.dp(this, 16), U.dp(this, 12));
         c.setBackground(U.box(this, U.SURFACE, U.LINE, 14));
-        c.addView(U.text(this, "Di notte hai preso il telefono " + unlocks + (unlocks == 1 ? " volta" : " volte"), 15, U.INK, false));
+        final TextView l1 = U.text(this, unlocksLine(unlocks), 15, U.INK, false);
+        c.addView(l1);
         c.addView(U.text(this, "Di notte hai scelto la tua alternativa " + alts + (alts == 1 ? " volta" : " volte"), 15, U.INK, false));
         c.addView(U.text(this, opens == 0 ? "Non hai aperto app con la pausa" : opens + (opens == 1 ? " volta" : " volte") + " hai aperto un'app con la pausa, in tutto " + min + " min", 15, U.INK, false));
+        // 0.20 (Evolutiva 016): le righe entrano una alla volta (80 ms l'una, BASE, dissolvenza e 8 dp in su);
+        // se sono meno della settimana scorsa, il primo numero scende davanti a te (600 ms, rallentando)
+        boolean red = Motion.reduced(this);
+        for (int i = 0; i < c.getChildCount(); i++) Motion.enter(c.getChildAt(i), MotionLogic.rowDelay(red, i), Motion.BASE, 8);
+        final int prev = p.getInt(Night.K_UNLOCKS_PREV, -1);
+        if (!red && MotionLogic.countDown(prev, unlocks)) countDown(l1, prev, unlocks);
         LinearLayout.LayoutParams clp = U.full();
         clp.topMargin = U.dp(this, 10);
         root.addView(c, clp);
@@ -41,9 +50,10 @@ public class NightReportActivity extends BaseActivity {
         }), a);
         two.addView(big("Spegnilo", false, new Runnable() {
             public void run() {
-                Changes.track(NightReportActivity.this, "Meno interferenze sul sonno spento", new String[]{Night.K_ON, Night.K_TRIAL, Night.K_REPORT_SEEN},
-                        new Runnable() { public void run() { close(false); } },
-                        new Runnable() { public void run() { finish(); } });
+                // 0.20: «Annulla» prima nasceva dopo finish() e non si vedeva mai: ora compare nella schermata che si apre
+                Changes.later(NightReportActivity.this, "Meno interferenze sul sonno spento", new String[]{Night.K_ON, Night.K_TRIAL, Night.K_REPORT_SEEN},
+                        new Runnable() { public void run() { close(false); } });
+                finish();
             }
         }), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         LinearLayout.LayoutParams tlp = U.full();
@@ -53,7 +63,25 @@ public class NightReportActivity extends BaseActivity {
         setContentView(root);
     }
 
+    /** Il numero scende da {@code from} a {@code to} in 600 ms, rallentando. TalkBack legge subito il valore finale. */
+    private void countDown(final TextView t, int from, final int to) {
+        t.setContentDescription(unlocksLine(to));
+        t.setText(unlocksLine(from));
+        final int f = from;
+        android.animation.ValueAnimator va = android.animation.ValueAnimator.ofFloat(0f, 1f);
+        va.setStartDelay(Motion.BASE);
+        va.setDuration(MotionLogic.CONTO_MS);
+        va.setInterpolator(new android.view.animation.LinearInterpolator()); // la curva è in countValue
+        va.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+            public void onAnimationUpdate(android.animation.ValueAnimator a) {
+                t.setText(unlocksLine(MotionLogic.countValue(f, to, (Float) a.getAnimatedValue())));
+            }
+        });
+        va.start();
+    }
+
     private void close(boolean keep) {
+        Night.closeWeek(this); // la settimana scorsa per il prossimo rapporto
         U.prefs(this).edit().putBoolean(Night.K_REPORT_SEEN, true).putLong(Night.K_TRIAL, 0).putBoolean(Night.K_ON, keep).commit();
     }
 
@@ -61,7 +89,7 @@ public class NightReportActivity extends BaseActivity {
         TextView t = U.text(this, s, 15, filled ? U.BG : U.INK, true);
         t.setGravity(Gravity.CENTER);
         t.setMinHeight(U.dp(this, 52));
-        t.setBackground(filled ? U.box(this, U.INK, 0, 26) : U.box(this, U.BG, U.INK, 26));
+        if (filled) Press.primary(t, U.INK, 26); else Press.outlined(t, U.BG, U.INK, 26);
         t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
         return t;
     }

@@ -180,7 +180,7 @@ public class SettingsActivity extends BaseActivity {
     /** In cima a ogni obiettivo: l'interruttore che accende o spegne tutto insieme, con Annulla. */
     private boolean goalHeader(final String g, String desc) {
         final boolean on = Goals.on(this, g) && (!Goals.SLEEP.equals(g) || Night.on(this));
-        toggle(on ? "Acceso" : "Spento", desc, on, new Runnable() {
+        toggle(on ? "Acceso" : "Spento", desc, on, "goal:" + g, new Runnable() {
             public void run() {
                 if (!on && !configured(g)) { accendi(g); return; }
                 Changes.track(SettingsActivity.this, Goals.name(g) + (on ? " spento" : " acceso"), new String[]{Onboarding.K_GOALS, Night.K_ON},
@@ -228,7 +228,7 @@ public class SettingsActivity extends BaseActivity {
         body.addView(c, lp);
         TextView b = button("Accendi");
         b.setTextColor(U.BG);
-        b.setBackground(U.box(this, U.INK, 0, 26));
+        Press.primary(b, U.INK, 26);
         b.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 if (configured(g)) {
@@ -478,6 +478,7 @@ public class SettingsActivity extends BaseActivity {
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 64));
         r.setPadding(0, U.dp(this, 8), 0, U.dp(this, 8));
+        Press.row(r);
         LinearLayout tx = U.col(this);
         tx.addView(U.text(this, title, 16, U.INK, false));
         if (sub != null) tx.addView(U.text(this, sub, 13, U.MUTED, false));
@@ -495,7 +496,7 @@ public class SettingsActivity extends BaseActivity {
     /** 0.12: interruttore legato a una preferenza, con «Annulla». */
     private void prefToggle(String title, String sub, final String key, boolean def, final String onMsg, final String offMsg) {
         final boolean on = U.prefs(this).getBoolean(key, def);
-        toggle(title, sub, on, new Runnable() {
+        toggle(title, sub, on, "pref:" + key, new Runnable() {
             public void run() {
                 Changes.track(SettingsActivity.this, on ? offMsg : onMsg, new String[]{key},
                         new Runnable() { public void run() { U.prefs(SettingsActivity.this).edit().putBoolean(key, !on).commit(); } },
@@ -519,7 +520,7 @@ public class SettingsActivity extends BaseActivity {
             TextView t = U.text(this, sec + " secondi", 13, sel ? U.BG : U.INK, false);
             t.setGravity(Gravity.CENTER);
             t.setMinHeight(U.dp(this, 44));
-            if (sel) t.setBackground(U.box(this, U.INK, 0, 9));
+            if (sel) Press.chipOn(t, 9); else Press.row(t);
             t.setContentDescription("Pausa di " + sec + " secondi" + (sel ? ", scelta" : ""));
             t.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
@@ -538,7 +539,10 @@ public class SettingsActivity extends BaseActivity {
         body.addView(U.divider(this));
     }
 
-    private void toggle(String title, String sub, boolean on, final Runnable action) {
+    private void toggle(String title, String sub, boolean on, final Runnable action) { toggle(title, sub, on, title, action); }
+
+    /** key: chi è questo interruttore, uguale prima e dopo il cambio (serve a far scorrere il pallino quando la pagina si ridisegna). */
+    private void toggle(String title, String sub, boolean on, String key, final Runnable action) {
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 64));
         r.setPadding(0, U.dp(this, 8), 0, U.dp(this, 8));
@@ -546,9 +550,10 @@ public class SettingsActivity extends BaseActivity {
         tx.addView(U.text(this, title, 16, U.INK, on)); // 0.16: grassetto se acceso
         if (sub != null) tx.addView(U.text(this, sub, 13, U.MUTED, false));
         r.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        r.addView(U.toggle(this, on), new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 26)));
+        r.addView(U.toggle(this, on, "settings:" + key), new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 26)));
         r.setContentDescription(title + ", interruttore, " + (on ? "acceso" : "spento"));
-        r.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { action.run(); } });
+        Press.row(r); // 0.20: tutta la riga prende lo stato premuto
+        r.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { Motion.scatto(v); action.run(); } }); // lo stesso scatto, acceso o spento
         body.addView(r, U.full());
         body.addView(U.divider(this));
     }
