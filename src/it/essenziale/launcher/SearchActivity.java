@@ -110,13 +110,18 @@ public class SearchActivity extends BaseActivity {
         clear.setContentDescription("Cancella");
         clear.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { query.setText(""); } });
         field.addView(clear, new LinearLayout.LayoutParams(U.dp(this, 40), U.dp(this, 44)));
-        MicView mic = new MicView(this);
+        MicView mic = new MicView(this, true); // 0.19 (Evolutiva 014): microfono a contorno
         mic.setContentDescription("Comando vocale");
         mic.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { voice(); } });
         field.addView(mic, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
+        // 0.19 (Evolutiva 014): il pulsante telefono sta dov'è in home, a sinistra del campo, sulla stessa riga alta 62
+        field.setMinimumHeight(U.dp(this, 62));
+        LinearLayout bar = U.row(this);
+        bar.addView(Telefono.button(this), Telefono.buttonLp(this));
+        bar.addView(field, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         LinearLayout.LayoutParams flp = U.full();
         flp.topMargin = U.dp(this, 8);
-        root.addView(field, flp);
+        root.addView(bar, flp);
         TextView hint = U.text(this, "Le altre app si aprono scrivendone il nome.", 12, U.MUTED, false);
         hint.setTypeface(android.graphics.Typeface.create(U.SERIF, android.graphics.Typeface.ITALIC)); // 0.13.6: come nella UI
         hint.setGravity(Gravity.CENTER);
@@ -434,8 +439,12 @@ public class SearchActivity extends BaseActivity {
         List<List<View>> groups = new ArrayList<List<View>>(); // dal più importante (vicino al campo)
         List<String> titles = new ArrayList<String>();
 
+        // 0.19 (Evolutiva 014): da 3 cifre, i contatti con quel numero e poi Chiama, Aggiungi ai contatti, WhatsApp
+        final String phone = Cerca.phoneSearch(q);
+        if (phone != null) numberGroups(q, phone, groups, titles);
+
         // Persone e gruppi
-        List<Hit> people = peopleHits(q);
+        List<Hit> people = phone != null ? new ArrayList<Hit>() : peopleHits(q);
         if (!people.isEmpty()) {
             List<View> g = new ArrayList<View>();
             for (int i = 0; i < people.size() && i < 4; i++) g.add(personRow(people.get(i)));
@@ -454,7 +463,7 @@ public class SearchActivity extends BaseActivity {
             }
             groups.add(g); titles.add("App");
             final U.AppInfo a0 = appHits.get(0);
-            if (best == null || Cerca.score(a0.label, q) > (people.isEmpty() ? 0 : Cerca.score(people.get(0).name, q))) {
+            if (best == null || phone == null && Cerca.score(a0.label, q) > (people.isEmpty() ? 0 : Cerca.score(people.get(0).name, q))) {
                 best = new Runnable() { public void run() { openApp(a0.pkg, a0.label); } };
                 bestView = g.get(0); bestName = a0.label;
             }
@@ -521,6 +530,63 @@ public class SearchActivity extends BaseActivity {
         for (int i = groups.size() - 1; i >= 0; i--) {
             results.addView(U.label(this, titles.get(i)), U.full());
             for (View v : groups.get(i)) results.addView(v, U.full());
+        }
+    }
+
+    /** 0.19 (Evolutiva 014): i contatti con quel numero (vicino al campo) e le tre azioni sul numero. Senza permesso contatti, solo le tre azioni. */
+    private void numberGroups(final String q, final String digits, List<List<View>> groups, List<String> titles) {
+        final String typed = q.trim();
+        List<Hit> found = new ArrayList<Hit>();
+        if (Onboarding.hasContacts(this)) {
+            Cursor cur = null;
+            try {
+                cur = getContentResolver().query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                        new String[]{ContactsContract.CommonDataKinds.Phone.CONTACT_ID, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER},
+                        null, null, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC");
+                Set<Long> seen = new java.util.HashSet<Long>();
+                while (cur != null && cur.moveToNext() && found.size() < 4) {
+                    long id = cur.getLong(0);
+                    String name = cur.getString(1), num = cur.getString(2);
+                    if (name == null || seen.contains(id) || !Cerca.numberMatches(num, digits)) continue;
+                    seen.add(id);
+                    Hit h = new Hit();
+                    h.name = name; h.contactId = id; h.sub = num;
+                    found.add(h);
+                }
+            } catch (Exception ignored) {
+            } finally {
+                if (cur != null) cur.close();
+            }
+        }
+        if (!found.isEmpty()) {
+            List<View> g = new ArrayList<View>();
+            for (Hit h : found) g.add(personRow(h));
+            groups.add(g); titles.add("Contatti e gruppi");
+            if (found.size() == 1) { // un solo contatto: è già scelto
+                final Hit h = found.get(0);
+                best = new Runnable() { public void run() { openHit(h); } };
+                bestView = g.get(0); bestName = h.name;
+            }
+        }
+        // dall'alto: WhatsApp, Aggiungi ai contatti, Chiama (l'ultima sta vicino al pollice)
+        List<View> g = new ArrayList<View>();
+        if (Telefono.hasWhatsApp(this))
+            g.add(row("Scrivi su WhatsApp", "Apre la chat con questo numero", "›", "↗", new Runnable() { public void run() { Telefono.whatsapp(SearchActivity.this, typed); } }));
+        g.add(row("Aggiungi ai contatti", "Si apre la rubrica di Android con il numero già scritto", "›", "+", new Runnable() { public void run() { Telefono.newContact(SearchActivity.this, typed); } }));
+        View call = row("Chiama " + typed, "Si apre il tastierino di Android con il numero già scritto", "›", null, new Runnable() { public void run() { Telefono.dial(SearchActivity.this, typed); } });
+        LinearLayout callRow = (LinearLayout) ((ViewGroup) call).getChildAt(0);
+        LinearLayout callIcon = U.row(this);
+        callIcon.setGravity(Gravity.CENTER);
+        callIcon.setBackground(U.box(this, U.BG, U.LINE, 8));
+        callIcon.addView(new Telefono.Icon(this, U.MUTED), new LinearLayout.LayoutParams(U.dp(this, 22), U.dp(this, 22)));
+        LinearLayout.LayoutParams cilp = new LinearLayout.LayoutParams(U.dp(this, 34), U.dp(this, 34));
+        cilp.rightMargin = U.dp(this, 12);
+        callRow.addView(callIcon, 0, cilp);
+        g.add(call);
+        groups.add(g); titles.add("Numero");
+        if (best == null) {
+            best = new Runnable() { public void run() { Telefono.dial(SearchActivity.this, typed); } };
+            bestView = call; bestName = "Chiama " + typed;
         }
     }
 

@@ -197,26 +197,47 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         results = U.col(this);
         root.addView(results, U.full());
 
-        // 0.13: in basso le azioni valide sempre: aggiungere, poi cercare o chiedere
-        TextView add = U.text(this, "+ Aggiungi", 15, U.INK, false);
-        add.setGravity(Gravity.CENTER);
-        add.setPadding(U.dp(this, 18), 0, U.dp(this, 18), 0);
-        add.setBackground(U.box(this, U.BG, U.INK, 22));
-        add.setContentDescription("Aggiungi un impegno o un task");
+        // 0.19 (Evolutiva 014): «Nuovo» è una riga-scheletro larga come i task, al posto del pulsante «+ Aggiungi»
+        LinearLayout add = U.row(this);
+        add.setMinimumHeight(U.dp(this, 48));
+        add.setPadding(U.dp(this, 10), 0, U.dp(this, 10), 0);
+        android.graphics.drawable.GradientDrawable dashed = new android.graphics.drawable.GradientDrawable();
+        dashed.setColor(0);
+        dashed.setCornerRadius(U.dp(this, 8));
+        dashed.setStroke(U.dp(this, 1.5f), U.BORDER, U.dp(this, 5), U.dp(this, 4));
+        add.setBackground(dashed);
+        LinearLayout addBoxWrap = U.row(this);
+        addBoxWrap.setMinimumWidth(U.dp(this, 30));
+        TextView addBox = U.text(this, "+", 14, U.MUTED, false);
+        addBox.setGravity(Gravity.CENTER);
+        addBox.setIncludeFontPadding(false);
+        android.graphics.drawable.GradientDrawable addBoxBg = new android.graphics.drawable.GradientDrawable();
+        addBoxBg.setColor(0);
+        addBoxBg.setCornerRadius(U.dp(this, 4));
+        addBoxBg.setStroke(U.dp(this, 1.5f), U.MUTED, U.dp(this, 3), U.dp(this, 2));
+        addBox.setBackground(addBoxBg);
+        addBoxWrap.addView(addBox, new LinearLayout.LayoutParams(U.dp(this, 18), U.dp(this, 18)));
+        add.addView(addBoxWrap);
+        add.addView(U.text(this, "Nuovo", 16, U.INK, false));
+        add.setContentDescription("Nuovo task o impegno");
+        add.setClickable(true);
         add.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 Intent i = new Intent(MainActivity.this, AddActivity.class);
-                i.putExtra("day", U.startOfDay(Quando.addDayOffset(U.hourNow())));
+                i.putExtra("day", U.startOfDay(Quando.addDayOffset(U.hourNow()))); // dalle 18 propone domani
                 startActivity(i);
             }
         });
-        LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, U.dp(this, 44));
+        LinearLayout.LayoutParams alp = U.full();
         alp.topMargin = U.dp(this, 8);
+        alp.leftMargin = -U.dp(this, 10); // la casella «+» sta in colonna con le caselle dei task
+        alp.rightMargin = -U.dp(this, 10);
         root.addView(add, alp);
 
         // Barra in basso
         LinearLayout bar = U.row(this);
         bar.setPadding(0, U.dp(this, 12), 0, 0);
+        bar.addView(Telefono.button(this), Telefono.buttonLp(this)); // 0.19 (Evolutiva 014): il telefono a sinistra della ricerca
         LinearLayout field = U.row(this);
         field.setBackground(U.box(this, U.BG, U.INK, 28));
         field.setPadding(U.dp(this, 22), U.dp(this, 6), U.dp(this, 6), U.dp(this, 6));
@@ -241,7 +262,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
             public void onClick(View v) { startActivity(new Intent(MainActivity.this, SearchActivity.class)); }
         });
         field.addView(query, new LinearLayout.LayoutParams(0, U.dp(this, 48), 1f));
-        MicView mic = new MicView(this);
+        MicView mic = new MicView(this, true); // 0.19: microfono a contorno
         mic.setContentDescription("Comando vocale");
         // 0.15: il microfono avvia subito i comandi vocali, senza passare dalla ricerca
         mic.setOnClickListener(new View.OnClickListener() {
@@ -321,7 +342,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         if (swipe == null) swipe = new Swipe(this, upOk, new Swipe.Act() {
             public void up() { startActivity(new Intent(MainActivity.this, SearchActivity.class)); } // E013: tastiera chiusa
             public void left() { startActivity(new Intent(MainActivity.this, WeekActivity.class)); overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out); }
-            public void right() {}
+            public void right() { Telefono.dial(MainActivity.this, null); } // 0.19 (Evolutiva 014): da sinistra a destra, il tastierino
         });
         // su apre la ricerca solo quando la home è già in fondo (altrimenti si scorre la giornata)
         if (e.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) upOk[0] = homeScroll == null || !homeScroll.canScrollVertically(1);
@@ -683,7 +704,14 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         String al = Quando.homeAlarm(hour, System.currentTimeMillis(), U.nextAlarmTime(this), d, U.startOfDay(2));
         List<U.Event> all = U.events(this, d, U.startOfDay(2)), ev = new java.util.ArrayList<U.Event>();
         for (U.Event e : all) if (!e.allDay) ev.add(e);
-        tomorrow.addView(dayRow(this, "Domani · " + U.dayLabel(d), al, U.MUTED, U.INK, U.allDayChips(this, all)), U.full());
+        // 0.19 (Evolutiva 014): la sveglia occupa già la riga del giorno: il «tutto il giorno» va sotto, a tutta larghezza
+        tomorrow.addView(dayRow(this, "Domani · " + U.dayLabel(d), al, U.MUTED, U.INK), U.full());
+        View chipsBelow = U.allDayChips(this, all);
+        if (chipsBelow != null) {
+            LinearLayout.LayoutParams clp = U.full();
+            clp.topMargin = U.dp(this, 4);
+            tomorrow.addView(chipsBelow, clp);
+        }
         for (U.Event e : ev) tomorrow.addView(eventRow(e, false, false, 15));
         // 0.17: gli urgenti di domani stanno già in cima (TASK); in modalità sera la cima non c'è e restano qui
         List<Tasks.Task> tasks = new java.util.ArrayList<Tasks.Task>();

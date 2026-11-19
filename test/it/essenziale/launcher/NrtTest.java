@@ -70,6 +70,7 @@ public class NrtTest {
         stessaPersona();
         urgenti();
         serale();
+        telefono();
         System.out.println("\nTotale: " + pass + " superati, " + fail + " falliti");
         FileWriter w = new FileWriter(a.length > 0 ? a[0] : "nrt-report.md");
         w.write("# Essenziale 0.6 · NRT automatico\n\nSuperati: " + pass + " · Falliti: " + fail + "\n");
@@ -357,8 +358,8 @@ public class NrtTest {
         eq("Blocco dalle 19 senza sveglia: lo dice (anche il venerdì)", Quando.lockAlarm(21, at(2026, 10, 23, 21, 34), -1, d1, d2), "Nessuna sveglia per domani");
         eq("Blocco, sveglia di oggi tra 1 ora e mezza: compare", Quando.lockAlarm(5, at(2026, 10, 23, 5, 15), at(2026, 10, 23, 6, 45), d1, d2), "Sveglia oggi 6:45");
         eq("Blocco, sveglia di oggi tra 3 ore: non ancora", Quando.lockAlarm(3, at(2026, 10, 23, 3, 45), at(2026, 10, 23, 6, 45), d1, d2), null);
-        eq("+ Aggiungi di giorno: oggi", Quando.addDayOffset(18), 0);
-        eq("+ Aggiungi dalle 19: domani", Quando.addDayOffset(19), 1);
+        eq("+ Aggiungi di giorno: oggi", Quando.addDayOffset(17), 0);
+        eq("+ Aggiungi dalle 18: domani", Quando.addDayOffset(18), 1);
         check("Giorni di prova coerenti", d0 < d1 && d1 < d2, null);
     }
 
@@ -873,6 +874,33 @@ public class NrtTest {
         check("Scritto: «! pagare la mensa» è un task urgente", VoiceParser.TASK_ADD.equals(c.type) && c.urgent && "pagare la mensa".equalsIgnoreCase(c.text), c.toString());
         c = VoiceParser.parse("task comprare il latte", new java.util.ArrayList<String>(), now);
         check("Un task normale non è urgente", VoiceParser.TASK_ADD.equals(c.type) && !c.urgent, c.toString());
+    }
+
+    static void telefono() {
+        sec("E014 · Il telefono in home e i numeri nella ricerca");
+        check("«333» è una ricerca da numero", Cerca.isPhoneQuery("333"), null);
+        check("Cifre, spazi, +, -, (), / sono caratteri da numero", Cerca.isPhoneQuery("+39 (333) 123-45/6"), null);
+        check("Una lettera non è un numero", !Cerca.isPhoneQuery("333a"), null);
+        check("Un nome non è un numero", !Cerca.isPhoneQuery("mamma"), null);
+        check("Solo simboli senza cifre non è un numero", !Cerca.isPhoneQuery("+ -"), null);
+        check("Vuoto o null non è un numero", !Cerca.isPhoneQuery("") && !Cerca.isPhoneQuery(null), null);
+        eq("Le cifre di «+39 333-123»", Cerca.phoneDigits("+39 333-123"), "39333123");
+        eq("Niente cifre per un testo", Cerca.phoneDigits("calcio 5"), null);
+        eq("Con 1 cifra la ricerca è normale", Cerca.phoneSearch("3"), null);
+        eq("Con 2 cifre la ricerca è normale", Cerca.phoneSearch("3 3"), null);
+        eq("Da 3 cifre parte la ricerca da numero", Cerca.phoneSearch("333"), "333");
+        eq("Le cifre contano anche con spazi", Cerca.phoneSearch("3 3 3"), "333");
+        eq("Tre simboli e due cifre: ancora normale", Cerca.phoneSearch("(33)"), null);
+        check("Il contatto 333 987 1122 corrisponde a 333", Cerca.numberMatches("333 987 1122", "333"), null);
+        check("+39 333 987 1122 corrisponde a 3339871", Cerca.numberMatches("+39 333 987 1122", "3339871"), null);
+        check("Il contatto 347 111 2233 non corrisponde a 333", !Cerca.numberMatches("347 111 2233", "333"), null);
+        check("Numero null: nessuna corrispondenza", !Cerca.numberMatches(null, "333"), null);
+        eq("WhatsApp con +: solo le cifre", Cerca.waDigits("+39 333 123 4567"), "393331234567");
+        eq("WhatsApp con 00: si toglie il prefisso", Cerca.waDigits("0039 333 123 4567"), "393331234567");
+        eq("WhatsApp senza prefisso: le cifre come scritte", Cerca.waDigits("333 123 4567"), "3331234567");
+        eq("«Nuovo» alle 17:59 propone oggi", Quando.addDayOffset(17), 0);
+        eq("«Nuovo» dalle 18 propone domani", Quando.addDayOffset(18), 1);
+        eq("«Nuovo» di sera propone domani", Quando.addDayOffset(22), 1);
     }
 
     static void serale() {

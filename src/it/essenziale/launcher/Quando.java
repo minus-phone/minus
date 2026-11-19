@@ -40,9 +40,11 @@ public final class Quando {
         return null;
     }
 
-    /** «+ Aggiungi» dalla home: oggi, dopo le 19 propone domani. */
+    /** 0.19: dalle 18 «Nuovo» in home e «Aggiungi …» nella ricerca propongono domani (una soglia sola). */
+    static final int ADD_TOMORROW_FROM = 18;
+
     public static int addDayOffset(int hour) {
-        return hour >= ALARM_FROM ? 1 : 0;
+        return hour >= ADD_TOMORROW_FROM ? 1 : 0;
     }
 
     static String hm(long t) {

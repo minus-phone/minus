@@ -41,6 +41,46 @@ public final class Cerca {
         return d.length() > 9 ? d.substring(d.length() - 9) : d;
     }
 
+    // ---------- 0.19 (Evolutiva 014): numeri di telefono nella ricerca ----------
+
+    /** Vero se la ricerca è fatta solo di caratteri da numero (cifre, spazi, + - ( ) /) e ha almeno una cifra. */
+    public static boolean isPhoneQuery(String q) {
+        if (q == null) return false;
+        boolean digit = false;
+        for (int i = 0; i < q.length(); i++) {
+            char c = q.charAt(i);
+            if (c >= '0' && c <= '9') digit = true;
+            else if (" +-()/".indexOf(c) < 0 && !Character.isWhitespace(c)) return false;
+        }
+        return digit;
+    }
+
+    /** Solo le cifre di una ricerca da numero («+39 333-123» = 39333123); null se non è una ricerca da numero. */
+    public static String phoneDigits(String q) {
+        return isPhoneQuery(q) ? q.replaceAll("[^0-9]", "") : null;
+    }
+
+    /** Da 3 cifre la ricerca da numero parte; con 1 o 2 cifre è una ricerca normale. Null se non parte. */
+    public static String phoneSearch(String q) {
+        String d = phoneDigits(q);
+        return d != null && d.length() >= 3 ? d : null;
+    }
+
+    /** Il numero di un contatto contiene le cifre cercate (si confrontano solo le cifre). */
+    public static boolean numberMatches(String number, String digits) {
+        if (number == null || digits == null || digits.length() == 0) return false;
+        return number.replaceAll("[^0-9]", "").contains(digits);
+    }
+
+    /** Le cifre per wa.me: con + o 00 davanti si toglie il prefisso internazionale (solo cifre); altrimenti le cifre come scritte. */
+    public static String waDigits(String q) {
+        if (q == null) return "";
+        String t = q.trim();
+        String d = t.replaceAll("[^0-9]", "");
+        if (t.startsWith("00") && d.startsWith("00")) d = d.substring(2);
+        return d;
+    }
+
     /** Pagine di Impostazioni cercabili: titolo | parole chiave | destinazione. */
     public static final String[][] SETTINGS = {
             {"Meno notifiche", "notifiche filtro per te altro avvisi chi conta silenzio", "area:2"},
