@@ -975,5 +975,54 @@ public class NrtTest {
         eq("Colore: a metà tra nero e bianco", MotionLogic.mix(0xFF000000, 0xFFFFFFFF, 0.5f), 0xFF808080);
         eq("Colore: il «!» rosso alla fine non c'è più (trasparente)", MotionLogic.mix(0xFFB3261E, 0x00B3261E, 1f), 0x00B3261E);
         eq("Colore: t=0 è il colore di partenza", MotionLogic.mix(0xFF171716, 0xFFF3F1EB, 0f), 0xFF171716);
+        // ---- Evolutiva 016, fase 2 ----
+        eq("Togliere: comprime in BASE", MotionLogic.LEAVE_COMPRIME, 240);
+        eq("Togliere: la linea si ritira in RAPIDO", MotionLogic.LEAVE_RITIRA, 120);
+        eq("Togliere: totale BASE + RAPIDO", MotionLogic.leaveTotal(false), 360);
+        eq("Togliere, ridotto: 80 ms", MotionLogic.leaveTotal(true), 80);
+        eq("Marca: totale 660 ms (480 + 120 + 120 - 60)", MotionLogic.marcaTotale(false), 660);
+        check("Marca: mai oltre i 700 ms di blocco", MotionLogic.marcaTotale(false) <= MotionLogic.MARCA_MAX_BLOCCO, null);
+        eq("Marca, ridotto: due dissolvenze da 80 ms", MotionLogic.marcaTotale(true), 160);
+        eq("Marca: il meno non c'è a 0 ms", MotionLogic.marcaDisegno(0), 0f);
+        eq("Marca: il meno è a metà a 240 ms", MotionLogic.marcaDisegno(240), 0.5f);
+        eq("Marca: il meno è completo a 480 ms", MotionLogic.marcaDisegno(480), 1f);
+        eq("Marca: oltre il disegno resta completo", MotionLogic.marcaDisegno(900), 1f);
+        eq("Marca: i tratti non ci sono mentre si disegna", MotionLogic.marcaTratti(300), 0f);
+        eq("Marca: i tratti sono a metà a 540 ms", MotionLogic.marcaTratti(540), 0.5f);
+        eq("Marca: i tratti sono pieni a 600 ms", MotionLogic.marcaTratti(600), 1f);
+        eq("Marca: il logo è pieno prima che la home arrivi", MotionLogic.marcaLogo(500), 1f);
+        eq("Marca: il logo svanisce a metà della home (600 ms)", MotionLogic.marcaLogo(600), 0.5f);
+        eq("Marca: a 660 ms il logo non c'è più", MotionLogic.marcaLogo(660), 0f);
+        // primo sblocco del mattino: sveglia alle 7:00 (t = 7 h), ora in ore
+        long H = 3600000L;
+        check("Mattino: sbloccato alle 7:30, visto l'ultima volta alle 23:30 di ieri", MotionLogic.morningFirst(-30 * 60000L, 7 * H, 7 * H + 30 * 60000L), null);
+        check("Mattino: alle 3:00 (prima della sveglia) non vale", !MotionLogic.morningFirst(-30 * 60000L, 7 * H, 3 * H), null);
+        check("Mattino: già visto alle 7:10 non è più il primo", !MotionLogic.morningFirst(7 * H + 10 * 60000L, 7 * H, 8 * H), null);
+        check("Mattino: visto alle 6:00, poi alle 7:30 è il primo dopo la sveglia", MotionLogic.morningFirst(6 * H, 7 * H, 7 * H + 30 * 60000L), null);
+        check("Mattino: mai visto prima (0) conta come primo", MotionLogic.morningFirst(0, 7 * H, 7 * H), null);
+        long day = 20000L * 86400000L;
+        check("Marca: avvio a freddo, oggi non ancora vista", MotionLogic.brandMoment(true, false, day, day - 86400000L), null);
+        check("Marca: primo sblocco del mattino, oggi non ancora vista", MotionLogic.brandMoment(false, true, day, day - 86400000L), null);
+        check("Marca: né freddo né mattino, niente", !MotionLogic.brandMoment(false, false, day, day - 86400000L), null);
+        check("Marca: una volta sola al giorno (avvio a freddo dopo)", !MotionLogic.brandMoment(true, false, day, day), null);
+        check("Marca: una volta sola al giorno (mattino dopo)", !MotionLogic.brandMoment(false, true, day, day), null);
+        check("Marca: mai vista (0), l'avvio a freddo la mostra", MotionLogic.brandMoment(true, true, day, 0), null);
+        check("Sera: comincia mentre guardi la home, con animazioni", MotionLogic.seraAnimates(false, true, true, false), null);
+        check("Sera: la home si apre già di sera, niente", !MotionLogic.seraAnimates(true, true, true, false), null);
+        check("Sera: la home non si vede, niente", !MotionLogic.seraAnimates(false, true, false, false), null);
+        check("Sera: finisce (torna giorno), niente dissolvenza lenta", !MotionLogic.seraAnimates(true, false, true, false), null);
+        check("Sera: animazioni ridotte, subito", !MotionLogic.seraAnimates(false, true, true, true), null);
+        eq("Sera: 3 secondi", MotionLogic.SERA_MS, 3000);
+        eq("Sera: la luna sale di 6 dp", MotionLogic.SERA_LUNA_DP, 6);
+        eq("Settimana scorsa: prova finita e dato presente, si tiene", MotionLogic.prevWeek(true, true, 14), 14);
+        eq("Settimana scorsa: zero è un dato", MotionLogic.prevWeek(true, true, 0), 0);
+        eq("Settimana scorsa: nessuna prova prima, niente", MotionLogic.prevWeek(false, true, 14), -1);
+        eq("Settimana scorsa: rapporto non ancora visto, niente", MotionLogic.prevWeek(true, false, 14), -1);
+        eq("Settimana scorsa: contatore assente (-1), niente", MotionLogic.prevWeek(true, true, -1), -1);
+        // il ciclo di due rapporti: il primo non ha la settimana scorsa; il secondo conta alla rovescia se è sceso
+        int prev1 = -1, week1 = 14, week2 = 9;
+        check("Due rapporti: il primo non conta (nessuna settimana scorsa)", !MotionLogic.countDown(prev1, week1), null);
+        int prev2 = MotionLogic.prevWeek(true, true, week1);
+        check("Due rapporti: il secondo conta alla rovescia da 14 a 9", MotionLogic.countDown(prev2, week2), null);
     }
 }

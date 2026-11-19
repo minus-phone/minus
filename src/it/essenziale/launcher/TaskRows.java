@@ -15,9 +15,9 @@ import android.widget.TextView;
 /**
  * Evolutiva 016, momenti 1 e 2 · la spunta di un task in home. La casella si riempie in senso orario (RAPIDO), poi la
  * spunta con la molla e la vibrazione «conferma» (BASE); la riga resta spuntata un secondo (un secondo tocco la riapre,
- * senza vibrazione), poi sbiadisce e si chiude (BASE) e le altre salgono. Se è l'ultimo urgente, il «!» rosso si scioglie
+ * senza vibrazione), poi la riga si comprime in una linea d'inchiostro che si ritira a sinistra (momento 11, Motion.leave, BASE + RAPIDO) e le altre salgono. Se è l'ultimo urgente, il «!» rosso si scioglie
  * dentro il riempimento: dopo non resta rosso. TalkBack: «<titolo>, fatto». Il dato si salva subito: se esci a metà, il
- * task è fatto. Senza animazioni: tutto diretto, la riga si chiude con una dissolvenza di 80 ms.
+ * task è fatto. Senza animazioni: tutto diretto, la riga se ne va con una dissolvenza di 80 ms.
  */
 final class TaskRows {
     private TaskRows() {}
@@ -96,8 +96,7 @@ final class TaskRows {
                         s.row.setClickable(false);
                         s.row.setTag(U.R.id_task, s);
                         h.gone(s.id);
-                        if (s.row instanceof ViewGroup) ((ViewGroup) s.row).setClipChildren(true); // la riga si chiude: niente testo fuori
-                        Motion.collapse(s.row, false, new Runnable() { public void run() { h.busy(-1); } });
+                                                Motion.leave(s.row, new Runnable() { public void run() { h.busy(-1); } });
                     }
                 };
                 s.row.postDelayed(s.collapse, MotionLogic.SPUNTA_RESTA);

@@ -10,13 +10,6 @@ import android.widget.TextView;
 
 /** Fine della prova di «Di notte» (0.10, wireframe 154): solo numeri, senza voti. Poi decidi tu. */
 public class NightReportActivity extends BaseActivity {
-    /**
-     * Le «volte» della settimana scorsa, per far scendere il numero (E016, momento 6). Oggi nessuno le salva: finché
-     * non c'è, il numero compare fermo. TODO (E016, fase 2): salvarle in Night.startTrial (il valore di K_UNLOCKS alla
-     * chiusura della prova precedente) e il conto parte da solo.
-     */
-    static final String K_UNLOCKS_PREV = "night_unlocks_prev";
-
     private static String unlocksLine(int n) { return "Di notte hai preso il telefono " + n + (n == 1 ? " volta" : " volte"); }
 
     @Override
@@ -36,7 +29,7 @@ public class NightReportActivity extends BaseActivity {
         // se sono meno della settimana scorsa, il primo numero scende davanti a te (600 ms, rallentando)
         boolean red = Motion.reduced(this);
         for (int i = 0; i < c.getChildCount(); i++) Motion.enter(c.getChildAt(i), MotionLogic.rowDelay(red, i), Motion.BASE, 8);
-        final int prev = p.getInt(K_UNLOCKS_PREV, -1);
+        final int prev = p.getInt(Night.K_UNLOCKS_PREV, -1);
         if (!red && MotionLogic.countDown(prev, unlocks)) countDown(l1, prev, unlocks);
         LinearLayout.LayoutParams clp = U.full();
         clp.topMargin = U.dp(this, 10);
@@ -88,6 +81,7 @@ public class NightReportActivity extends BaseActivity {
     }
 
     private void close(boolean keep) {
+        Night.closeWeek(this); // la settimana scorsa per il prossimo rapporto
         U.prefs(this).edit().putBoolean(Night.K_REPORT_SEEN, true).putLong(Night.K_TRIAL, 0).putBoolean(Night.K_ON, keep).commit();
     }
 

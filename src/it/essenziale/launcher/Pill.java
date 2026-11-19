@@ -236,8 +236,8 @@ final class Pill {
     private static void hideOwn() { hideOwn(true); }
 
     /**
-     * 0.20 (Evolutiva 016): uscendo dall'app frenata la pillola si stringe in un punto e svanisce in BASE (il testo
-     * prima, in RAPIDO); con «Rimuovi animazioni», una dissolvenza di 80 ms. Il tempo oltre la soglia non cambia colore né vibra.
+     * 0.20 (Evolutiva 016): uscendo dall'app frenata la pillola si schiaccia in una linea d'inchiostro che si ritira a sinistra
+     * (Motion.leave, BASE + RAPIDO); con «Rimuovi animazioni», una dissolvenza di 80 ms. Il tempo oltre la soglia non cambia colore né vibra.
      */
     private static void hideOwn(boolean animate) {
         if (view == null) return;
@@ -252,13 +252,7 @@ final class Pill {
             }
         };
         if (!animate || !v.isAttachedToWindow()) { remove.run(); return; }
-        if (Motion.reduced(c)) {
-            v.animate().alpha(0f).setDuration(MotionLogic.RIDOTTO).withEndAction(remove).start();
-            return;
-        }
-        if (r != null && r.getVisibility() == View.VISIBLE) r.animate().alpha(0f).setDuration(Motion.RAPIDO).setInterpolator(Motion.DECELERA).start();
-        v.setPivotX(v.getWidth() / 2f);
-        v.setPivotY(v.getHeight() / 2f);
-        v.animate().scaleX(0.3f).scaleY(0.3f).alpha(0f).setDuration(Motion.BASE).setInterpolator(Motion.DECELERA).withEndAction(remove).start();
+        // momento 11: la pillola è una finestra sopra le altre app, quindi solo la linea (nient'altro scorre)
+        Motion.leave(v, remove);
     }
 }

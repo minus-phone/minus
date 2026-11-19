@@ -84,6 +84,7 @@ public class OnboardingActivity extends BaseActivity {
         root.setBackgroundColor(U.BG);
         root.setPadding(U.dp(this, 20), U.dp(this, 16), U.dp(this, 20), U.dp(this, 12));
         ScrollView sv = new ScrollView(this);
+        scroll = sv;
         body = U.col(this);
         sv.addView(body);
         root.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
@@ -190,7 +191,7 @@ public class OnboardingActivity extends BaseActivity {
                 // tornata senza permesso e con l'app da APK: l'interruttore era grigio, la guida prima di andare avanti
                 restrictedShown = true;
                 restricted = true;
-                render();
+                showStep();
                 return;
             }
             if (ok || asked.contains(p.key)) continue;
@@ -246,20 +247,42 @@ public class OnboardingActivity extends BaseActivity {
 
     private int step() { return path[idx]; }
 
+    private ScrollView scroll;
+    private TextView stepTitle; // il titolo del passo mostrato: lì va il focus di TalkBack quando il passo cambia
+
+    /**
+     * 0.20 (Evolutiva 016): un passo nuovo (Avanti, Indietro, Salta) parte sempre dall'alto, senza animazione, e il
+     * focus di TalkBack va al titolo del passo. Gli aggiornamenti dello stesso passo (render) non spostano niente.
+     */
+    private void showStep() {
+        if (scroll != null) scroll.scrollTo(0, 0);
+        render();
+        if (scroll != null) scroll.scrollTo(0, 0); // render rifà il contenuto: ancora in cima
+        final View f = stepTitle != null ? stepTitle : body;
+        f.post(new Runnable() {
+            public void run() {
+                if (scroll != null) scroll.scrollTo(0, 0);
+                f.sendAccessibilityEvent(android.view.accessibility.AccessibilityEvent.TYPE_VIEW_FOCUSED);
+                android.view.accessibility.AccessibilityManager am = (android.view.accessibility.AccessibilityManager) getSystemService(ACCESSIBILITY_SERVICE);
+                if (am != null && am.isEnabled()) f.performAccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null);
+            }
+        });
+    }
+
     private void next() {
         who = false;
         if (onlyStep) { finish(); return; }
-        if (idx < path.length - 1) { idx++; prepare(); render(); }
+        if (idx < path.length - 1) { idx++; prepare(); showStep(); }
         else finish();
     }
 
     private void back() {
-        if (restricted) { restricted = false; if (chain != null) { runChain(); return; } render(); return; }
-        if (who) { who = false; render(); return; }
-        if (idx == 0 && hadSplash && !splash) { splash = true; render(); return; } // da 180 si torna allo splash
+        if (restricted) { restricted = false; if (chain != null) { runChain(); return; } showStep(); return; }
+        if (who) { who = false; showStep(); return; }
+        if (idx == 0 && hadSplash && !splash) { splash = true; showStep(); return; } // da 180 si torna allo splash
         if (idx == 0) { finish(); return; }
         idx--;
-        render();
+        showStep();
     }
 
     // ---------- Percorso ----------
@@ -314,6 +337,7 @@ public class OnboardingActivity extends BaseActivity {
     // ---------------------------------------------------------------------
 
     private void render() {
+        stepTitle = null;
         body.removeAllViews();
         foot.removeAllViews();
         int s = step();
@@ -384,6 +408,7 @@ public class OnboardingActivity extends BaseActivity {
     private void title(String s) {
         TextView t = U.title(this, s, 28, U.INK);
         t.setPadding(0, U.dp(this, 4), 0, U.dp(this, 8));
+        if (stepTitle == null) stepTitle = t;
         body.addView(t);
     }
 
@@ -579,7 +604,7 @@ public class OnboardingActivity extends BaseActivity {
         free.setGravity(Gravity.CENTER);
         free.setPadding(0, 0, 0, U.dp(this, 10));
         foot.addView(free, U.full());
-        primary("Inizia", new Runnable() { public void run() { splash = false; render(); } }, null, null);
+        primary("Inizia", new Runnable() { public void run() { splash = false; showStep(); } }, null, null);
     }
 
     private void start() {
@@ -776,7 +801,7 @@ public class OnboardingActivity extends BaseActivity {
         if (maybeRestricted() && !U.listenerEnabled(this)) {
             View gap = new View(this);
             body.addView(gap, new LinearLayout.LayoutParams(1, U.dp(this, 10)));
-            link("L'interruttore di Android è grigio e non si attiva?", new Runnable() { public void run() { restricted = true; render(); } });
+            link("L'interruttore di Android è grigio e non si attiva?", new Runnable() { public void run() { restricted = true; showStep(); } });
         }
         note("Poi due permessi di Android: accesso alle notifiche e a Non disturbare. Si torna qui da soli.");
         primary("Avanti", new Runnable() {
@@ -832,7 +857,7 @@ public class OnboardingActivity extends BaseActivity {
             askedContacts = true;
             requestPermissions(new String[]{android.Manifest.permission.WRITE_CONTACTS}, REQ_CONTACTS);
         }
-        render();
+        showStep();
     }
 
     // ---------- 185 · Chi conta (185n senza rubrica) ----------

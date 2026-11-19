@@ -57,7 +57,7 @@ public class SearchActivity extends BaseActivity {
     private View bestView; // 0.18 (Evolutiva 013)
     private String bestName;
     // 0.20 (Evolutiva 016), momento 7: i risultati si riordinano senza sfarfallio
-    private boolean insetRows;          // in «mentre scrivi» ogni riga riserva sempre 10 dp ai lati (il testo non si sposta mai)
+    private boolean insetRows;          // ogni riga riserva sempre 10 dp ai lati, anche a campo vuoto (il testo non si sposta mai)
     private boolean rendered;           // la prima volta niente movimento
     private String lastBestName;
     private int hitCount;
@@ -225,7 +225,7 @@ public class SearchActivity extends BaseActivity {
         // ✕ del campo: compare e sparisce in dissolvenza (RAPIDO), senza scala
         if (q.length() > 0 && !clearWas) { clear.setVisibility(View.VISIBLE); if (animate) Motion.enter(clear, 0, Motion.RAPIDO, 0); }
         else if (q.length() == 0 && clearWas) clear.setVisibility(View.GONE);
-        insetRows = q.length() > 0;
+        insetRows = true; // 0.20: i 10 dp ai lati ci sono anche a campo vuoto, così il testo non si sposta tra vuoto e scrittura
         hitCount = 0;
         if (q.length() == 0) empty(); else found(q);
         rendered = true;
@@ -330,7 +330,7 @@ public class SearchActivity extends BaseActivity {
                 if (who) ch.setContentDescription("Persona o gruppo: " + r[2]);
                 chips.addView(ch, chipLp());
             }
-            if (chips.getChildCount() > 0) { blocks.add(sectionLabel("Cercate di recente")); blocks.add(scrollOf(chips)); }
+            if (chips.getChildCount() > 0) { blocks.add(sectionLabel("Cercate di recente")); chips.setPadding(side(), 0, 0, 0); blocks.add(scrollOf(chips)); }
         }
         List<String[]> pt = portata(this);
         if (!pt.isEmpty()) {
@@ -348,6 +348,7 @@ public class SearchActivity extends BaseActivity {
                     final boolean pz = paused.contains(a[0]);
                     line.addView(gridCell(a[1] + (pz ? " · pausa" : ""), new Runnable() { public void run() { tapped = true; openApp(a[0], a[1]); } }), lp);
                 }
+                line.setPadding(side(), 0, side(), 0);
                 blocks.add(line);
             }
         }
@@ -374,6 +375,7 @@ public class SearchActivity extends BaseActivity {
         }
         blocks.add(sectionLabel("Contatti e gruppi")); // 0.18 (Evolutiva 009)
         LinearLayout av = hrow();
+        av.setPadding(side(), 0, 0, 0);
         av.setGravity(Gravity.TOP);
         for (final String[] f : byLastTouch(fixed)) av.addView(personChip(f));
         // senza nessuno che passa sempre, invita a sceglierlo
@@ -391,13 +393,21 @@ public class SearchActivity extends BaseActivity {
         all.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { startActivity(SettingsActivity.peopleIntent(SearchActivity.this, "Ricerca")); }
         });
-        blocks.add(all);
+        blocks.add(inset(all));
         if (blocks.isEmpty()) {
             TextView t = U.text(this, "Scrivi il nome di una persona, di un'app o di un impegno. Puoi anche chiedere o dire un comando.", 12, U.MUTED, false);
-            t.setPadding(0, 0, 0, U.dp(this, 8));
+            t.setPadding(side(), 0, side(), U.dp(this, 8));
             blocks.add(t);
         }
         for (View v : blocks) results.addView(v, U.full());
+    }
+
+    private int side() { return U.dp(this, 10); }
+
+    /** Il testo a campo vuoto parte dallo stesso punto di quando scrivi: 10 dp dal bordo (le righe lo riservano già). */
+    private <T extends View> T inset(T v) {
+        v.setPadding(side(), v.getPaddingTop(), v.getPaddingRight() + side(), v.getPaddingBottom());
+        return v;
     }
 
     /** 0.15: chi passa sempre, con prima le conversazioni in corso e poi chi hai sentito più di recente. */
@@ -508,7 +518,7 @@ public class SearchActivity extends BaseActivity {
     private TextView sectionLabel(String s) {
         TextView t = U.label(this, s);
         t.setLetterSpacing(0.12f);
-        t.setPadding(0, U.dp(this, 22), 0, U.dp(this, 6));
+        t.setPadding(side(), U.dp(this, 22), side(), U.dp(this, 6)); // 10 dp ai lati, come i titoli di gruppo mentre scrivi
         return t;
     }
 

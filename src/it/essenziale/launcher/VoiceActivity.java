@@ -58,7 +58,7 @@ public class VoiceActivity extends BaseActivity {
 
         LinearLayout again = U.row(this);
         again.setGravity(Gravity.CENTER);
-        MicView mic = new MicView(this);
+        mic = new MicView(this);
         mic.setContentDescription("Ripeti il comando");
         mic.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { listen(); } });
         again.addView(mic, new LinearLayout.LayoutParams(U.dp(this, 52), U.dp(this, 52)));
@@ -85,16 +85,19 @@ public class VoiceActivity extends BaseActivity {
         return null;
     }
 
+    private MicView mic; // 0.20 (momento 12): respira solo mentre ascolta
+
     private void listen() {
         Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "it-IT");
         i.putExtra(RecognizerIntent.EXTRA_PROMPT, "Di' un comando");
-        try { startActivityForResult(i, REQ_VOICE); } catch (Exception e) { U.toast(this, "Riconoscimento vocale non disponibile"); }
+        try { startActivityForResult(i, REQ_VOICE); mic.setListening(true); } catch (Exception e) { U.toast(this, "Riconoscimento vocale non disponibile"); }
     }
 
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
+        if (req == REQ_VOICE && mic != null) mic.setListening(false); // ha finito di ascoltare
         if (req == REQ_VOICE && res == RESULT_OK && data != null) {
             ArrayList<String> r = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
             if (r != null && !r.isEmpty()) handle(r.get(0));

@@ -30,7 +30,14 @@ public class MainActivity extends BaseActivity implements Store.Listener {
 
     private LinearLayout root, today, tomorrow;
     private LinearLayout dateChips;
-    private TextView todayAlarm, dateView, notifBtn, notifCount, sessionView, filterOff;
+    private TextView todayAlarm, dateView, notifBtn, sessionView, filterOff;
+    private View notifBadge;     // 0.20 (Evolutiva 016, momento 12): il pallino con il numero; il numero scorre quando cambia
+    private RollText notifCount;
+    private android.widget.ImageView moon; // 0.20 (momento 13): la luna accanto alla data, solo in modalità sera
+    private BrandView brand;    // 0.20 (momento 10): «Il meno che si disegna», mentre si disegna
+    private static boolean coldStart = true; // vero finché la home non è comparsa una volta in questo processo
+    private static android.graphics.Bitmap seraFrom; // la home chiara com'era, per la dissolvenza verso la sera
+    static final String K_HOME_SEEN = "home_seen_at", K_BRAND_DAY = "brand_day";
     private android.widget.FrameLayout sessionWrap;
     private View notifBox, tomorrowLine, setupLine;
     private LinearLayout askBox;
@@ -108,10 +115,18 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         notifBtn = U.text(this, "Notifiche", 15, U.INK, false); // 0.13.1: senza ›, per stare accanto a «Oggi / Settimana»
         notifBtn.setGravity(Gravity.END);
         nb.addView(notifBtn);
-        notifCount = U.badge(this, U.INK, U.BADGE);
+        // 0.20 (momento 12): come U.badge, ma il numero scorre in su quando cambia (RollText)
+        android.widget.FrameLayout badge = new android.widget.FrameLayout(this);
+        badge.setMinimumWidth(U.dp(this, 22));
+        badge.setPadding(U.dp(this, 6), 0, U.dp(this, 6), 0);
+        badge.setBackground(U.box(this, U.BADGE, 0, 11));
+        notifCount = new RollText(this, 12, U.INK);
+        notifCount.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO); // il numero lo dice la riga intera
+        badge.addView(notifCount, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.CENTER));
+        notifBadge = badge;
         LinearLayout.LayoutParams nclp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, U.dp(this, 22));
         nclp.leftMargin = U.dp(this, 8);
-        nb.addView(notifCount, nclp);
+        nb.addView(badge, nclp);
         nb.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { startActivity(new Intent(MainActivity.this, InboxActivity.class)); }
         });
@@ -130,6 +145,16 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         LinearLayout dateRow = U.row(this);
         dateView = U.text(this, "", 15, U.MUTED, false);
         dateRow.addView(dateView);
+        if (evening) { // 0.20 (momento 13): la luna (direzione A) accanto alla data, solo di sera
+            moon = Ic.view(this, "ic_notte", U.MUTED, 20);
+            if (moon != null) {
+                moon.setContentDescription(null);
+                LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(U.dp(this, 20), U.dp(this, 20));
+                mlp.leftMargin = U.dp(this, 8);
+                mlp.gravity = Gravity.CENTER_VERTICAL;
+                dateRow.addView(moon, mlp);
+            }
+        }
         // 0.17 (Evolutiva 007): gli eventi di tutto il giorno accanto alla data
         dateChips = new LinearLayout(this);
         dateChips.setPadding(U.dp(this, 10), 0, 0, 0);
@@ -279,6 +304,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
 
         setContentView(root);
         root.requestFocus();
+        resumeSera();
         observer = U.calendarObserver(new Runnable() { public void run() { buildToday(); buildTomorrow(); } });
         // 0.6: al primo avvio l'onboarding chiede i permessi nel passo che li usa
         // 0.13.5: se la configurazione è già aperta (sei diventata home a metà), torna quella, non una nuova da capo
@@ -306,6 +332,58 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         grid.addView(t, lp);
     }
 
+    /** La home com'è adesso, in una bitmap (per la dissolvenza verso la sera); null se non si può. */
+    private android.graphics.Bitmap snapshot() {
+        try {
+            if (root.getWidth() <= 0 || root.getHeight() <= 0) return null;
+            android.graphics.Bitmap b = android.graphics.Bitmap.createBitmap(root.getWidth(), root.getHeight(), android.graphics.Bitmap.Config.ARGB_8888);
+            root.draw(new android.graphics.Canvas(b));
+            return b;
+        } catch (Throwable e) {
+            return null;
+        }
+    }
+
+    /**
+     * 0.20 (Evolutiva 016, momento 13 · «La sera»): ridisegnata con la tavolozza della sera, la home tiene sopra la
+     * vecchia in un'immagine che svanisce in 3 s (dissolvenza di colori, senza vibrazione) e la luna sale di 6 dp mentre appare.
+     * Se la home si apre già di sera, o con le animazioni ridotte, niente di tutto questo: la sera è già lì.
+     */
+    private void resumeSera() {
+        final android.graphics.Bitmap from = seraFrom;
+        seraFrom = null;
+        if (from == null || !evening || Motion.reduced(this)) return;
+        final android.widget.ImageView ov = new android.widget.ImageView(this);
+        ov.setImageBitmap(from);
+        ov.setScaleType(android.widget.ImageView.ScaleType.FIT_XY);
+        ov.setClickable(false); // i tocchi passano alla home: la sera non trattiene nessuno
+        ov.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        addContentView(ov, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        ov.animate().alpha(0f).setDuration(MotionLogic.SERA_MS).setInterpolator(Motion.DECELERA).withEndAction(new Runnable() {
+            public void run() { if (ov.getParent() instanceof ViewGroup) ((ViewGroup) ov.getParent()).removeView(ov); }
+        }).start();
+        if (moon != null) {
+            moon.setAlpha(0f);
+            moon.setTranslationY(U.dp(this, MotionLogic.SERA_LUNA_DP));
+            moon.animate().alpha(1f).translationY(0f).setDuration(Motion.LENTO).setInterpolator(Motion.DECELERA).start();
+        }
+        Motion.say(root, "Ora di staccare");
+    }
+
+    /** 0.20 (momento 10): cold start e primo sblocco del mattino, una volta al giorno: il meno che si disegna. */
+    private void maybeBrand() {
+        if (brand != null || OnboardingActivity.running || Onboarding.firstRun(this)) { coldStart = false; return; }
+        android.content.SharedPreferences p = U.prefs(this);
+        long now = System.currentTimeMillis(), today = U.startOfDay(0);
+        long wakeToday = today + Night.wakeMin(this) * 60000L;
+        boolean morning = MotionLogic.morningFirst(p.getLong(K_HOME_SEEN, 0), wakeToday, now);
+        boolean play = MotionLogic.brandMoment(coldStart, morning, today, p.getLong(K_BRAND_DAY, 0));
+        coldStart = false;
+        if (!play) return;
+        p.edit().putLong(K_BRAND_DAY, today).apply();
+        brand = BrandView.play(this, new Runnable() { public void run() { brand = null; refreshNotif(); } });
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
@@ -321,6 +399,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         root.requestFocus();
         refresh();
         maybeScrollToTasks();
+        maybeBrand();
     }
 
     // ---------- E003 · gesti ----------
@@ -447,6 +526,8 @@ public class MainActivity extends BaseActivity implements Store.Listener {
 
     @Override
     protected void onPause() {
+        U.prefs(this).edit().putLong(K_HOME_SEEN, System.currentTimeMillis()).apply(); // per il primo sblocco del mattino
+        if (brand != null) brand.finish();
         try { unregisterReceiver(tick); } catch (Exception ignored) {}
         Store.removeListener(this);
         U.watchCalendar(this, observer, false);
@@ -477,9 +558,9 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         askBox.postDelayed(new Runnable() { public void run() { bored = next; closeAsk(true); } }, MotionLogic.SBLOCCO_ATTESA);
     }
 
-    /** La scheda si chiude (altezza e dissolvenza in BASE); sotto, la giornata sale. */
+    /** Momento 11: la scheda si comprime in una linea d'inchiostro che si ritira a sinistra; sotto, la giornata sale. */
     private void closeAsk(final boolean answered) {
-        Motion.collapse(askBox, true, new Runnable() {
+        Motion.leave(askBox, true, new Runnable() {
             public void run() {
                 askBox.removeAllViews();
                 askAnimating = false;
@@ -531,7 +612,14 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     private final android.content.BroadcastReceiver tick = new android.content.BroadcastReceiver() {
         public void onReceive(android.content.Context c, Intent i) {
             // 0.14: all'ora di staccare (e alla sveglia) la home cambia colori: si ridisegna
-            if (Night.evening(MainActivity.this) != evening) { recreate(); return; }
+            boolean nowEvening = Night.evening(MainActivity.this);
+            if (nowEvening != evening) {
+                // 0.20 (momento 13): se la sera comincia mentre guardi la home, i colori scivolano via in 3 s
+                boolean go = MotionLogic.seraAnimates(evening, nowEvening, hasWindowFocus() && brand == null, Motion.reduced(MainActivity.this));
+                if (go) seraFrom = snapshot();
+                recreate();
+                return;
+            }
             refreshDate(); buildToday(); buildTomorrow();
         }
     };
@@ -937,8 +1025,8 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         boolean on = U.listenerEnabled(this);
         filterOff.setVisibility(on ? View.GONE : View.VISIBLE);
         int n = on ? Store.count(this, Store.WAITING) : 0;
-        notifCount.setText(n == 0 ? "" : String.valueOf(n));
-        notifCount.setVisibility(n == 0 ? View.GONE : View.VISIBLE);
+        notifCount.set(n == 0 ? "" : String.valueOf(n), hasWindowFocus() && brand == null); // momento 12: scorre solo se lo vedi cambiare
+        notifBadge.setVisibility(n == 0 ? View.GONE : View.VISIBLE);
         notifBox.setContentDescription(n == 0 ? "Notifiche" : "Notifiche, " + n + " per te");
         // 0.10: una riga sola alla volta. Prima la fine della prova di «Di notte», poi la configurazione
         // 0.15 (211): il controllo viene prima di tutto: è la proposta della settimana
@@ -986,7 +1074,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         Press.icon(x, null);
         x.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                if (Night.trialOver(MainActivity.this)) U.prefs(MainActivity.this).edit().putBoolean(Night.K_REPORT_SEEN, true).putLong(Night.K_TRIAL, 0).apply();
+                if (Night.trialOver(MainActivity.this)) { Night.closeWeek(MainActivity.this); U.prefs(MainActivity.this).edit().putBoolean(Night.K_REPORT_SEEN, true).putLong(Night.K_TRIAL, 0).apply(); }
                 else Onboarding.dismissTodo(MainActivity.this);
                 refreshNotif();
             }

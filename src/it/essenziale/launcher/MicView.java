@@ -31,6 +31,39 @@ public class MicView extends View {
         setFocusable(true);
     }
 
+    private android.animation.ObjectAnimator pulse;
+
+    /**
+     * 0.20 (Evolutiva 016, momento 12): solo mentre ascolta, il microfono respira: scala 1 → 1,04 → 1 in 1,6 s, a ciclo.
+     * Con «Rimuovi animazioni» resta fermo; lo stato («Sto ascoltando») lo dice TalkBack, mai il movimento.
+     */
+    void setListening(boolean on) {
+        if (pulse != null) { pulse.cancel(); pulse = null; }
+        setScaleX(1f);
+        setScaleY(1f);
+        if (!on) return;
+        Motion.say(this, "Sto ascoltando");
+        if (!MotionLogic.allowsTravel(Motion.reduced(getContext()))) return;
+        android.animation.Keyframe a = android.animation.Keyframe.ofFloat(0f, 1f), b = android.animation.Keyframe.ofFloat(0.5f, 1.04f), c = android.animation.Keyframe.ofFloat(1f, 1f);
+        b.setInterpolator(Motion.DECELERA);
+        c.setInterpolator(Motion.DECELERA);
+        pulse = android.animation.ObjectAnimator.ofPropertyValuesHolder(this,
+                android.animation.PropertyValuesHolder.ofKeyframe("scaleX", a, b, c),
+                android.animation.PropertyValuesHolder.ofKeyframe("scaleY", android.animation.Keyframe.ofFloat(0f, 1f), copy(b), copy(c)));
+        pulse.setDuration(1600);
+        pulse.setRepeatCount(android.animation.ValueAnimator.INFINITE);
+        pulse.setInterpolator(new android.view.animation.LinearInterpolator());
+        pulse.start();
+    }
+
+    private static android.animation.Keyframe copy(android.animation.Keyframe k) { return k.clone(); }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        if (pulse != null) { pulse.cancel(); pulse = null; }
+        super.onDetachedFromWindow();
+    }
+
     @Override
     protected void drawableStateChanged() {
         super.drawableStateChanged();
