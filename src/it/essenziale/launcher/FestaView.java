@@ -95,7 +95,7 @@ final class FestaView extends View {
             part.reset();
             pm.getSegment(0f, pm.getLength() * p, part, true);
             stroke.setStrokeWidth(7f * s);
-            stroke.setColor(Press.alpha(U.INK, a));
+            stroke.setColor(Press.alpha(0xFF8A877F, a)); // spec E016 §5: segno grigio #8A877F
             cv.drawPath(part, stroke);
         }
         cv.restore();
