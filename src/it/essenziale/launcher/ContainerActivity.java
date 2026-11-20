@@ -21,7 +21,7 @@ import java.util.Locale;
 import java.util.Set;
 
 /** Contenitori (Shop, Movimenti, Conversazioni) e "App In attesa", scelti dalla lista delle app installate. */
-public class ContainerActivity extends BaseActivity {
+public class ContainerActivity extends PageActivity {
 
     public static final int TAB_SHOP = 0, TAB_MONEY = 1, TAB_RW = 2, TAB_WAITING = 3;
     private static final String[] TABS = {"Shop", "Movimenti", "Conversazioni"};
@@ -79,7 +79,7 @@ public class ContainerActivity extends BaseActivity {
             final int t = i;
             TextView v = U.text(this, TABS[i], 14, tab == i ? U.BG : U.INK, true);
             v.setGravity(Gravity.CENTER);
-            v.setBackground(tab == i ? U.box(this, U.INK, 0, 20) : null);
+            if (tab == i) Press.chipOn(v, 20); else PressB.tabOff(v, U.CHIP, 20); // 0.21: scheda scelta piena, le altre si scuriscono da premute (testo leggibile)
             v.setOnClickListener(new View.OnClickListener() { public void onClick(View x) { tab = t; render(); } });
             tabsRow.addView(v, new LinearLayout.LayoutParams(0, U.dp(this, 40), 1f));
         }
@@ -165,6 +165,7 @@ public class ContainerActivity extends BaseActivity {
             if (installed || !visible(r[1])) continue;
             LinearLayout row = U.row(this);
             row.setMinimumHeight(U.dp(this, 52));
+            PressB.row(row); // 0.21: riga senza bordo (voce non più installata, con la casella grigia fissa)
             row.addView(U.checkbox(this, true, U.MUTED), new LinearLayout.LayoutParams(U.dp(this, 22), U.dp(this, 22)));
             TextView t = U.text(this, r[1] + " · non installata", 16, U.MUTED, false);
             t.setPadding(U.dp(this, 12), 0, 0, 0);
@@ -185,7 +186,10 @@ public class ContainerActivity extends BaseActivity {
             final boolean inBox = find(rows, a) >= 0;
             LinearLayout row = U.row(this);
             row.setMinimumHeight(U.dp(this, 52));
-            row.addView(U.checkbox(this, inBox, U.INK), new LinearLayout.LayoutParams(U.dp(this, 22), U.dp(this, 22)));
+            final PressB.Face face = PressB.row(row); // 0.21: riga senza bordo
+            final TaskBox cb = PressB.box(this, inBox); // 0.21: la casella dei task (riempimento, spunta, rimbalzo)
+            row.addView(cb, new LinearLayout.LayoutParams(U.dp(this, 20), U.dp(this, 20)));
+            PressB.boxHalo(face, cb);
             LinearLayout tx = U.col(this);
             tx.addView(U.text(this, a.label, 16, U.INK, false));
             if (tab == TAB_MONEY && inBox) tx.addView(U.text(this, rows.get(find(rows, a))[0], 12, U.MUTED, false));
@@ -210,12 +214,16 @@ public class ContainerActivity extends BaseActivity {
             }
             row.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
-                    if (inBox) {
-                        for (int i = rows.size() - 1; i >= 0; i--) if (hit(rows.get(i)[1], a)) rows.remove(i);
-                        write(rows);
-                        renderList();
-                    } else if (tab == TAB_MONEY) askSection(rows, a);
-                    else { rows.add(new String[]{"", a.label}); write(rows); renderList(); }
+                    if (!inBox && tab == TAB_MONEY) { askSection(rows, a); return; } // la sezione si sceglie prima: la casella si riempie al ridisegno
+                    PressB.checkThen(v, cb, !inBox, new Runnable() {
+                        public void run() {
+                            if (inBox) {
+                                for (int i = rows.size() - 1; i >= 0; i--) if (hit(rows.get(i)[1], a)) rows.remove(i);
+                                write(rows);
+                                renderList();
+                            } else { rows.add(new String[]{"", a.label}); write(rows); renderList(); }
+                        }
+                    });
                 }
             });
             list.addView(row, U.full());
@@ -225,6 +233,7 @@ public class ContainerActivity extends BaseActivity {
             TextView prev = U.text(this, "Anteprima della pausa ›", 15, U.INK, false);
             prev.setMinHeight(U.dp(this, 48));
             prev.setGravity(Gravity.CENTER_VERTICAL);
+            PressB.row(prev); // 0.21: riga senza bordo
             prev.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) { U.start(ContainerActivity.this, new android.content.Intent(ContainerActivity.this, FrictionActivity.class)); }
             });

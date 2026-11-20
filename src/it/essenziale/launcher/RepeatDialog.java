@@ -125,7 +125,7 @@ final class RepeatDialog {
     private TextView step(String s, final Runnable r) {
         TextView t = U.text(a, s, 20, U.INK, false);
         t.setGravity(Gravity.CENTER);
-        t.setBackground(U.box(a, U.SURFACE, U.BORDER, 22));
+        PressB.pill(t, U.SURFACE, U.BORDER, 22); // 0.21: pulsante tondo con il bordo: fondo appena più scuro e anello di 8 dp
         t.setLayoutParams(new LinearLayout.LayoutParams(U.dp(a, 44), U.dp(a, 44)));
         t.setContentDescription("−".equals(s) ? "Uno in meno" : "Uno in più");
         t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
@@ -150,6 +150,7 @@ final class RepeatDialog {
     private View choice(String s, boolean on, final Runnable r) {
         LinearLayout row = U.row(a);
         row.setMinimumHeight(U.dp(a, 48));
+        PressB.row(row); // 0.21: riga senza bordo: si scurisce il fondo
         TextView dot = U.text(a, on ? "●" : "○", 18, U.INK, false);
         dot.setPadding(0, 0, U.dp(a, 12), 0);
         row.addView(dot);

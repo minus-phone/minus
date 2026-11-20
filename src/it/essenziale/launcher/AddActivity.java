@@ -29,7 +29,7 @@ import java.util.Locale;
  * Aggiungi un impegno (nel calendario) o un task (in Essenziale).
  * Con l'extra "event_id" diventa "Modifica impegno": salva, ripeti, elimina (con la scelta per le serie).
  */
-public class AddActivity extends BaseActivity {
+public class AddActivity extends PageActivity {
 
     private static final int REQ_VOICE = 20, REQ_WRITE = 21, REQ_REPEAT = 22;
     private static final int SCOPE_ONE = 0, SCOPE_NEXT = 1, SCOPE_ALL = 2;
@@ -122,8 +122,10 @@ public class AddActivity extends BaseActivity {
         TextView cancel = U.text(this, "Annulla", 16, U.INK, false);
         cancel.setMinHeight(U.dp(this, 44));
         cancel.setGravity(Gravity.CENTER_VERTICAL);
+        cancel.setPadding(0, 0, U.dp(this, 12), 0);
+        PressB.link(cancel); // 0.21: «Annulla» è un link: anello di 6 dp
         cancel.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { finish(); } });
-        root.addView(cancel);
+        root.addView(cancel, U.wrap());
 
         final ScrollView sv = new ScrollView(this);
         scrollView = sv;
@@ -253,6 +255,8 @@ public class AddActivity extends BaseActivity {
             cal.setMinHeight(U.dp(this, 44));
             cal.setPaintFlags(cal.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
             cal.setContentDescription("Apri l'impegno nell'app di calendario, per inviti e promemoria");
+            cal.setPadding(U.dp(this, 12), 0, U.dp(this, 12), 0);
+            PressB.link(cal); // 0.21: link di testo, anello di 6 dp
             cal.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     U.Cal info = U.calInfo(AddActivity.this, orig.calId);
@@ -264,13 +268,14 @@ public class AddActivity extends BaseActivity {
                     U.start(AddActivity.this, i);
                 }
             });
-            LinearLayout.LayoutParams clp = U.full();
+            LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             clp.topMargin = U.dp(this, 4);
+            clp.gravity = Gravity.CENTER_HORIZONTAL;
             root.addView(cal, clp);
             TextView del = U.text(this, "Elimina impegno", 16, U.ALERT, true);
             del.setGravity(Gravity.CENTER);
             del.setMinHeight(U.dp(this, 48));
-            del.setBackground(U.box(this, U.BG, U.ALERT, 24));
+            PressB.outlined(del, U.BG, U.ALERT, 24); // 0.21: pillola con bordo (rosso mattone), anello di 8 dp
             del.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { askDelete(); } });
             LinearLayout.LayoutParams dlp = U.full();
             dlp.topMargin = U.dp(this, 8);
@@ -282,7 +287,7 @@ public class AddActivity extends BaseActivity {
             TextView del = U.text(this, "Elimina task", 16, U.URGENT, true);
             del.setGravity(Gravity.CENTER);
             del.setMinHeight(U.dp(this, 48));
-            del.setBackground(U.box(this, U.BG, U.URGENT, 24));
+            PressB.outlined(del, U.BG, U.URGENT, 24); // 0.21: pillola con bordo (rosso), anello di 8 dp
             del.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     Changes.record(AddActivity.this, "Task eliminato: " + editTask.title, new String[]{"tasks"});
@@ -353,6 +358,7 @@ public class AddActivity extends BaseActivity {
         t.setMinHeight(U.dp(this, 48));
         t.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
         t.setPaintFlags(t.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        PressB.link(t); // 0.21: il valore sottolineato (orario, ripetizione, calendario) è un link: anello di 6 dp
         return t;
     }
 
@@ -366,9 +372,11 @@ public class AddActivity extends BaseActivity {
     }
 
     private void render() {
-        if (isEvent) Press.chipOn(tabEvent, 20);
+        // 0.21: la scheda scelta è piena (premuta, si schiarisce appena); l'altra sta sul vassoio e, premuta, si scurisce
+        // un po' con il testo sempre leggibile. Prima la scheda «Impegno» restava piena anche passando a «Task».
+        if (isEvent) Press.chipOn(tabEvent, 20); else PressB.tabOff(tabEvent, U.CHIP, 20);
         tabEvent.setTextColor(isEvent ? U.BG : U.INK);
-        tabTask.setBackground(!isEvent ? U.box(this, U.INK, 0, 20) : null);
+        if (!isEvent) Press.chipOn(tabTask, 20); else PressB.tabOff(tabTask, U.CHIP, 20);
         tabTask.setTextColor(!isEvent ? U.BG : U.INK);
         titleLabel.setText(isEvent ? "TITOLO" : "COSA DEVI FARE?");
         bangView.setVisibility(!isEvent && urgent ? View.VISIBLE : View.GONE);
@@ -529,6 +537,7 @@ public class AddActivity extends BaseActivity {
         appClear = U.text(this, "✕", 16, U.INK, false);
         appClear.setGravity(Gravity.CENTER);
         appClear.setContentDescription("Togli l'app");
+        PressB.icon(appClear); // 0.21: alone circolare di 56 dp
         appClear.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { appChosen = true; taskApp = null; setAppText(""); showSugg(""); appField.requestFocus(); }
         });
@@ -598,6 +607,7 @@ public class AddActivity extends BaseActivity {
             t.setMinHeight(U.dp(this, 48));
             t.setGravity(Gravity.CENTER_VERTICAL);
             t.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
+            PressB.row(t); // 0.21: voce della tendina: si scurisce il fondo
             t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { chooseApp(a); } });
             appSugg.addView(t, U.full());
         }
@@ -614,6 +624,7 @@ public class AddActivity extends BaseActivity {
             more.setMinHeight(U.dp(this, 48));
             more.setGravity(Gravity.CENTER_VERTICAL);
             more.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
+            PressB.row(more);
             more.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pickApp(); } });
             appSugg.addView(more, U.full());
         }

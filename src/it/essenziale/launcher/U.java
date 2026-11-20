@@ -187,10 +187,12 @@ public final class U {
         TextView back = text(a, "‹  " + (bl == null ? "Home" : bl), 16, INK, false);
         back.setMinHeight(dp(a, 44));
         back.setGravity(Gravity.CENTER_VERTICAL);
+        back.setPadding(0, 0, dp(a, 12), 0);
+        PressB.link(back); // 0.21: «‹ Home» è un link: premuto, anello di 6 dp e testo a pieno inchiostro
         back.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { a.finish(); }
         });
-        root.addView(back);
+        root.addView(back, wrap());
         TextView t = title(a, title, 28, INK);
         t.setPadding(0, dp(a, 4), 0, dp(a, 6));
         root.addView(t);
@@ -206,16 +208,23 @@ public final class U {
      */
     public static View toggle(Context c, boolean on, String key) { return new SwitchView(c, on, key); }
 
-    /** 0.15: una riga con un'etichetta e l'interruttore a destra (Tutto il giorno, ! Urgente). */
-    public static LinearLayout switchRow(Context c, CharSequence label, String spoken, boolean on, View.OnClickListener l) {
+    /**
+     * 0.15: una riga con un'etichetta e l'interruttore a destra (Tutto il giorno, ! Urgente).
+     * 0.21: tutta la riga prende lo stato premuto (fondo più scuro, 240 ms almeno), lo scatto è quello di tutti gli
+     * interruttori e il pallino scorre quando la pagina si ridisegna con lo stato cambiato (chiave = il nome parlato).
+     */
+    public static LinearLayout switchRow(Context c, CharSequence label, String spoken, boolean on, final View.OnClickListener l) {
         LinearLayout r = row(c);
         r.setMinimumHeight(dp(c, 48));
         TextView t = text(c, "", 16, INK, on); // 0.16: label in grassetto solo con l'interruttore acceso
         t.setText(label);
         r.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        r.addView(toggle(c, on), new LinearLayout.LayoutParams(dp(c, 48), dp(c, 28)));
+        r.addView(toggle(c, on, "switchRow:" + spoken), new LinearLayout.LayoutParams(dp(c, 48), dp(c, 28)));
         r.setContentDescription(spoken + ", interruttore, " + (on ? "acceso" : "spento"));
-        r.setOnClickListener(l);
+        PressB.row(r);
+        r.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { Motion.scatto(v); l.onClick(v); }
+        });
         return r;
     }
 
@@ -1118,7 +1127,12 @@ public final class U {
     /** 0.18 (Evolutiva 008): i riquadri «tutto il giorno» uno sotto l'altro, tutti larghi quanto lo spazio rimasto, titolo in Literata. */
     static View allDayChips(final android.app.Activity a, List<Event> ev) { return allDayChips(a, ev, INK, CHIP, true); }
 
-    static View allDayChips(final android.app.Activity a, List<Event> ev, int fg, int bg, boolean touch) {
+    static View allDayChips(final android.app.Activity a, List<Event> ev, int fg, int bg, boolean touch) { return allDayChips(a, ev, fg, bg, touch, false); }
+
+    /** 0.21: come {@link #allDayChips(android.app.Activity, List)}, con lo stato premuto dei chip (anello di 6 dp): Settimana. */
+    static View allDayChipsPressed(final android.app.Activity a, List<Event> ev) { return allDayChips(a, ev, INK, CHIP, true, true); }
+
+    private static View allDayChips(final android.app.Activity a, List<Event> ev, int fg, int bg, boolean touch, boolean pressed) {
         LinearLayout f = null;
         for (final Event e : ev) {
             if (!e.allDay) continue;
@@ -1131,6 +1145,7 @@ public final class U {
             t.setMinHeight(dp(a, 32));
             t.setPadding(dp(a, 10), 0, dp(a, 10), 0);
             t.setBackground(box(a, bg, 0, 8));
+            if (touch && pressed) Press.chip(t, bg, 0, 8);
             t.setContentDescription(e.title + ", tutto il giorno");
             if (touch) {
                 t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { openEvent(a, e); } });

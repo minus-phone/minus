@@ -13,7 +13,7 @@ import android.widget.TextView;
  * il preavviso di 10 minuti e il consiglio della settimana, due interruttori accesi. Con «all»,
  * l'elenco dei 26 consigli in sola lettura, in grassetto quello di questa settimana.
  */
-public class SeraActivity extends BaseActivity {
+public class SeraActivity extends PageActivity {
     private LinearLayout body;
     private boolean all;
 
@@ -75,6 +75,7 @@ public class SeraActivity extends BaseActivity {
         TextView allBtn = U.text(this, "Tutti i consigli  ›", 15, U.INK, false);
         allBtn.setMinHeight(U.dp(this, 48));
         allBtn.setGravity(Gravity.CENTER_VERTICAL);
+        PressB.row(allBtn); // 0.21: riga senza bordo
         allBtn.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 startActivity(new android.content.Intent(SeraActivity.this, SeraActivity.class).putExtra("all", true).putExtra("back", "Avviso e consiglio"));
@@ -101,7 +102,7 @@ public class SeraActivity extends BaseActivity {
         r.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         r.addView(U.toggle(this, on, "sera:" + key), new LinearLayout.LayoutParams(U.dp(this, 48), U.dp(this, 28)));
         r.setContentDescription(title + ", interruttore, " + (on ? "acceso" : "spento"));
-        Press.row(r);
+        PressB.row(r); // 0.21: almeno 240 ms
         r.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 Motion.scatto(v);

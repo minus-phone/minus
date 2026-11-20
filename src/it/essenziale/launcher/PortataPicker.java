@@ -132,6 +132,7 @@ final class PortataPicker {
         final boolean disabled = !on && full();
         LinearLayout r = U.row(a);
         r.setMinimumHeight(U.dp(a, 52));
+        final PressB.Face face = disabled ? null : PressB.row(r); // 0.21: riga senza bordo; la riga non disponibile (già 8) non si preme
         TextView n = U.text(a, label, 15, disabled ? U.MUTED : U.INK, false);
         n.setSingleLine(true);
         n.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -145,6 +146,7 @@ final class PortataPicker {
             TextView up = U.text(a, "↑", 18, U.INK, false);
             up.setGravity(Gravity.CENTER);
             up.setContentDescription("Sposta su " + label);
+            PressB.icon(up); // 0.21: alone circolare di 56 dp
             up.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     String[] x = sel.remove(pos);
@@ -155,14 +157,20 @@ final class PortataPicker {
             });
             r.addView(up, new LinearLayout.LayoutParams(U.dp(a, 44), U.dp(a, 44)));
         }
-        r.addView(U.checkbox(a, on, disabled ? U.MUTED : U.INK), new LinearLayout.LayoutParams(U.dp(a, 22), U.dp(a, 22)));
+        final TaskBox cb = disabled ? null : PressB.box(a, on); // 0.21: la casella dei task
+        if (disabled) r.addView(U.checkbox(a, on, U.MUTED), new LinearLayout.LayoutParams(U.dp(a, 22), U.dp(a, 22)));
+        else { r.addView(cb, new LinearLayout.LayoutParams(U.dp(a, 20), U.dp(a, 20))); PressB.boxHalo(face, cb); }
         r.setContentDescription(label + (kind != null && kind.length() > 0 ? ", " + kind : "") + (on ? ", a portata" : disabled ? ", non disponibile: sono già 8" : ", non a portata"));
         if (!disabled) r.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                int i = indexOf(pkg);
-                if (i >= 0) sel.remove(i); else sel.add(new String[]{pkg, label});
-                host.changed(i >= 0 ? "A portata: tolta " + label : "A portata: aggiunta " + label, selected(), null);
-                render();
+                PressB.checkThen(v, cb, !on, new Runnable() {
+                    public void run() {
+                        int i = indexOf(pkg);
+                        if (i >= 0) sel.remove(i); else sel.add(new String[]{pkg, label});
+                        host.changed(i >= 0 ? "A portata: tolta " + label : "A portata: aggiunta " + label, selected(), null);
+                        render();
+                    }
+                });
             }
         });
         list.addView(r, U.full());
@@ -178,6 +186,7 @@ final class PortataPicker {
                 : "A portata la apri con un tocco, senza scriverne il nome. Se vuoi tenerla, puoi darle <u>pausa e scopo ›</u>")));
         t.setPadding(U.dp(a, 12), U.dp(a, 10), U.dp(a, 12), U.dp(a, 10));
         t.setBackground(U.box(a, U.CHIP, 0, 12));
+        if (!scoped) PressB.card(t, U.CHIP, 0, 12); // 0.21: la nota con il link «pausa e scopo ›» è tappabile: un po' più scura e anello di 8 dp
         if (!scoped) {
             t.setMinHeight(U.dp(a, 48));
             t.setContentDescription(label + " è un social. Tocca per darle pausa e scopo.");
