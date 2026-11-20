@@ -18,7 +18,7 @@ import java.util.List;
  * Spariscono Attivazione, App, Tempo e uso, e i contenitori.
  * La stessa schermata mostra la radice o, con l'extra "area", una sola area.
  */
-public class SettingsActivity extends BaseActivity {
+public class SettingsActivity extends PageActivity {
 
     static final int MAIN = -1, HOME = 0, DAY = 1, NOTIF = 2, DOOM = 3, SLEEP = 4, PERMS = 5, TODO = 6, MORE = 7;
     static final int SETUP = PERMS; // chi apriva Attivazione ora apre Permessi
@@ -108,6 +108,7 @@ public class SettingsActivity extends BaseActivity {
         t.setMinHeight(U.dp(this, 44));
         t.setGravity(Gravity.CENTER_VERTICAL);
         t.setContentDescription(text.replace(" ↗", "") + ", link");
+        PressB.link(t); // 0.21: link di testo, anello di 6 dp
         t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { web(url); } });
         return t;
     }
@@ -466,7 +467,7 @@ public class SettingsActivity extends BaseActivity {
         TextView t = U.text(this, s, 15, U.INK, true);
         t.setGravity(Gravity.CENTER);
         t.setMinHeight(U.dp(this, 48));
-        t.setBackground(U.box(this, U.BG, U.LINE, 24));
+        PressB.pill(t, U.BG, U.LINE, 24); // 0.21: pillola con il bordo tenue, anello di 8 dp
         return t;
     }
 
@@ -478,7 +479,7 @@ public class SettingsActivity extends BaseActivity {
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 64));
         r.setPadding(0, U.dp(this, 8), 0, U.dp(this, 8));
-        Press.row(r);
+        PressB.row(r); // 0.21: fondo più scuro, almeno 240 ms (nel tema scuro, il colore pieno dei riquadri)
         LinearLayout tx = U.col(this);
         tx.addView(U.text(this, title, 16, U.INK, false));
         if (sub != null) tx.addView(U.text(this, sub, 13, U.MUTED, false));
@@ -520,7 +521,7 @@ public class SettingsActivity extends BaseActivity {
             TextView t = U.text(this, sec + " secondi", 13, sel ? U.BG : U.INK, false);
             t.setGravity(Gravity.CENTER);
             t.setMinHeight(U.dp(this, 44));
-            if (sel) Press.chipOn(t, 9); else Press.row(t);
+            if (sel) Press.chipOn(t, 9); else PressB.tabOff(t, U.SURFACE, 9); // 0.21: la scheda non scelta resta leggibile (testo INK) anche sullo scuro
             t.setContentDescription("Pausa di " + sec + " secondi" + (sel ? ", scelta" : ""));
             t.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
@@ -552,7 +553,7 @@ public class SettingsActivity extends BaseActivity {
         r.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         r.addView(U.toggle(this, on, "settings:" + key), new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 26)));
         r.setContentDescription(title + ", interruttore, " + (on ? "acceso" : "spento"));
-        Press.row(r); // 0.20: tutta la riga prende lo stato premuto
+        PressB.row(r); // 0.20: tutta la riga prende lo stato premuto; 0.21: almeno 240 ms
         r.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { Motion.scatto(v); action.run(); } }); // lo stesso scatto, acceso o spento
         body.addView(r, U.full());
         body.addView(U.divider(this));

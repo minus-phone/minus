@@ -25,7 +25,7 @@ import java.util.Map;
  * "Persone e app", in due passi: 1) chi deve poterti raggiungere sempre (dalla rubrica),
  * 2) con quali app vi scrivete. Salva nella lista Conversazioni, sezione "Sempre".
  */
-public class PeopleActivity extends BaseActivity {
+public class PeopleActivity extends PageActivity {
 
     private static final int REQ_CONTACTS = 30;
     private static final String[] CODES = {"WA", "TG", "SMS", "TEL"};
@@ -56,10 +56,13 @@ public class PeopleActivity extends BaseActivity {
         back = U.text(this, "Annulla", 16, U.INK, false);
         back.setMinHeight(U.dp(this, 44));
         back.setGravity(Gravity.CENTER_VERTICAL);
+        back.setPadding(0, 0, U.dp(this, 12), 0);
+        PressB.link(back); // 0.21: «Annulla» / «‹ Indietro» sono link: anello di 6 dp, solo attorno al testo
         back.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { if (step == 2) { step = 1; render(); } else finish(); }
         });
-        head.addView(back, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        head.addView(back, U.wrap());
+        head.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
         stepLabel = U.text(this, "", 14, U.MUTED, false);
         head.addView(stepLabel);
         root.addView(head, U.full());
@@ -215,6 +218,7 @@ public class PeopleActivity extends BaseActivity {
             TextView t = U.text(this, checkSelfPermission(android.Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
                     ? "La rubrica è vuota." : "Tocca qui per permettere a −minus di leggere la rubrica.", 15, U.INK, false);
             t.setPadding(0, U.dp(this, 10), 0, U.dp(this, 10));
+            PressB.row(t); // 0.21: riga senza bordo
             t.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) { requestPermissions(new String[]{android.Manifest.permission.READ_CONTACTS}, REQ_CONTACTS); }
             });
@@ -229,16 +233,23 @@ public class PeopleActivity extends BaseActivity {
             r.setMinimumHeight(U.dp(this, 52));
             String n0 = p.name.replace("[", "").trim();
             TextView ini = U.initial(this, n0, false, 36);
+            final PressB.Face face = PressB.rowWithBadge(r, ini); // 0.21: riga premuta: fondo più scuro e il cerchio dell'iniziale si riempie d'inchiostro
             r.addView(ini, new LinearLayout.LayoutParams(U.dp(this, 36), U.dp(this, 36)));
             TextView nm = U.text(this, p.name, 16, U.INK, false);
             nm.setPadding(U.dp(this, 12), 0, 0, 0);
             r.addView(nm, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-            r.addView(U.checkbox(this, on, U.INK), new LinearLayout.LayoutParams(U.dp(this, 22), U.dp(this, 22)));
+            final TaskBox cb = PressB.box(this, on); // 0.21: la casella dei task (riempimento, spunta, rimbalzo)
+            r.addView(cb, new LinearLayout.LayoutParams(U.dp(this, 20), U.dp(this, 20)));
+            PressB.boxHalo(face, cb); // e l'alone di 56 dp dietro la casella
             r.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
-                    if (on) chosen.remove(key(p.name));
-                    else { p.section = "Sempre"; chosen.put(key(p.name), p); }
-                    render();
+                    PressB.checkThen(v, cb, !on, new Runnable() {
+                        public void run() {
+                            if (on) chosen.remove(key(p.name));
+                            else { p.section = "Sempre"; chosen.put(key(p.name), p); }
+                            render();
+                        }
+                    });
                 }
             });
             list.addView(r, U.full());

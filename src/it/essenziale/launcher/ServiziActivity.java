@@ -19,7 +19,7 @@ import java.util.List;
  * I loro codici e accessi passano sempre; il resto aspetta in Notifiche, mai in Altro.
  * −minus li riconosce da solo; qui si tolgono o si aggiungono a mano («!pkg:» e «pkg:» in K_SERVICES).
  */
-public class ServiziActivity extends BaseActivity {
+public class ServiziActivity extends PageActivity {
     private LinearLayout list;
     private EditText q;
     private List<U.AppInfo> all;
@@ -100,17 +100,24 @@ public class ServiziActivity extends BaseActivity {
     private void row(final U.AppInfo a, final boolean on) {
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 52));
+        final PressB.Face face = PressB.row(r); // 0.21: riga senza bordo
         r.addView(AppIcons.view(this, a.pkg, 24), AppIcons.lp(this, 24));
         TextView t = U.text(this, a.label, 15, U.INK, false);
         t.setSingleLine(true);
         r.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        r.addView(U.checkbox(this, on, U.INK), new LinearLayout.LayoutParams(U.dp(this, 22), U.dp(this, 22)));
+        final TaskBox cb = PressB.box(this, on); // 0.21: la casella dei task (riempimento, spunta, rimbalzo)
+        r.addView(cb, new LinearLayout.LayoutParams(U.dp(this, 20), U.dp(this, 20)));
+        PressB.boxHalo(face, cb);
         r.setContentDescription(a.label + (on ? ", servizio" : ", non è un servizio"));
         r.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                Changes.track(ServiziActivity.this, (on ? "Servizi: tolta " : "Servizi: aggiunta ") + a.label, new String[]{U.K_SERVICES},
-                        new Runnable() { public void run() { set(a.pkg, !on); } },
-                        new Runnable() { public void run() { render(); } });
+                PressB.checkThen(v, cb, !on, new Runnable() {
+                    public void run() {
+                        Changes.track(ServiziActivity.this, (on ? "Servizi: tolta " : "Servizi: aggiunta ") + a.label, new String[]{U.K_SERVICES},
+                                new Runnable() { public void run() { set(a.pkg, !on); } },
+                                new Runnable() { public void run() { render(); } });
+                    }
+                });
             }
         });
         list.addView(r, U.full());

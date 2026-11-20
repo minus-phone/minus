@@ -42,15 +42,27 @@ final class Menu {
         TextView t = U.text(a, "", 16, U.INK, on);
         t.setText(label);
         row.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        View sw = U.toggle(a, on);
+        final View sw = U.toggle(a, on);
         row.addView(sw, new LinearLayout.LayoutParams(U.dp(a, 48), U.dp(a, 28)));
         row.setContentDescription(spoken + ", interruttore, " + (on ? "acceso" : "spento"));
-        add(row, r);
+        PressB.row(row); // 0.21: la riga prende lo stato premuto, come in Impostazioni
+        final boolean was = on;
+        row.setOnClickListener(new View.OnClickListener() {
+            private boolean done;
+            public void onClick(View x) {
+                if (done) return;
+                done = true;
+                Motion.scatto(x); // lo stesso scatto di tutti gli interruttori
+                // il pallino scorre e la finestra resta un attimo, poi si chiude e parte l'azione
+                PressB.slideThen(sw, was, new Runnable() { public void run() { if (dialog != null) dialog.dismiss(); if (r != null) r.run(); } });
+            }
+        });
+        rows.add(row);
         return this;
     }
 
     private void add(View v, final Runnable r) {
-        Press.row(v); // 0.21: voci del menu: righe senza bordo, si scurisce solo il fondo
+        PressB.row(v); // 0.21: stato premuto delle voci del menu (fondo più scuro, almeno 240 ms)
         v.setOnClickListener(new View.OnClickListener() {
             public void onClick(View x) { if (dialog != null) dialog.dismiss(); if (r != null) r.run(); }
         });

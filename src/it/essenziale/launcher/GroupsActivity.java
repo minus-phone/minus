@@ -18,7 +18,7 @@ import java.util.Map;
  * Gruppi, app per app (0.6): ognuno «Passa sempre» o «In silenzio». Niente menzioni.
  * I gruppi in silenzio vanno in Notifiche (contati) o in Altro (non contati), a scelta per ogni app.
  */
-public class GroupsActivity extends BaseActivity {
+public class GroupsActivity extends PageActivity {
 
     private static final String[] CODES = {"WA", "TG"};
     private LinearLayout tabs, list;
@@ -134,6 +134,7 @@ public class GroupsActivity extends BaseActivity {
     private void row(final G g, final boolean always) {
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 58));
+        PressB.row(r); // 0.21: riga senza bordo: si scurisce il fondo
         LinearLayout tx = U.col(this);
         tx.addView(U.text(this, g.name, 16, U.INK, false));
         if (g.last > 0) tx.addView(U.text(this, "ultimo messaggio " + ago(g.last), 12, U.MUTED, false));
@@ -142,7 +143,7 @@ public class GroupsActivity extends BaseActivity {
         act.setGravity(Gravity.CENTER);
         act.setMinHeight(U.dp(this, 44));
         act.setPadding(U.dp(this, 12), 0, U.dp(this, 12), 0);
-        act.setBackground(U.box(this, U.BG, U.LINE, 18));
+        PressB.pill(act, U.BG, U.LINE, 18); // 0.21: pillola con il bordo tenue, anello di 8 dp
         r.addView(act);
         View.OnClickListener l = new View.OnClickListener() {
             public void onClick(View v) {

@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Set;
 
 /** Quali calendari mostrare (e sincronizzare) in Essenziale, e dove vanno i nuovi impegni. */
-public class CalendarsActivity extends BaseActivity {
+public class CalendarsActivity extends PageActivity {
 
     private LinearLayout list;
 
@@ -68,16 +68,18 @@ public class CalendarsActivity extends BaseActivity {
             final boolean on = shown.contains(r.id);
             LinearLayout row = U.row(this);
             row.setMinimumHeight(U.dp(this, 54));
+            PressB.row(row); // 0.21: riga senza bordo: si scurisce il fondo (almeno 240 ms)
             LinearLayout tx = U.col(this);
             tx.addView(U.text(this, r.name, 16, U.INK, false));
             String note = r.access >= android.provider.CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR ? "" : "Solo lettura";
             if (!r.sync) note = (note.length() > 0 ? note + " · " : "") + "Non sincronizzato";
             if (note.length() > 0) tx.addView(U.text(this, note, 12, U.MUTED, false));
             row.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-            row.addView(toggle(on), new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 26)));
+            row.addView(U.toggle(this, on, "cal:" + r.id), new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 26))); // 0.21: lo stesso interruttore di Impostazioni: il pallino scorre
             row.setContentDescription(r.name + (on ? ", mostrato" : ", nascosto"));
             row.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
+                    Motion.scatto(v);
                     Changes.track(CalendarsActivity.this, r.name + (on ? ": nascosto" : ": mostrato"), new String[]{U.K_CAL_SEL}, new Runnable() { public void run() {
                         if (on) shown.remove(r.id);
                         else {
@@ -99,6 +101,7 @@ public class CalendarsActivity extends BaseActivity {
             TextView ask = U.text(this, "Per aggiungere impegni serve il permesso di modificare il calendario ›", 15, U.INK, false);
             ask.setMinHeight(U.dp(this, 48));
             ask.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            PressB.row(ask);
             ask.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
                 requestPermissions(new String[]{android.Manifest.permission.WRITE_CALENDAR, android.Manifest.permission.READ_CALENDAR}, 41);
             } });
@@ -121,6 +124,7 @@ public class CalendarsActivity extends BaseActivity {
     private void defaultRow(final String name, String sub, boolean on, final long id) {
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 56));
+        PressB.row(r);
         LinearLayout tx = U.col(this);
         tx.addView(U.text(this, name, 15, U.INK, false));
         tx.addView(U.text(this, sub, 12, U.MUTED, false));
@@ -138,16 +142,5 @@ public class CalendarsActivity extends BaseActivity {
         });
         list.addView(r, U.full());
         list.addView(U.divider(this));
-    }
-
-    View toggle(boolean on) {
-        LinearLayout sw = U.row(this);
-        sw.setGravity(on ? android.view.Gravity.END | android.view.Gravity.CENTER_VERTICAL : android.view.Gravity.START | android.view.Gravity.CENTER_VERTICAL);
-        sw.setPadding(U.dp(this, 3), U.dp(this, 3), U.dp(this, 3), U.dp(this, 3));
-        sw.setBackground(U.box(this, on ? U.INK : U.BORDER, 0, 13));
-        View knob = new View(this);
-        knob.setBackground(U.box(this, U.SURFACE, 0, 10));
-        sw.addView(knob, new LinearLayout.LayoutParams(U.dp(this, 20), U.dp(this, 20)));
-        return sw;
     }
 }

@@ -5,7 +5,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 /** Impostazioni › Home e giornata › Aspetto (0.10, wireframe 156). */
-public class AspettoActivity extends BaseActivity {
+public class AspettoActivity extends PageActivity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);

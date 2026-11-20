@@ -17,7 +17,7 @@ import android.widget.TextView;
 import java.util.List;
 
 /** Le schermate contenitore: Conversazioni, Shop, Movimenti. */
-public class ListActivity extends BaseActivity {
+public class ListActivity extends PageActivity {
 
     public static final String EXTRA_MODE = "mode";
     public static final int MODE_CONTACTS = 1, MODE_SHOP = 2, MODE_MONEY = 3;
@@ -70,6 +70,7 @@ public class ListActivity extends BaseActivity {
     private TextView row(String name, String badge, boolean dim) {
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 54));
+        PressB.row(r); // 0.21: riga senza bordo (Shop, Movimenti): si scurisce il fondo
         TextView t = U.text(this, name, 17, dim ? U.MUTED : U.INK, false);
         r.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         if (badge != null) {
@@ -242,7 +243,7 @@ public class ListActivity extends BaseActivity {
             line.setColor(on ? U.INK : 0);
             android.graphics.drawable.LayerDrawable bg = new android.graphics.drawable.LayerDrawable(new android.graphics.drawable.Drawable[]{line});
             bg.setLayerInset(0, 0, U.dp(this, 45), 0, 0);
-            ts[i].setBackground(on ? bg : null);
+            PressB.rowOn(ts[i], on ? bg : null); // 0.21: la scheda si scurisce da premuta (almeno 240 ms); la linea sotto resta quella della scelta
             ts[i].setContentDescription((i == 0 ? "Contatti" : "Gruppi") + ", scheda" + (on ? ", selezionata" : ""));
         }
     }
@@ -325,6 +326,7 @@ public class ListActivity extends BaseActivity {
             add.setMinHeight(U.dp(this, 52));
             add.setGravity(Gravity.CENTER_VERTICAL);
             add.setContentDescription("Aggiungi dalla rubrica");
+            PressB.row(add);
             add.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) { startActivity(new Intent(ListActivity.this, PeopleActivity.class).putExtra("back", "Contatti e gruppi")); }
             });
@@ -334,6 +336,7 @@ public class ListActivity extends BaseActivity {
         TextView all = U.text(this, (groups ? "Tutti i gruppi" : "Tutti i contatti") + ", dalla A alla Z  ›", 15, U.INK, false);
         all.setMinHeight(U.dp(this, 48));
         all.setGravity(Gravity.CENTER_VERTICAL);
+        PressB.row(all);
         all.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 startActivity(new Intent(ListActivity.this, ListActivity.class).putExtra(EXTRA_MODE, MODE_CONTACTS)
@@ -376,7 +379,9 @@ public class ListActivity extends BaseActivity {
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 60));
         r.setPadding(0, U.dp(this, 8), 0, U.dp(this, 8));
-        r.addView(U.initial(this, name, group, 36), new LinearLayout.LayoutParams(U.dp(this, 36), U.dp(this, 36)));
+        TextView ini = U.initial(this, name, group, 36);
+        r.addView(ini, new LinearLayout.LayoutParams(U.dp(this, 36), U.dp(this, 36)));
+        PressB.rowWithBadge(r, ini); // 0.21: riga premuta: fondo più scuro e il cerchio dell'iniziale si riempie d'inchiostro
         LinearLayout txt = U.col(this);
         txt.setPadding(U.dp(this, 12), 0, U.dp(this, 8), 0);
         TextView nm = U.text(this, name, 17, U.INK, false);
@@ -416,6 +421,7 @@ public class ListActivity extends BaseActivity {
             st.setMinHeight(U.dp(this, 48));
             st.setPadding(U.dp(this, 8), 0, 0, 0);
             st.setContentDescription(name + ": " + Pass.spoken(status) + ". Cambia come passano i messaggi");
+            PressB.link(st); // 0.21: lo stato è un link: anello di 6 dp
             st.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { onStatus.run(); } });
             r.addView(st);
         }
