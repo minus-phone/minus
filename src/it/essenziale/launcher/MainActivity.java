@@ -401,6 +401,9 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     @Override
     protected void onResume() {
         super.onResume();
+        // 0.21: se la sera è cominciata o finita mentre la home non era in vista (schermo spento, un'altra app),
+        // la home si ridisegna subito, senza animazione: prima restavano la luna e i colori della sera anche di mattina
+        if (Night.evening(this) != evening) { recreate(); return; }
         // 0.13.5: la configurazione vive in un suo task; se era aperta (sei diventata home a metà), torna lei
         if (OnboardingActivity.running) OnboardingActivity.bringBack(this);
         Store.addListener(this);
@@ -664,8 +667,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         dateChips.removeAllViews();
         View chips = U.allDayChips(this, U.events(this, U.startOfDay(0), U.startOfDay(1)));
         if (chips != null) dateChips.addView(chips, U.full());
-        evening = Night.evening(this);
-        if (evening && U.hourNow() >= 12) {
+        if (evening && U.hourNow() >= 12) { // 0.21: «evening» cambia solo con la home ridisegnata (onResume, tick)
             // 195: la sera domani prende il posto di oggi. E002: al posto di «Invece di scorrere» l'avviso
             // dell'ora di staccare (se il telefono era bloccato) e il consiglio della settimana
             todayEmpty = true;
