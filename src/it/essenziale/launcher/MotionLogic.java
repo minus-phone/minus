@@ -7,7 +7,7 @@ package it.essenziale.launcher;
 public final class MotionLogic {
     private MotionLogic() {}
 
-    public static final int RAPIDO = 120, BASE = 240, LENTO = 480;
+    public static final int RAPIDO = 180, BASE = 400, LENTO = 720;
     /** «Rimuovi animazioni»: ogni movimento diventa una dissolvenza così breve (o un cambio diretto). */
     public static final int RIDOTTO = 80;
     /** Quanto resta spuntata una casella prima che la riga si chiuda; la seconda pressione la toglie. */
@@ -15,7 +15,7 @@ public final class MotionLogic {
     /** Dopo la risposta alla domanda dello sblocco, prima che la scheda si chiuda. */
     public static final int SBLOCCO_ATTESA = 300;
     /** Il numero del rapporto che scende: durata totale. */
-    public static final int CONTO_MS = 600;
+    public static final int CONTO_MS = 900;
     /** Le righe del rapporto entrano una alla volta, a distanza di… */
     public static final int RIGHE_SFALSAMENTO = 80;
 
@@ -34,11 +34,15 @@ public final class MotionLogic {
      */
     public static boolean countDown(int previous, int now) { return previous >= 0 && now >= 0 && now < previous; }
 
-    /** Il numero a un istante del conto: da {@code from} a {@code to}, rallentando (cubica); t in 0..1. */
+    /** La curva «ease-in-out» di tutto ciò che si disegna a mano (riempimento della casella, conto del rapporto): k in 0..1. */
+    public static float io(float k) {
+        float x = Math.max(0f, Math.min(1f, k));
+        return x < 0.5f ? 2f * x * x : 1f - (float) Math.pow(-2f * x + 2f, 2) / 2f;
+    }
+
+    /** Il numero a un istante del conto: da {@code from} a {@code to}, ease-in-out; t in 0..1. */
     public static int countValue(int from, int to, float t) {
-        float k = Math.max(0f, Math.min(1f, t));
-        float e = 1f - (1f - k) * (1f - k) * (1f - k);
-        return Math.round(from + (to - from) * e);
+        return Math.round(from + (to - from) * io(t));
     }
 
     /** Il ritardo dell'ingresso della riga i del rapporto (0 con le animazioni ridotte). */
@@ -50,8 +54,72 @@ public final class MotionLogic {
         return Math.max(0f, Math.min(1f, secondsPassed / (float) seconds));
     }
 
-    /** L'«ultimo urgente»: spuntando questo task non resta nessun altro urgente da fare. */
-    public static boolean lastUrgent(boolean thisUrgent, int otherUrgentsStillToDo) { return thisUrgent && otherUrgentsStillToDo <= 0; }
+    /** La festa: nessuna, «Tutto fatto per oggi» (l'ultimo task), «Urgenti fatti» (l'ultimo urgente, altri task restano). */
+    public static final int FESTA_NESSUNA = 0, FESTA_TUTTO = 1, FESTA_URGENTI = 2;
+
+    /**
+     * Spuntando un task: se non resta nulla da fare è «Tutto fatto per oggi»; se questo era urgente e non resta nessun
+     * altro urgente è «Urgenti fatti»; altrimenti niente. (Un task non urgente non fa mai «Urgenti fatti».)
+     */
+    public static int festa(boolean thisUrgent, int urgentsStillToDo, int othersStillToDo) {
+        if (othersStillToDo <= 0) return FESTA_TUTTO;
+        return thisUrgent && urgentsStillToDo <= 0 ? FESTA_URGENTI : FESTA_NESSUNA;
+    }
+
+    /** Il testo che dice TalkBack (la festa non scrive niente sullo schermo), 700 ms dopo che il segno comincia. */
+    public static String festaTesto(int festa) {
+        return festa == FESTA_TUTTO ? "Tutto fatto per oggi" : festa == FESTA_URGENTI ? "Urgenti fatti" : null;
+    }
+    public static final int FESTA_ANNUNCIO_MS = 700, FESTA_TIENI_MS = 900, FESTA_RIDOTTO_MS = 1600;
+    /** Il segno entra (LENTO), il check si disegna (LENTO, dopo 0,6 LENTO), resta, esce (LENTO): 2,6 LENTO + 900 ms. Ridotto: 1600 ms di sola dissolvenza. */
+    public static int festaTotale(boolean reduced) { return reduced ? FESTA_RIDOTTO_MS : Math.round(LENTO * 2.6f) + FESTA_TIENI_MS; }
+    /** Il disegno del check: parte dopo 0,6 LENTO e dura LENTO. */
+    public static int festaDisegnoDa() { return Math.round(LENTO * 0.6f); }
+    /** Opacità del segno a t ms: sale in LENTO, resta, scende negli ultimi LENTO (ease-in-out in entrambi i versi). Ridotto: 0 → 1 a 20%, 1 fino all'80%, → 0. */
+    public static float festaOpacita(long t, boolean reduced) {
+        int tot = festaTotale(reduced);
+        float x = Math.max(0f, Math.min(1f, t / (float) tot));
+        if (reduced) return x < 0.2f ? x / 0.2f : x <= 0.8f ? 1f : (1f - x) / 0.2f;
+        if (t < LENTO) return io(t / (float) LENTO);
+        if (t > tot - LENTO) return 1f - io((t - (tot - LENTO)) / (float) LENTO);
+        return 1f;
+    }
+    /** La scala del segno a t ms: da 0,94 a 1 nell'entrata, poi 1. Ridotto: sempre 1. */
+    public static float festaScala(long t, boolean reduced) {
+        if (reduced || t >= LENTO) return 1f;
+        return 0.94f + 0.06f * io(Math.max(0, t) / (float) LENTO);
+    }
+    /** Quanto del check è disegnato a t ms (0..1). Ridotto: già tutto. */
+    public static float festaCheck(long t, boolean reduced) {
+        if (reduced) return 1f;
+        return io((t - festaDisegnoDa()) / (float) LENTO);
+    }
+
+    /**
+     * Il check che sostituisce la label dei pulsanti a pillola: la label svanisce in RAPIDO, il check si disegna in BASE
+     * dopo mezzo RAPIDO; l'azione parte 250 ms dopo la fine del disegno (si fa in tempo a vederlo).
+     */
+    public static final int TICK_EXTRA_MS = 250;
+    public static int tickDisegnoDa() { return RAPIDO / 2; }
+    public static int tickAttesa() { return tickDisegnoDa() + BASE + TICK_EXTRA_MS; }
+    /** Quanto del check del pulsante è disegnato a t ms (0..1), ease-in-out. Ridotto: già tutto. */
+    public static float tickCheck(long t, boolean reduced) {
+        if (reduced) return 1f;
+        return io((t - tickDisegnoDa()) / (float) BASE);
+    }
+    /** Il ritardo dell'azione dopo il tocco: con le animazioni ridotte il check è subito lì, ma 80 ms bastano a vederlo. */
+    public static int tickAttesa(boolean reduced) { return reduced ? RIDOTTO + TICK_EXTRA_MS : tickAttesa(); }
+
+    // ---------- L'alone esterno alla pressione ----------
+
+    /** Sporge di 8 dp attorno a pillole, riga «Nuovo», barra di ricerca, icone tonde; 6 dp attorno a chip e link di testo. */
+    public static final float ALONE_DP = 8f, ALONE_PICCOLO_DP = 6f;
+    /** L'alone resta visibile almeno così, anche con un tocco veloce (il dito copre il pulsante). */
+    public static final int ALONE_MIN_MS = 240;
+    /** Quanto aspettare, dopo che il dito si è alzato, prima di far svanire l'alone (0 se è già stato visto abbastanza). */
+    public static long aloneRestante(long pressedForMs) { return Math.max(0L, ALONE_MIN_MS - Math.max(0L, pressedForMs)); }
+    /** Alone di 56 dp (più grande del dito) dietro la casella dei task e le icone senza bordo. */
+    public static final int ALONE_ICONA_DP = 56;
 
     /** Il colore a metà strada tra a e b (canali ARGB), t in 0..1. */
     public static int mix(int a, int b, float t) {
@@ -66,44 +134,10 @@ public final class MotionLogic {
 
     // ---------- Evolutiva 016, fase 2 ----------
 
-    /** «Togliere diventa un meno»: la riga si comprime in una linea (BASE), la linea si ritira a sinistra (RAPIDO). */
-    public static final int LEAVE_COMPRIME = BASE, LEAVE_RITIRA = RAPIDO;
-    public static int leaveTotal(boolean reduced) { return reduced ? RIDOTTO : LEAVE_COMPRIME + LEAVE_RITIRA; }
-
-    /** «Il meno che si disegna»: il meno (LENTO), i tratti trasparenti (RAPIDO), la home (RAPIDO, parte 60 ms prima della fine dei tratti). */
-    public static final int MARCA_DISEGNO = LENTO, MARCA_TRATTI = RAPIDO, MARCA_HOME = RAPIDO, MARCA_SOVRAPPOSTA = 60;
-    /** Il momento non blocca mai i tocchi oltre questo (ms). */
-    public static final int MARCA_MAX_BLOCCO = 700;
-    /** Durata totale: disegno + tratti + home, meno la sovrapposizione. Con le animazioni ridotte, due dissolvenze da 80 ms. */
-    public static int marcaTotale(boolean reduced) {
-        return reduced ? 2 * RIDOTTO : MARCA_DISEGNO + MARCA_TRATTI + MARCA_HOME - MARCA_SOVRAPPOSTA;
-    }
-
-    /** Quanto del meno è disegnato a t ms dall'inizio (0..1, lineare: la curva la mette chi disegna). */
-    public static float marcaDisegno(long t) { return Math.max(0f, Math.min(1f, t / (float) MARCA_DISEGNO)); }
-
-    /** L'opacità dei tratti trasparenti a t ms (0..1): compaiono dopo il disegno del meno. */
-    public static float marcaTratti(long t) { return Math.max(0f, Math.min(1f, (t - MARCA_DISEGNO) / (float) MARCA_TRATTI)); }
-
-    /** L'opacità del logo sopra la home a t ms: 1 finché la home non comincia ad apparire, poi scende a 0. */
-    public static float marcaLogo(long t) {
-        long from = MARCA_DISEGNO + MARCA_TRATTI - MARCA_SOVRAPPOSTA;
-        return 1f - Math.max(0f, Math.min(1f, (t - from) / (float) MARCA_HOME));
-    }
-
-    /**
-     * Il primo sblocco del mattino: adesso è dopo la sveglia di oggi ({@code wakeToday}) e l'ultima volta che la home
-     * è stata vista era prima di quell'ora (la notte, o ieri). Mai prima della sveglia.
-     */
-    public static boolean morningFirst(long lastSeen, long wakeToday, long now) { return now >= wakeToday && lastSeen < wakeToday; }
-
-    /** Il momento di marca: all'avvio a freddo o al primo sblocco del mattino, una volta sola al giorno. */
-    public static boolean brandMoment(boolean coldStart, boolean morningFirst, long today, long lastShownDay) {
-        return (coldStart || morningFirst) && today != lastShownDay;
-    }
-
     /** «La sera»: la tavolozza scivola (e la luna sale) solo se la sera comincia mentre la home è a schermo. */
     public static final int SERA_MS = 3000, SERA_LUNA_DP = 6;
+    /** La data scorre di quanto occupa la luna (22 dp + 8 dp di spazio) mentre la luna compare. */
+    public static final int SERA_DATA_DP = 30, SERA_LUNA_BOX_DP = 22;
     public static boolean seraAnimates(boolean wasEvening, boolean nowEvening, boolean homeVisible, boolean reduced) {
         return !wasEvening && nowEvening && homeVisible && !reduced;
     }

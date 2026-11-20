@@ -212,6 +212,7 @@ public class WeekActivity extends BaseActivity {
         public void setDone(String id, boolean done) { Tasks.setDone(WeekActivity.this, id, done); }
         public void gone(String id) { hiddenDone.add(id); }
         public void reopened(String id) { hiddenDone.remove(id); }
+        public void festa(int kind, View row) {} // la festa è solo della home: «Tutto fatto per oggi» non vale per un giorno della settimana
         public void busy(int delta) {
             busyRows = Math.max(0, busyRows + delta);
             if (busyRows == 0) { dirty = false; render(); }
@@ -260,7 +261,7 @@ public class WeekActivity extends BaseActivity {
         });
         w.setContentDescription("Segna fatto: " + k.title);
         w.setMinimumHeight(U.dp(this, 48));
-        Press.checkHalo(w, 36, 9); // come in home: l'alone è alla casella, 36 dp
+        Press.checkHalo(w, MotionLogic.ALONE_ICONA_DP, 9); // come in home: l'alone è alla casella, 56 dp
         U.widenLeft(r, w, 18);
         if (k.app != null && U.installed(this, k.app)) {
             final String label = U.appLabel(this, k.app);

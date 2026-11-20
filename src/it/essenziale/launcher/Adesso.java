@@ -137,7 +137,7 @@ final class Adesso {
         TextView t = U.text(c, s, 15, primary ? bg : ink, true);
         t.setGravity(Gravity.CENTER);
         t.setMinHeight(U.dp(c, 48));
-        if (primary) Press.primary(t, ink, MotionLogic.mix(ink, bg, 0.2f), 24); else Press.outlined(t, bg, ink, 24); // 0.20: premuto cambia solo lo sfondo
+        if (primary) Press.primary(t, ink, MotionLogic.mix(ink, bg, 0.2f), 24).dark(dark); else Press.outlined(t, bg, ink, 24).dark(dark); // 0.20: premuto cambia solo lo sfondo
         return t;
     }
 }

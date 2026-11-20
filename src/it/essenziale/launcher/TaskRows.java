@@ -13,11 +13,13 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 /**
- * Evolutiva 016, momenti 1 e 2 · la spunta di un task in home. La casella si riempie in senso orario (RAPIDO), poi la
- * spunta con la molla e la vibrazione «conferma» (BASE); la riga resta spuntata un secondo (un secondo tocco la riapre,
- * senza vibrazione), poi la riga si comprime in una linea d'inchiostro che si ritira a sinistra (momento 11, Motion.leave, BASE + RAPIDO) e le altre salgono. Se è l'ultimo urgente, il «!» rosso si scioglie
- * dentro il riempimento: dopo non resta rosso. TalkBack: «<titolo>, fatto». Il dato si salva subito: se esci a metà, il
- * task è fatto. Senza animazioni: tutto diretto, la riga se ne va con una dissolvenza di 80 ms.
+ * Evolutiva 016, momenti 1 e 2 · la spunta di un task in home. La casella si riempie in senso orario (RAPIDO, ease-in-out),
+ * poi la spunta con il rimbalzo e la vibrazione «conferma» (BASE); in quel momento anche il testo e il «!» rosso (di ogni
+ * urgente) passano al grigio dei completati. La riga resta spuntata un secondo (un secondo tocco la riapre, senza
+ * vibrazione), poi si dissolve e si chiude (BASE) e le altre salgono. Se non resta più niente da fare compare la festa
+ * «Tutto fatto per oggi»; se erano gli ultimi urgenti, «Urgenti fatti» (un grande check in un cerchio, sullo sfondo).
+ * TalkBack: «<titolo>, fatto». Il dato si salva subito: se esci a metà, il task è fatto. Senza animazioni: tutto
+ * diretto, la riga se ne va con una dissolvenza di 80 ms.
  */
 final class TaskRows {
     private TaskRows() {}
@@ -30,6 +32,7 @@ final class TaskRows {
         void gone(String id);          // la riga si è chiusa: da qui in poi non si ridisegna fra i da fare
         void reopened(String id);
         void busy(int delta);          // +1 quando una riga inizia, -1 quando finisce
+        void festa(int kind, View row); // MotionLogic.FESTA_TUTTO / FESTA_URGENTI: l'ultimo task, o l'ultimo urgente, di quella colonna
     }
 
     /** Il «!» davanti al titolo: un colore che si può far svanire senza rifare il testo. */
@@ -41,7 +44,7 @@ final class TaskRows {
 
     static final class State {
         String id, title;
-        boolean urgent, last;
+        boolean urgent;
         int phase;
         TaskBox box;
         TextView titleView;
@@ -64,13 +67,14 @@ final class TaskRows {
         if (s.phase == CHECKED) uncheck(s, h); else check(s, h);
     }
 
-    private static int othersUrgentToDo(State me) {
+    /** Quanti altri task della stessa colonna restano da fare (solo gli urgenti se {@code urgentOnly}). */
+    private static int othersToDo(State me, boolean urgentOnly) {
         if (!(me.row.getParent() instanceof ViewGroup)) return 0;
         ViewGroup p = (ViewGroup) me.row.getParent();
         int n = 0;
         for (int i = 0; i < p.getChildCount(); i++) {
             Object t = p.getChildAt(i).getTag(U.R.id_task);
-            if (t instanceof State && t != me && ((State) t).urgent && ((State) t).phase == IDLE) n++;
+            if (t instanceof State && t != me && ((State) t).phase == IDLE && (!urgentOnly || ((State) t).urgent)) n++;
         }
         return n;
     }
@@ -81,8 +85,6 @@ final class TaskRows {
         s.phase = CHECKED;
         h.setDone(s.id, true);
         h.busy(1);
-        s.last = MotionLogic.lastUrgent(s.urgent, othersUrgentToDo(s));
-        if (s.last && s.bang != null) fadeBang(s, false);
         s.box.fillTo(1f, red ? 0 : Motion.RAPIDO);
         s.confirm = new Runnable() {
             public void run() {
@@ -90,13 +92,16 @@ final class TaskRows {
                 Motion.conferma(s.box);
                 Motion.say(s.row, s.title + ", fatto");
                 tintTitle(s, U.BORDER);
+                if (s.bang != null) fadeBang(s, false); // il «!» di ogni urgente passa al grigio dei completati, insieme al testo
+                int kind = MotionLogic.festa(s.urgent, othersToDo(s, true), othersToDo(s, false));
+                if (kind != MotionLogic.FESTA_NESSUNA) h.festa(kind, s.row);
                 s.collapse = new Runnable() {
                     public void run() {
                         s.phase = GONE;
                         s.row.setClickable(false);
                         s.row.setTag(U.R.id_task, s);
                         h.gone(s.id);
-                                                Motion.leave(s.row, new Runnable() { public void run() { h.busy(-1); } });
+                        Motion.collapse(s.row, false, new Runnable() { public void run() { h.busy(-1); } });
                     }
                 };
                 s.row.postDelayed(s.collapse, MotionLogic.SPUNTA_RESTA);
@@ -113,7 +118,7 @@ final class TaskRows {
         h.reopened(s.id);
         h.busy(-1);
         s.box.fillTo(0f, Motion.reduced(s.row.getContext()) ? 0 : Motion.RAPIDO);
-        if (s.last && s.bang != null) fadeBang(s, true);
+        if (s.bang != null) fadeBang(s, true);
         tintTitle(s, U.INK);
         Motion.say(s.row, s.title + ", da fare"); // niente vibrazione: riaprire è tornare indietro
     }
@@ -126,12 +131,12 @@ final class TaskRows {
         });
     }
 
-    /** Il «!» rosso svanisce (in RAPIDO, insieme al riempimento) o ritorna se la riga si riapre. */
+    /** Il «!» rosso diventa grigio come il testo (RAPIDO, lineare, come nel prototipo) o ritorna rosso se la riga si riapre. */
     private static void fadeBang(final State s, boolean back) {
         if (s.bangAnim != null) s.bangAnim.cancel();
-        final int red = U.URGENT, gone = red & 0x00FFFFFF, to = back ? red : gone;
+        final int to = back ? U.URGENT : U.BORDER;
         if (Motion.reduced(s.row.getContext())) { s.bang.color = to; s.titleView.invalidate(); return; }
-        s.bangAnim = Motion.color(Motion.RAPIDO, s.bang.color, to, new Motion.ColorSink() {
+        s.bangAnim = Motion.color(Motion.RAPIDO, s.bang.color, to, new android.view.animation.LinearInterpolator(), new Motion.ColorSink() {
             public void set(int c) { s.bang.color = c; s.titleView.invalidate(); }
         });
     }

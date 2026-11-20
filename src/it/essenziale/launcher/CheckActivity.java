@@ -84,7 +84,7 @@ public class CheckActivity extends BaseActivity {
         done.setGravity(Gravity.CENTER);
         done.setMinHeight(U.dp(this, 52));
         Press.primary(done, U.INK, 26);
-        done.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { finishCheck(); } });
+        Tick.onClick(done, new Runnable() { public void run() { finishCheck(); } }); // 0.21: la label lascia il posto a un check che si disegna, poi l'azione
         box.addView(done, gap(12));
         if (next > 0) {
             TextView off = U.text(this, "Non mostrarmeli più", 14, U.INK, false);

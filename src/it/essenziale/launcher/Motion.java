@@ -15,8 +15,9 @@ import android.view.animation.PathInterpolator;
 
 /**
  * Evolutiva 016 · il linguaggio del movimento, in un posto solo.
- * Durate: RAPIDO 120 (tocchi, scatti, cambi di testo), BASE 240 (spunta, righe che si chiudono, pillola),
- * LENTO 480 (pausa, sera). Curve: DECELERA per tutto, MOLLA solo per la conferma.
+ * Durate: RAPIDO 180 (tocchi, scatti, cambi di testo), BASE 400 (spunta, righe che si chiudono, pillola),
+ * LENTO 720 (pausa, sera). Curva: una sola, ease-in-out senza rimbalzo (0,45 · 0 · 0,55 · 1); DECELERA e MOLLA
+ * sono due nomi della stessa curva (il disegno li distingue ancora, il movimento no).
  * Vibrazioni: «conferma» (hai finito qualcosa) e «scatto» (hai scelto); mai lunghe né ripetute, nessun permesso
  * VIBRATE (si usa performHapticFeedback, che rispetta le impostazioni di chi ha spento le vibrazioni).
  * «Rimuovi animazioni» di Android: ogni movimento diventa una dissolvenza di 80 ms o un cambio diretto.
@@ -26,8 +27,8 @@ public final class Motion {
 
     public static final int RAPIDO = MotionLogic.RAPIDO, BASE = MotionLogic.BASE, LENTO = MotionLogic.LENTO;
 
-    public static final Interpolator DECELERA = new PathInterpolator(0.2f, 0f, 0f, 1f);
-    public static final Interpolator MOLLA = new PathInterpolator(0.34f, 1.4f, 0.64f, 1f);
+    public static final Interpolator DECELERA = new PathInterpolator(0.45f, 0f, 0.55f, 1f);
+    public static final Interpolator MOLLA = DECELERA;
 
     // ---------- «Rimuovi animazioni» ----------
 
@@ -108,101 +109,6 @@ public final class Motion {
         va.start();
     }
 
-    // ---------- «Togliere diventa un meno» ----------
-
-    /** Tutto ciò che se ne va: si comprime in una linea d'inchiostro e la linea si ritira. La vista resta GONE. */
-    public static void leave(View v, Runnable end) { leave(v, false, end); }
-
-    /**
-     * Evolutiva 016, momento 11. La vista si schiaccia in verticale in una linea d'inchiostro di 2 dp (BASE, DECELERA)
-     * mentre sotto la giornata sale; poi la linea si ritira verso il suo bordo sinistro e sparisce (RAPIDO). Totale
-     * BASE + RAPIDO. In una colonna verticale la linea è una vista in più, tolta alla fine; una vista che non sta in una
-     * colonna (la pillola, che è una finestra sopra le altre app) si schiaccia da sola e nient'altro scorre.
-     * {@code restore}: alla fine la vista torna com'era (contenitori che si riusano); altrimenti resta GONE.
-     * «Rimuovi animazioni»: dissolvenza di 80 ms.
-     */
-    public static void leave(final View v, final boolean restore, final Runnable end) {
-        if (v == null || v.getParent() == null) { if (end != null) end.run(); return; }
-        final Context c = v.getContext();
-        if (reduced(c) || v.getHeight() <= 0) {
-            v.animate().alpha(0f).setDuration(MotionLogic.RIDOTTO).setListener(new AnimatorListenerAdapter() {
-                public void onAnimationEnd(Animator a) {
-                    v.animate().setListener(null);
-                    if (restore) v.setAlpha(1f); else v.setVisibility(View.GONE);
-                    if (end != null) end.run();
-                }
-            }).start();
-            return;
-        }
-        final int h0 = v.getHeight(), line = Math.max(2, U.dp(c, 2));
-        final boolean inColumn = v.getParent() instanceof android.widget.LinearLayout
-                && ((android.widget.LinearLayout) v.getParent()).getOrientation() == android.widget.LinearLayout.VERTICAL
-                && v.getLayoutParams() instanceof ViewGroup.MarginLayoutParams;
-        final ViewGroup.MarginLayoutParams lp = inColumn ? (ViewGroup.MarginLayoutParams) v.getLayoutParams() : null;
-        final int mbOld = inColumn ? lp.bottomMargin : 0;
-        final android.widget.LinearLayout col = inColumn ? (android.widget.LinearLayout) v.getParent() : null;
-        final View bar = new View(c);
-        if (inColumn) {
-            bar.setBackgroundColor(U.INK);
-            bar.setAlpha(0f);
-            bar.setPivotX(0f);
-            android.widget.LinearLayout.LayoutParams blp = new android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, line);
-            blp.leftMargin = lp.leftMargin + v.getPaddingLeft(); // la linea sta nella colonna del contenuto, non nel riquadro
-            blp.rightMargin = lp.rightMargin + v.getPaddingRight();
-            col.addView(bar, col.indexOfChild(v) + 1, blp);
-            v.setPivotX(0f);
-            v.setPivotY(0f);
-        } else {
-            v.setPivotX(0f);
-            v.setPivotY(h0 / 2f);
-        }
-        final int total = MotionLogic.LEAVE_COMPRIME + MotionLogic.LEAVE_RITIRA;
-        final float split = MotionLogic.LEAVE_COMPRIME / (float) total;
-        final ValueAnimator va = ValueAnimator.ofFloat(0f, 1f);
-        va.setDuration(total);
-        va.setInterpolator(new android.view.animation.LinearInterpolator());
-        va.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            public void onAnimationUpdate(ValueAnimator a) {
-                float x = (Float) a.getAnimatedValue();
-                float p = DECELERA.getInterpolation(Math.min(1f, x / split));          // 0..1: la riga si comprime
-                float q = x <= split ? 0f : DECELERA.getInterpolation((x - split) / (1f - split)); // 0..1: la linea si ritira
-                float k = Math.max(line / (float) h0, 1f - p);                          // altezza vista: da 1 a quella di una linea
-                v.setScaleY(inColumn ? 1f - p : k);
-                float ca = Math.max(0f, 1f - p * 1.6f);                                  // il contenuto svanisce nella prima parte
-                if (inColumn) v.setAlpha(ca);
-                else if (v instanceof ViewGroup) { // la pillola: il fondo d'inchiostro resta, è lui la linea; svanisce solo il testo
-                    ViewGroup g = (ViewGroup) v;
-                    for (int i = 0; i < g.getChildCount(); i++) g.getChildAt(i).setAlpha(ca);
-                }
-                if (inColumn) {
-                    lp.bottomMargin = mbOld - Math.round(h0 * p);
-                    v.setLayoutParams(lp);
-                    bar.setAlpha(Math.min(1f, p * 2f));
-                    bar.setScaleX(1f - q);
-                    android.widget.LinearLayout.LayoutParams blp = (android.widget.LinearLayout.LayoutParams) bar.getLayoutParams();
-                    blp.bottomMargin = -Math.round(line * q);
-                    bar.setLayoutParams(blp);
-                } else {
-                    v.setScaleX(1f - q);
-                }
-            }
-        });
-        va.addListener(new AnimatorListenerAdapter() {
-            public void onAnimationEnd(Animator a) {
-                if (inColumn) {
-                    col.removeView(bar);
-                    lp.bottomMargin = mbOld;
-                    v.setLayoutParams(lp);
-                }
-                v.setScaleX(1f);
-                v.setScaleY(1f);
-                if (restore) v.setAlpha(1f); else v.setVisibility(View.GONE);
-                if (end != null) end.run();
-            }
-        });
-        va.start();
-    }
-
     /** Una vista che entra: dissolvenza, e con le animazioni normali una piccola salita (dp). */
     public static void enter(View v, int delayMs, int ms, float riseDp) {
         Context c = v.getContext();
@@ -213,10 +119,12 @@ public final class Motion {
     }
 
     /** Colore che passa da a a b (ARGB), per sfondi e testi di chip e piste. */
-    public static ValueAnimator color(int ms, final int from, final int to, final ColorSink sink) {
+    public static ValueAnimator color(int ms, final int from, final int to, final ColorSink sink) { return color(ms, from, to, DECELERA, sink); }
+
+    public static ValueAnimator color(int ms, final int from, final int to, Interpolator curve, final ColorSink sink) {
         ValueAnimator va = ValueAnimator.ofFloat(0f, 1f);
         va.setDuration(ms);
-        va.setInterpolator(DECELERA);
+        va.setInterpolator(curve);
         va.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             public void onAnimationUpdate(ValueAnimator a) { sink.set(MotionLogic.mix(from, to, (Float) a.getAnimatedValue())); }
         });

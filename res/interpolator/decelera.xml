@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Evolutiva 016: la curva «decelera» (0.2, 0, 0, 1), la stessa di Motion.DECELERA -->
+<!-- Evolutiva 016: la curva unica del movimento, ease-in-out senza rimbalzo (0.45, 0, 0.55, 1), la stessa di Motion.DECELERA e Motion.MOLLA -->
 <pathInterpolator xmlns:android="http://schemas.android.com/apk/res/android"
-    android:controlX1="0.2"
+    android:controlX1="0.45"
     android:controlY1="0"
-    android:controlX2="0"
+    android:controlX2="0.55"
     android:controlY2="1" />

@@ -79,7 +79,7 @@ public class SearchActivity extends BaseActivity {
         setT.setPadding(U.dp(this, 10), 0, 0, 0);
         set.addView(setT);
         set.setContentDescription("Cambia impostazioni di −minus");
-        Press.row(set);
+        Press.ringOnly(set, 0, MotionLogic.ALONE_DP); // 0.21: «Cambia impostazioni» non cambia fondo da premuto: ha solo l'alone esterno
         set.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { startActivity(new Intent(SearchActivity.this, SettingsActivity.class).putExtra("back", "Ricerca")); }
         });
