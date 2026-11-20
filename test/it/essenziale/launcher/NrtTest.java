@@ -1029,6 +1029,10 @@ public class NrtTest {
         // ---- Evolutiva 016, fase 2 ----
         check("Sera: comincia mentre guardi la home, con animazioni", MotionLogic.seraAnimates(false, true, true, false), null);
         check("Sera: la home si apre già di sera, niente", !MotionLogic.seraAnimates(true, true, true, false), null);
+        check("Giorno: la sera finisce mentre guardi la home, con animazioni", MotionLogic.giornoAnimates(true, false, true, false), null);
+        check("Giorno: la home non si vede, niente", !MotionLogic.giornoAnimates(true, false, false, false), null);
+        check("Giorno: animazioni ridotte, subito", !MotionLogic.giornoAnimates(true, false, true, true), null);
+        check("Giorno: la sera comincia, non è il ritorno", !MotionLogic.giornoAnimates(false, true, true, false), null);
         check("Sera: la home non si vede, niente", !MotionLogic.seraAnimates(false, true, false, false), null);
         check("Sera: finisce (torna giorno), niente dissolvenza lenta", !MotionLogic.seraAnimates(true, false, true, false), null);
         check("Sera: animazioni ridotte, subito", !MotionLogic.seraAnimates(false, true, true, true), null);

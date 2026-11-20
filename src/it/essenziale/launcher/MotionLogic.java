@@ -142,6 +142,11 @@ public final class MotionLogic {
         return !wasEvening && nowEvening && homeVisible && !reduced;
     }
 
+    /** «Tornando al giorno avviene il contrario»: la sera finisce mentre la home è a schermo (con animazioni). */
+    public static boolean giornoAnimates(boolean wasEvening, boolean nowEvening, boolean homeVisible, boolean reduced) {
+        return wasEvening && !nowEvening && homeVisible && !reduced;
+    }
+
     /**
      * Il rapporto della settimana: i numeri della settimana appena chiusa si tengono per il confronto della prossima.
      * Si salvano solo se c'era una prova già conclusa (rapporto visto); altrimenti -1 = nessun dato.
