@@ -60,8 +60,6 @@ public class MainActivity extends BaseActivity implements Store.Listener {
 
         root = U.col(this);
         root.setPadding(0, U.dp(this, 8), 0, U.dp(this, 16)); // 0.21: la pagina è larga il 100%; i 20 dp sono padding dei blocchi (contenuto, «Nuovo», barra)
-        root.setClipChildren(false);
-        root.setClipToPadding(false); // 0.13.2: la barra di stato non c'è, la home parte dall'alto
         // Il focus iniziale va alla pagina, non al campo di ricerca: niente tastiera automatica
         root.setFocusable(true);
         root.setFocusableInTouchMode(true);
@@ -71,10 +69,10 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         sv.setVerticalScrollBarEnabled(false);
         LinearLayout content = U.col(this);
         content.setPadding(U.dp(this, 20), 0, U.dp(this, 20), 0);
+        // 0.21: la ScrollView ritaglia ai suoi bordi (il contenuto non copre mai intestazione e barra); il contenuto interno non ritaglia nel suo padding di 20 dp,
+        // così i fondi premuti delle righe possono sporgere di lato; gli aloni stanno nell'overlay della radice
         content.setClipChildren(false);
         content.setClipToPadding(false);
-        sv.setClipChildren(false);
-        sv.setClipToPadding(false);
         sv.addView(content);
         root.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
@@ -192,6 +190,8 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         });
         sessionView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         sessionView.setVisibility(View.VISIBLE);
+        sessionView.setTextColor(U.BG);
+        Press.primary(sessionView, U.INK, 16); // 0.21: la pillola del tempo, premuta, si schiarisce con l'anello di 8 dp (lo stato passa dal genitore cliccabile)
         sessionWrap.addView(sessionView, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
         pillRow.addView(sessionWrap, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, U.dp(this, 48), Gravity.CENTER_HORIZONTAL | Gravity.TOP));
 
@@ -657,8 +657,6 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         // 0.6: sotto la data solo il tempo dall'ultimo sblocco; la sveglia sta in Domani
         String sl = Pill.homeText(this);
         sessionView.setText(sl == null ? "" : U.brand(sl));
-        sessionView.setTextColor(U.BG);
-        sessionView.setBackground(U.box(this, U.INK, 0, 16));
         sessionWrap.setContentDescription(sl == null ? null : sl.startsWith("Tra ") ? sl
                 : "Al telefono: " + sl.replace("●", "").replace("◷", "").trim() + ". Tocca per le impostazioni del tempo.");
         sessionWrap.setVisibility(sl == null ? View.INVISIBLE : View.VISIBLE);
@@ -686,6 +684,9 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         }
         if (!U.hasCalendar(this)) {
             TextView t = U.text(this, "Tocca qui per permettere la lettura del calendario", 15, U.MUTED, false);
+            t.setMinHeight(U.dp(this, 44));
+            t.setGravity(Gravity.CENTER_VERTICAL);
+            Press.link(t, U.MUTED);
             t.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) { requestPermissions(new String[]{android.Manifest.permission.READ_CALENDAR}, REQ_CAL); }
             });
@@ -777,6 +778,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
             final TextView head = U.text(this, Ordine.accordionTitle(doneToday.size()) + (doneOpen ? "  ▴" : "  ▾"), 14, U.MUTED, false);
             head.setMinHeight(U.dp(this, 44));
             head.setGravity(Gravity.CENTER_VERTICAL);
+            Press.link(head, U.MUTED);
             head.setContentDescription(Ordine.accordionTitle(doneToday.size()) + (doneOpen ? ", aperto. Tocca per chiudere" : ", chiuso. Tocca per aprire"));
             head.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { doneOpen = !doneOpen; buildToday(); } });
             today.addView(head, U.full());
@@ -890,6 +892,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
             t.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
             t.setPadding(U.dp(a, 12), 0, 0, 0);
             t.setContentDescription(none ? "Nessuna sveglia per domani. Apri le sveglie" : alarm + ". Apri le sveglie");
+            if (ink == U.ON_DARK) Press.linkOnDark(t); else Press.link(t, ink); // 0.21: link di testo (sul blocco, fondo scuro fisso)
             t.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) { if (!U.openAlarms(a)) U.toast(a, "Non trovo l'app Orologio"); }
             });
@@ -901,6 +904,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     private View eventRow(final U.Event e, boolean strong, boolean past, float sp) {
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 40));
+        Press.row(r).pad(U.dp(this, 10)); // 0.21: riga senza bordo, si scurisce solo il fondo (sporge di 10 dp: il contenuto non ritaglia nel suo padding)
         r.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { U.openEvent(MainActivity.this, e); }
         });
@@ -926,6 +930,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         r.setMinimumHeight(U.dp(this, 48)); // 0.21: come nel prototipo, ogni riga di task è alta 48 dp
         r.setClipChildren(false); // l'alone (e il fondo premuto) non vengono ritagliati dalla riga
         r.setClipToPadding(false);
+        Press.row(r).pad(U.dp(this, 10)); // 0.21: riga senza bordo, si scurisce solo il fondo; la casella ha il suo alone di 56 dp
         LinearLayout boxWrap = U.row(this);
         boxWrap.setMinimumWidth(U.dp(this, 30)); // E001: casella più vicina al titolo
         final TaskBox tbox = new TaskBox(this, t.done); // 0.20 (Evolutiva 016): si riempie in senso orario, poi la spunta con la molla

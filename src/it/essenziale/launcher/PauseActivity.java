@@ -43,10 +43,12 @@ public class PauseActivity extends BaseActivity {
         setContentView(root);
     }
 
-    private TextView preview(String s, final boolean scope) {
+    private View preview(String s, final boolean scope) {
         TextView t = U.text(this, s + " ›", 14, U.INK, true);
         t.setMinHeight(U.dp(this, 48));
         t.setGravity(Gravity.CENTER);
+        t.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
+        Press.link(t, U.INK); // 0.21: link di testo: fondo e anello di 6 dp attorno al testo, non alla metà della riga
         t.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 Intent i = new Intent(PauseActivity.this, FrictionActivity.class);
@@ -54,7 +56,9 @@ public class PauseActivity extends BaseActivity {
                 startActivity(i);
             }
         });
-        return t;
+        android.widget.FrameLayout w = new android.widget.FrameLayout(this);
+        w.addView(t, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+        return w;
     }
 
     @Override
@@ -68,7 +72,7 @@ public class PauseActivity extends BaseActivity {
         if (!Pill.usageGranted(this)) {
             TextView u = U.text(this, "Vale quando apri le app da −minus. Per fermarle anche da notifiche e app recenti: Dati di utilizzo ›", 13, U.INK, false);
             u.setPadding(U.dp(this, 14), U.dp(this, 10), U.dp(this, 14), U.dp(this, 10));
-            u.setBackground(U.box(this, U.SURFACE, U.LINE, 12));
+            Press.outlined(u, U.SURFACE, U.LINE, 12); // 0.21: scheda con bordo che si tocca: riempimento e anello di 8 dp
             u.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { Pill.openUsageSettings(PauseActivity.this); } });
             LinearLayout.LayoutParams lp = U.full();
             lp.topMargin = U.dp(this, 6);
@@ -111,7 +115,7 @@ public class PauseActivity extends BaseActivity {
             TextView t = U.text(this, LEVELS[i], 13, sel ? U.BG : U.INK, false);
             t.setGravity(Gravity.CENTER);
             t.setMinHeight(U.dp(this, 44));
-            if (sel) Press.chipOn(t, 9); else Press.row(t);
+            if (sel) Press.chipOn(t, 9); else Press.box(t, 0, 0, 9, Press.alpha(U.INK, 0.08f)).ring(9, MotionLogic.ALONE_PICCOLO_DP); // linguette: come i chip
             t.setContentDescription(a.label + ": " + LEVELS[i] + (sel ? ", scelto" : ""));
             t.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {

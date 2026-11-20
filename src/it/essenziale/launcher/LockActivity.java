@@ -32,7 +32,9 @@ public class LockActivity extends Activity {
 
     private static final int MAX_ROWS = 4;
 
-    private TextView clock, date, notif, notifN, torchBtn, alarm;
+    private TextView clock, date, notif, notifN, alarm;
+    private android.widget.ImageView torchBtn;
+    private android.graphics.drawable.GradientDrawable torchBg;
     private LinearLayout dateChips; // 0.18 (Evolutiva 008): «tutto il giorno» accanto alla data
     private LinearLayout notifRow;
     private LinearLayout next, todo;
@@ -87,6 +89,7 @@ public class LockActivity extends Activity {
         LinearLayout.LayoutParams nlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, U.dp(this, 22));
         nlp.leftMargin = U.dp(this, 8);
         notifRow.addView(notifN, nlp);
+        Press.linkOnDark(notifRow); // 0.21: link di testo su fondo scuro fisso
         notifRow.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { unlockThen(new Intent(LockActivity.this, InboxActivity.class)); }
         });
@@ -116,25 +119,31 @@ public class LockActivity extends Activity {
 
         // Torcia · Sblocca · Fotocamera
         LinearLayout actions = U.row(this);
-        torchBtn = round("Torcia", false);
+        // 0.21: torcia e fotocamera sono icone (tratto 1,5 su 24, ON_DARK), bersaglio 48 dp, alone di 56 dp chiaro da premute
+        torchBg = U.box(this, 0xFF2A2A28, 0, 24);
+        torchBtn = iconButton("ic_torcia", "Torcia, spenta", torchBg);
         torchBtn.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { toggleTorch(); } });
-        actions.addView(torchBtn, new LinearLayout.LayoutParams(U.dp(this, 64), U.dp(this, 64)));
+        LinearLayout.LayoutParams tbl = new LinearLayout.LayoutParams(U.dp(this, 48), U.dp(this, 48));
+        tbl.setMargins(U.dp(this, 8), U.dp(this, 8), U.dp(this, 8), U.dp(this, 8));
+        actions.addView(torchBtn, tbl);
         TextView unlock = U.text(this, "Sblocca", 15, U.ON_DARK, true);
         unlock.setGravity(Gravity.CENTER);
         unlock.setMinHeight(U.dp(this, 64));
+        Press.rowOnDark(unlock); // 0.21: borderless, solo il fondo si schiarisce
         unlock.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { unlockThen(null); } });
         actions.addView(unlock, new LinearLayout.LayoutParams(0, U.dp(this, 64), 1f));
-        TextView cam = round("Foto", false);
-        cam.setContentDescription("Fotocamera");
+        android.widget.ImageView cam = iconButton("ic_fotocamera", "Fotocamera", U.box(this, 0xFF2A2A28, 0, 24));
         cam.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { camera(); } });
-        actions.addView(cam, new LinearLayout.LayoutParams(U.dp(this, 64), U.dp(this, 64)));
+        LinearLayout.LayoutParams cbl = new LinearLayout.LayoutParams(U.dp(this, 48), U.dp(this, 48));
+        cbl.setMargins(U.dp(this, 8), U.dp(this, 8), U.dp(this, 8), U.dp(this, 8));
+        actions.addView(cam, cbl);
         root.addView(actions, U.full());
 
         TextView sos = U.text(this, "Emergenza", 14, U.ON_DARK, true);
         sos.setGravity(Gravity.CENTER);
         sos.setPadding(U.dp(this, 20), 0, U.dp(this, 20), 0);
         sos.setMinHeight(U.dp(this, 44));
-        sos.setBackground(U.box(this, U.DARK, 0xFF62625C, 22));
+        Press.outlinedOnDark(sos, U.DARK, 0xFF62625C, 22); // 0.21: pillola con bordo, riempimento chiaro e alone di 8 dp
         sos.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { emergency(); } });
         LinearLayout.LayoutParams slp = U.wrap();
         slp.gravity = Gravity.CENTER_HORIZONTAL;
@@ -148,11 +157,17 @@ public class LockActivity extends Activity {
         findTorch();
     }
 
-    private TextView round(String s, boolean on) {
-        TextView t = U.text(this, s, 12, on ? U.DARK : U.ON_DARK, true);
-        t.setGravity(Gravity.CENTER);
-        t.setBackground(U.box(this, on ? U.ON_DARK : 0xFF2A2A28, 0, 32));
-        return t;
+    /** Pulsante tondo con un'icona (res/drawable), tinta ON_DARK, descrizione per TalkBack e alone di 56 dp da premuto. */
+    private android.widget.ImageView iconButton(String name, String desc, android.graphics.drawable.Drawable bg) {
+        android.widget.ImageView v = Ic.view(this, name, U.ON_DARK, 24);
+        if (v == null) v = new android.widget.ImageView(this);
+        v.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
+        v.setPadding(U.dp(this, 12), U.dp(this, 12), U.dp(this, 12), U.dp(this, 12));
+        v.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        v.setContentDescription(desc);
+        v.setClickable(true);
+        Press.iconOnDark(v, bg);
+        return v;
     }
 
     @Override
@@ -262,6 +277,7 @@ public class LockActivity extends Activity {
                 b.setText(bs);
                 tr.addView(b, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, U.dp(this, 22)));
             }
+            Press.rowOnDark(tr);
             tr.setContentDescription("Task: " + k[0] + " oggi" + (k[1] > 0 ? ", " + k[1] + " urgenti questa settimana" : "") + ". Sblocca e apri la home sui task");
             tr.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) { unlockThen(new Intent(LockActivity.this, MainActivity.class).putExtra("tasks", true)); }
@@ -279,6 +295,7 @@ public class LockActivity extends Activity {
     private View eventRow(final U.Event e, boolean strong) {
         View r = row(U.hhmm(e.begin), e.title, null, strong);
         if (e.editable() && e.eventId >= 0) {
+            Press.rowOnDark(r);
             r.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) { unlockThen(U.editIntent(LockActivity.this, e)); }
             });
@@ -370,8 +387,10 @@ public class LockActivity extends Activity {
         try {
             ((CameraManager) getSystemService(CAMERA_SERVICE)).setTorchMode(torchId, on);
             torchOn = on;
-            torchBtn.setTextColor(on ? U.DARK : U.ON_DARK);
-            torchBtn.setBackground(U.box(this, on ? U.ON_DARK : 0xFF2A2A28, 0, 32));
+            torchBtn.setColorFilter(on ? U.DARK : U.ON_DARK, android.graphics.PorterDuff.Mode.SRC_IN);
+            torchBg.setColor(on ? U.ON_DARK : 0xFF2A2A28);
+            torchBtn.invalidate();
+            torchBtn.setContentDescription(on ? "Torcia, accesa" : "Torcia, spenta");
         } catch (Exception e) {
             U.toast(this, "Torcia non disponibile");
         }

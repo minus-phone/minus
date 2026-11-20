@@ -187,10 +187,13 @@ public final class U {
         TextView back = text(a, "‹  " + (bl == null ? "Home" : bl), 16, INK, false);
         back.setMinHeight(dp(a, 44));
         back.setGravity(Gravity.CENTER_VERTICAL);
+        back.setPadding(0, 0, dp(a, 16), 0);
+        back.setMinimumWidth(dp(a, 48));
+        Press.link(back, INK).pad(dp(a, 8)); // 0.21: «‹ Home»: link di testo, premuto prende il fondo e l'alone di 6 dp
         back.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { a.finish(); }
         });
-        root.addView(back);
+        root.addView(back, wrap());
         TextView t = title(a, title, 28, INK);
         t.setPadding(0, dp(a, 4), 0, dp(a, 6));
         root.addView(t);
@@ -1133,6 +1136,7 @@ public final class U {
             t.setBackground(box(a, bg, 0, 8));
             t.setContentDescription(e.title + ", tutto il giorno");
             if (touch) {
+                Press.chip(t, bg, 0, 8); // 0.21: chip «tutto il giorno»: premuto, un po' più scuro, con l'anello di 6 dp
                 t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { openEvent(a, e); } });
                 t.setOnLongClickListener(new View.OnLongClickListener() { public boolean onLongClick(View v) { Menu.event(a, e); return true; } });
             }

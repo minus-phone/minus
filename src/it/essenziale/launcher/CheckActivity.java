@@ -91,8 +91,13 @@ public class CheckActivity extends BaseActivity {
             off.setGravity(Gravity.CENTER);
             off.setMinHeight(U.dp(this, 44));
             off.getPaint().setUnderlineText(true);
+            off.setPadding(U.dp(this, 16), 0, U.dp(this, 16), 0);
+            Press.link(off, U.INK); // 0.21: link di testo: fondo e anello di 6 dp attorno al testo
             off.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { askOff(); } });
-            box.addView(off, gap(4));
+            LinearLayout.LayoutParams olp = gap(4);
+            olp.width = ViewGroup.LayoutParams.WRAP_CONTENT;
+            olp.gravity = Gravity.CENTER_HORIZONTAL;
+            box.addView(off, olp);
         }
         box.addView(new View(this), new LinearLayout.LayoutParams(1, U.dp(this, 40)));
     }
@@ -119,7 +124,7 @@ public class CheckActivity extends BaseActivity {
         TextView t = U.text(this, title + "  ›\n" + sub, 14, U.INK, false);
         t.setMinHeight(U.dp(this, 52));
         t.setPadding(U.dp(this, 14), U.dp(this, 8), U.dp(this, 14), U.dp(this, 8));
-        t.setBackground(U.box(this, U.SURFACE, U.LINE, 14));
+        Press.outlined(t, U.SURFACE, U.LINE, 14); // 0.21: scheda con bordo che si tocca: riempimento e anello di 8 dp
         return t;
     }
 

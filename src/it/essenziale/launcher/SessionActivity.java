@@ -31,7 +31,8 @@ public class SessionActivity extends BaseActivity {
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 54));
         r.addView(U.text(this, "Attivo", 16, U.INK, false), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        r.addView(toggle(on), new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 26)));
+        r.addView(U.toggle(this, on, "session_on"), new LinearLayout.LayoutParams(U.dp(this, 48), U.dp(this, 28))); // 0.21: l'interruttore con il pallino che scorre (momento 9)
+        Press.row(r); // riga con interruttore: si scurisce solo il fondo
         r.setContentDescription(on ? "Tempo nelle app che rapiscono attivo" : "Tempo nelle app che rapiscono spento");
         r.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
@@ -73,22 +74,12 @@ public class SessionActivity extends BaseActivity {
         TextView dw = U.text(this, "Pillola «App usata per…» di Benessere digitale  ›", 15, U.INK, false);
         dw.setMinHeight(U.dp(this, 52));
         dw.setGravity(Gravity.CENTER_VERTICAL);
+        Press.row(dw); // 0.21: riga senza bordo
         dw.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { Session.openWellbeing(SessionActivity.this); }
         });
         body.addView(dw, U.full());
         TextView dn = U.text(this, "Conta il tempo per app, anche la home come se fosse −minus. −minus non può spegnerla: si disattiva da Benessere digitale.", 12, U.MUTED, false);
         body.addView(dn);
-    }
-
-    View toggle(boolean on) {
-        LinearLayout sw = U.row(this);
-        sw.setGravity(on ? Gravity.END | Gravity.CENTER_VERTICAL : Gravity.START | Gravity.CENTER_VERTICAL);
-        sw.setPadding(U.dp(this, 3), U.dp(this, 3), U.dp(this, 3), U.dp(this, 3));
-        sw.setBackground(U.box(this, on ? U.INK : U.BORDER, 0, 13));
-        View knob = new View(this);
-        knob.setBackground(U.box(this, U.SURFACE, 0, 10));
-        sw.addView(knob, new LinearLayout.LayoutParams(U.dp(this, 20), U.dp(this, 20)));
-        return sw;
     }
 }

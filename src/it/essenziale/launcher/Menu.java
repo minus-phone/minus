@@ -50,6 +50,7 @@ final class Menu {
     }
 
     private void add(View v, final Runnable r) {
+        Press.row(v); // 0.21: voci del menu: righe senza bordo, si scurisce solo il fondo
         v.setOnClickListener(new View.OnClickListener() {
             public void onClick(View x) { if (dialog != null) dialog.dismiss(); if (r != null) r.run(); }
         });
