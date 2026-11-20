@@ -55,7 +55,7 @@ final class Night {
     /** La sveglia in minuti dalla mezzanotte: quella scelta, o la prossima del telefono, o le 7. */
     static int wakeMin(Context c) {
         if (p(c).contains(K_WAKE)) return p(c).getInt(K_WAKE, 420);
-        int a = alarmMin(c);
+        int a = Notte.plausibleWake(alarmMin(c)); // 0.21: un allarme di giorno non è la sveglia
         return a >= 0 ? a : 420;
     }
 

@@ -23,6 +23,14 @@ public final class Notte {
     }
 
     /** Dentro la finestra [start, end), anche a cavallo della mezzanotte. */
+    /**
+     * 0.21: la sveglia del telefono vale come ora del risveglio solo se è un'ora da risveglio (dalle 4 alle 11).
+     * Un allarme di giorno (un promemoria alle 11:30, un timer) spostava la «sera» in pieno giorno.
+     */
+    public static int plausibleWake(int alarmMin) {
+        return alarmMin >= 4 * 60 && alarmMin <= 11 * 60 ? alarmMin : -1;
+    }
+
     public static boolean inWindow(int nowMin, int startMin, int endMin) {
         if (startMin == endMin) return false;
         if (startMin < endMin) return nowMin >= startMin && nowMin < endMin;

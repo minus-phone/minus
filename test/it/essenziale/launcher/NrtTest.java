@@ -400,6 +400,10 @@ public class NrtTest {
         eq("Pillola dello scopo: tempo che resta", Scopo.pill("Instagram", 5 * 60000L + 1000), "◷  Instagram · 6 min");
         eq("Pillola dello scopo: appena scaduto", Scopo.pill("Instagram", -1000), "◷  Instagram · tempo scaduto");
         eq("Pillola dello scopo: oltre", Scopo.pill("Instagram", -3 * 60000L - 5000), "◷  Instagram · +3 min");
+        eq("Sveglia delle 6:50: vale come risveglio", Notte.plausibleWake(410), 410);
+        eq("Allarme delle 11:30: non è una sveglia", Notte.plausibleWake(690), -1);
+        eq("Allarme delle 3: non è una sveglia", Notte.plausibleWake(180), -1);
+        check("Con il risveglio alle 7 le 10:33 non sono sera", !Notte.inWindow(633, Notte.offMin(420, 480, 30), 420), null);
         check("Notte fissa: alle 23:30 sì, alle 22 no, alle 5 sì", Notte.fixed(23) && !Notte.fixed(22) && Notte.fixed(5) && !Notte.fixed(6), null);
         check("Notte automatica: pausa lunga dalle 22 la apre", Notte.opensNight(22, 75), null);
         check("Notte automatica: pausa breve no", !Notte.opensNight(22, 30), null);
