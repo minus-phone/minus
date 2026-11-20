@@ -5,6 +5,10 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
+import android.graphics.Paint;
+import android.graphics.RectF;
+import android.os.SystemClock;
+import android.view.ViewGroup;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
@@ -14,9 +18,15 @@ import android.widget.TextView;
 
 /**
  * Evolutiva 016 · gli stati premuti, uno per famiglia di pulsante. Tutti entrano ed escono in RAPIDO con la curva
- * DECELERA (80 ms con «Rimuovi animazioni»), senza onda e senza scala: sulle pillole cambia solo lo sfondo, il testo
+ * unica (80 ms con «Rimuovi animazioni»), senza onda e senza scala: sulle pillole cambia solo lo sfondo, il testo
  * non si muove né si rimpicciolisce. Nessuna vibrazione qui: lo scatto lo dà chi lancia l'azione (Motion.scatto).
  * Il segno premuto non si annuncia a TalkBack: il tocco è già l'azione.
+ *
+ * 0.21 · il dito copre il pulsante, quindi oltre allo sfondo c'è un alone esterno: un anello di 8 dp attorno a pillole,
+ * riga «Nuovo», barra di ricerca e icone tonde (6 dp attorno a chip e link di testo; chiaro, 18%, sulla pausa scura e 16%
+ * nella sera), e un cerchio di 56 dp dietro la casella dei task e le icone senza bordo. Restano visibili almeno 240 ms
+ * anche con un tocco veloce. Le righe senza bordo (risultati, interruttori) non hanno alone: si scurisce solo il fondo.
+ * L'alone si disegna nell'overlay della radice, fuori dai bordi della vista: nessun genitore lo ritaglia.
  */
 final class Press {
     private Press() {}
@@ -26,6 +36,134 @@ final class Press {
 
     /** Cambia lo stato premuto: chi vuole reagire (il badge del contatto) si registra qui. */
     interface OnPress { void onPress(boolean pressed); }
+
+    private static final android.os.Handler MAIN = new android.os.Handler(android.os.Looper.getMainLooper());
+
+    /** L'alone disegnato nell'overlay della radice: un anello attorno alla vista, o un cerchio pieno dietro l'icona. */
+    static final class Aura extends Drawable {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF r = new RectF();
+        private final boolean disc;
+        private final float spread, radius, size;
+        private int color;
+        private float p, cx, cy, w, h;
+        private final boolean grow;
+
+        Aura(boolean disc, float spreadPx, float radiusPx, float sizePx, boolean grow) {
+            this.disc = disc; this.spread = spreadPx; this.radius = radiusPx; this.size = sizePx; this.grow = grow;
+            if (!disc) { paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(spreadPx); }
+        }
+
+        void place(float centerX, float centerY, float width, float height, int c) {
+            cx = centerX; cy = centerY; w = width; h = height; color = c;
+            setBounds(Math.round(cx - w / 2f - spread - size), Math.round(cy - h / 2f - spread - size), Math.round(cx + w / 2f + spread + size), Math.round(cy + h / 2f + spread + size));
+        }
+
+        void progress(float v) { p = v; invalidateSelf(); }
+
+        @Override public void draw(Canvas cv) {
+            if (p <= 0.001f) return;
+            paint.setColor((color & 0x00FFFFFF) | (Math.round(((color >>> 24) & 0xFF) * p) << 24));
+            if (disc) {
+                cv.drawCircle(cx, cy, size / 2f * (grow ? 0.8f + 0.2f * p : 1f), paint);
+                return;
+            }
+            // anello: da bordo vista a bordo vista + spread (il tratto è centrato a metà dello spessore)
+            float k = spread / 2f;
+            r.set(cx - w / 2f - k, cy - h / 2f - k, cx + w / 2f + k, cy + h / 2f + k);
+            float rad = radius < 0 ? Math.min(w, h) / 2f + k : radius + k;
+            if (radius == 0f) { paint.setStrokeJoin(Paint.Join.MITER); cv.drawRect(r, paint); }
+            else cv.drawRoundRect(r, rad, rad, paint);
+        }
+
+        @Override public void setAlpha(int a) {}
+        @Override public void setColorFilter(ColorFilter f) {}
+        @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
+    }
+
+    /**
+     * Chi accende e spegne un'alone per una vista. {@code down} lo mostra (RAPIDO, ease-in-out); {@code up} lo fa svanire,
+     * ma non prima che siano passati 240 ms dal tocco (MotionLogic.aloneRestante).
+     */
+    static final class Halo {
+        private final View v;
+        private final boolean ring, grow, onDark;
+        private final float spreadDp, radiusDp, sizeDp, centerXDp;
+        private Aura aura;
+        private ValueAnimator anim;
+        private float p;
+        private long downAt;
+        private boolean shown;
+        private Runnable hide;
+
+        /** Anello di {@code spreadDp} attorno alla vista; {@code radiusDp} < 0 = tondo quanto la vista (pillola, cerchio). */
+        static Halo ring(View v, float radiusDp, float spreadDp, boolean onDark) { return new Halo(v, true, radiusDp, spreadDp, 0, -1, false, onDark); }
+
+        /** Cerchio pieno di {@code sizeDp} (INK al 10%), centrato sulla vista o a {@code centerXDp} dal suo bordo sinistro. */
+        static Halo disc(View v, float sizeDp, float centerXDp, boolean grow) { return new Halo(v, false, 0, 0, sizeDp, centerXDp, grow, false); }
+
+        private Halo(View v, boolean ring, float radiusDp, float spreadDp, float sizeDp, float centerXDp, boolean grow, boolean onDark) {
+            this.v = v; this.ring = ring; this.radiusDp = radiusDp; this.spreadDp = spreadDp; this.sizeDp = sizeDp; this.centerXDp = centerXDp; this.grow = grow; this.onDark = onDark;
+        }
+
+        private int color() {
+            if (!ring) return alpha(U.INK, 0.10f);
+            if (onDark) return alpha(U.ON_DARK, 0.18f);
+            return U.dark ? alpha(U.INK, 0.16f) : alpha(U.INK, 0.10f);
+        }
+
+        void down() {
+            if (hide != null) { MAIN.removeCallbacks(hide); hide = null; }
+            if (!shown) {
+                View root = v.getRootView();
+                if (!(root instanceof ViewGroup) || v.getWidth() <= 0) return;
+                Context c = v.getContext();
+                int[] t = new int[2], q = new int[2];
+                v.getLocationInWindow(t);
+                root.getLocationInWindow(q);
+                float cx = t[0] - q[0] + (centerXDp >= 0 ? U.dp(c, centerXDp) : v.getWidth() / 2f), cy = t[1] - q[1] + v.getHeight() / 2f;
+                aura = new Aura(!ring, U.dp(c, spreadDp), radiusDp < 0 ? -1 : U.dp(c, radiusDp), U.dp(c, sizeDp), grow);
+                aura.place(cx, cy, v.getWidth(), v.getHeight(), color());
+                ((ViewGroup) root).getOverlay().add(aura);
+                shown = true;
+                downAt = SystemClock.uptimeMillis();
+            }
+            run(1f);
+        }
+
+        void up() {
+            if (!shown) return;
+            long wait = MotionLogic.aloneRestante(SystemClock.uptimeMillis() - downAt);
+            if (hide != null) MAIN.removeCallbacks(hide);
+            hide = new Runnable() { public void run() { hide = null; Halo.this.run(0f); } };
+            if (wait <= 0) hide.run(); else MAIN.postDelayed(hide, wait);
+        }
+
+        void set(boolean pressed) { if (pressed) down(); else up(); }
+
+        private void run(final float to) {
+            if (anim != null) anim.cancel();
+            final ValueAnimator me = ValueAnimator.ofFloat(p, to);
+            anim = me;
+            me.setDuration(Motion.dur(v.getContext(), Motion.RAPIDO));
+            me.setInterpolator(Motion.DECELERA);
+            me.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                public void onAnimationUpdate(ValueAnimator a) { p = (Float) a.getAnimatedValue(); if (aura != null) aura.progress(p); }
+            });
+            me.addListener(new android.animation.AnimatorListenerAdapter() {
+                private boolean cancelled;
+                public void onAnimationCancel(android.animation.Animator an) { cancelled = true; }
+                public void onAnimationEnd(android.animation.Animator an) {
+                    if (cancelled || anim != me || to > 0f) return;
+                    View root = v.getRootView();
+                    if (aura != null && root instanceof ViewGroup) ((ViewGroup) root).getOverlay().remove(aura);
+                    aura = null;
+                    shown = false;
+                }
+            });
+            me.start();
+        }
+    }
 
     /**
      * Sfondo con due facce, normale e premuta, che si sciolgono una nell'altra. La faccia premuta si disegna sopra
@@ -42,6 +180,29 @@ final class Press {
         private ValueAnimator appear;
         private boolean grow;
         OnPress listener;
+        private float ringDp = -1, ringSpreadDp;
+        private boolean ringDark;
+        private Halo ring;
+        private boolean held;
+
+        /** Tiene la faccia premuta (il pulsante che ha appena fatto il suo lavoro, mentre il check si disegna). */
+        void hold() {
+            held = true;
+            if (va != null) va.cancel();
+            va = ValueAnimator.ofFloat(p, 1f);
+            va.setDuration(Motion.dur(ctx, Motion.RAPIDO));
+            va.setInterpolator(Motion.DECELERA);
+            va.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                public void onAnimationUpdate(ValueAnimator a) { p = (Float) a.getAnimatedValue(); invalidateSelf(); }
+            });
+            va.start();
+        }
+
+        /** Alone esterno: anello di {@code spreadDp} attorno alla vista, con angoli di {@code radiusDp} (-1 = tondo quanto la vista). */
+        Fade ring(float radiusDp, float spreadDp) { ringDp = radiusDp; ringSpreadDp = spreadDp; return this; }
+
+        /** Sulla pausa scura l'anello è chiaro (18%) e di 8 dp per tutti, chip compresi. */
+        Fade dark(boolean on) { if (on) { ringDark = true; if (ringSpreadDp > 0) ringSpreadDp = MotionLogic.ALONE_DP; } return this; }
 
         Fade(Context c, Drawable normal, Drawable pressed) {
             this.ctx = c; this.normal = normal; this.pressed = pressed;
@@ -98,8 +259,12 @@ final class Press {
             if (now == down) return false;
             down = now;
             if (listener != null) listener.onPress(now);
+            if (ringSpreadDp > 0 && getCallback() instanceof View) {
+                if (ring == null) ring = Halo.ring((View) getCallback(), ringDp, ringSpreadDp, ringDark);
+                ring.set(now);
+            }
             if (va != null) va.cancel();
-            va = ValueAnimator.ofFloat(p, now ? 1f : 0f);
+            va = ValueAnimator.ofFloat(p, now || held ? 1f : 0f);
             va.setDuration(Motion.dur(ctx, Motion.RAPIDO));
             va.setInterpolator(Motion.DECELERA);
             va.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
@@ -131,121 +296,86 @@ final class Press {
         return on(v, shape(c, fill, stroke, radiusDp), shape(c, pressedFill, stroke, radiusDp));
     }
 
-    /** Pillola piena: lo sfondo si schiarisce verso il fondo. */
+    /** Pillola piena: lo sfondo si schiarisce verso il fondo; alone esterno di 8 dp. */
     static Fade primary(View v, int fill, float radiusDp) {
-        return box(v, fill, 0, radiusDp, MotionLogic.mix(fill, U.BG, 0.2f));
+        return box(v, fill, 0, radiusDp, MotionLogic.mix(fill, U.BG, 0.2f)).ring(radiusDp, MotionLogic.ALONE_DP);
     }
 
     /** Pillola piena con fondo e testo dati (per i fondi scuri della pausa). */
-    static Fade primary(View v, int fill, int pressedFill, float radiusDp) { return box(v, fill, 0, radiusDp, pressedFill); }
+    static Fade primary(View v, int fill, int pressedFill, float radiusDp) { return box(v, fill, 0, radiusDp, pressedFill).ring(radiusDp, MotionLogic.ALONE_DP); }
 
-    /** Pillola con bordo: riempimento al 10% di inchiostro, il bordo non cambia. */
+    /** Pillola con bordo: riempimento al 10% di inchiostro, il bordo non cambia; alone esterno di 8 dp. */
     static Fade outlined(View v, int bg, int stroke, float radiusDp) {
-        return box(v, bg, stroke, radiusDp, MotionLogic.mix(bg, stroke, 0.10f));
+        return box(v, bg, stroke, radiusDp, MotionLogic.mix(bg, stroke, 0.10f)).ring(radiusDp, MotionLogic.ALONE_DP);
     }
 
-    /** Chip non scelto: premuto, un po' più scuro. */
+    /** Chip non scelto: premuto, un po' più scuro; alone esterno di 6 dp. */
     static Fade chip(View v, int fill, int stroke, float radiusDp) {
-        return box(v, fill, stroke, radiusDp, MotionLogic.mix(fill, U.INK, 0.08f));
+        return box(v, fill, stroke, radiusDp, MotionLogic.mix(fill, U.INK, 0.08f)).ring(radiusDp, MotionLogic.ALONE_PICCOLO_DP);
     }
 
-    /** Chip scelto (inchiostro pieno): premuto, si schiarisce appena. */
-    static Fade chipOn(View v, float radiusDp) { return primary(v, U.INK, radiusDp); }
+    /** Chip scelto (inchiostro pieno): premuto, si schiarisce appena; alone esterno di 6 dp. */
+    static Fade chipOn(View v, float radiusDp) { return primary(v, U.INK, radiusDp).ring(radiusDp, MotionLogic.ALONE_PICCOLO_DP); }
 
-    /** Righe e voci di lista: sfondo CHIP al 60%, raggio 12, nessuna scala. */
+    /** Righe e voci di lista: sfondo CHIP al 60%, raggio 12, nessuna scala. Senza bordo: niente alone, si scurisce solo il fondo. */
     static Fade row(View v) {
         Context c = v.getContext();
         return on(v, null, shape(c, alpha(U.CHIP, 0.6f), 0, 12));
     }
 
-    /** Riga già evidenziata (primo risultato): premuta, il riquadro scurisce. */
+    /** Riga già evidenziata (primo risultato): premuta, il riquadro scurisce (#DCD8CD sul chiaro). */
     static Fade rowBest(View v) {
         Context c = v.getContext();
-        return on(v, shape(c, U.CHIP, 0, 12), shape(c, MotionLogic.mix(U.CHIP, U.INK, 0.06f), 0, 12));
+        return on(v, shape(c, U.CHIP, 0, 12), shape(c, U.dark ? MotionLogic.mix(U.CHIP, U.INK, 0.06f) : 0xFFDCD8CD, 0, 12));
     }
 
-    /** Link di testo: il colore passa da MUTED a INK e compare un alone INK all'8% dietro la riga. Il testo non si muove. */
+    /** Solo l'alone esterno (nessun cambio di fondo): il «Cambia impostazioni» della ricerca. {@code radiusDp} 0 = angoli vivi. */
+    static Fade ringOnly(View v, float radiusDp, float spreadDp) { return on(v, null, null).ring(radiusDp, spreadDp); }
+
+    /**
+     * Link di testo: il colore passa da MUTED a INK e compare un fondo INK all'8% dietro la riga, più un alone esterno
+     * di 6 dp. Il testo non si muove.
+     */
     static Fade link(TextView t, int normalColor) {
         Context c = t.getContext();
         t.setTextColor(new ColorStateList(new int[][]{{android.R.attr.state_pressed}, {}}, new int[]{U.INK, normalColor}));
-        return on(t, null, shape(c, alpha(U.INK, 0.08f), 0, 10));
-    }
-
-    /** Icona (microfono, telefono, ✕): alone circolare di 40 dp, INK al 10%, da scala 0,8 a 1. */
-    static Fade icon(View v, Drawable normal) {
-        Context c = v.getContext();
-        GradientDrawable g = new GradientDrawable();
-        g.setShape(GradientDrawable.OVAL);
-        g.setColor(alpha(U.INK, 0.10f));
-        return on(v, normal, g).halo(U.dp(c, 40), -1);
+        return on(t, null, shape(c, alpha(U.INK, 0.08f), 0, 10)).ring(10, MotionLogic.ALONE_PICCOLO_DP);
     }
 
     /**
-     * La casella dei task: lo stesso alone (36 dp, INK al 10%, da scala 0,8 a 1, RAPIDO), centrato sulla casella.
-     * La casella sta sul bordo sinistro della pagina, quindi l'alone esce dai bordi della sua vista: si disegna
-     * nell'overlay della radice, che non ritaglia. Il tocco non si consuma (il click funziona come prima).
+     * Icona senza bordo (✕, microfono nella barra): alone circolare di 56 dp (più grande del dito, INK al 10%), da
+     * scala 0,8 a 1. Sporge dalla vista: si disegna nell'overlay della radice. {@code normal} è lo sfondo, se c'è.
+     */
+    static Fade icon(final View v, Drawable normal) {
+        Fade f = on(v, normal, null);
+        f.listener = new OnPress() {
+            private Halo h;
+            public void onPress(boolean pressed) { if (h == null) h = Halo.disc(v, MotionLogic.ALONE_ICONA_DP, -1, true); h.set(pressed); }
+        };
+        return f;
+    }
+
+    /** Icona tonda con il bordo (il telefono): nessun movimento dell'icona, alone esterno di 8 dp attorno al cerchio. */
+    static Fade circle(View v, Drawable normal) { return on(v, normal, null).ring(-1, MotionLogic.ALONE_DP); }
+
+    /**
+     * La casella dei task: lo stesso alone (56 dp, INK al 10%, RAPIDO, senza scala), centrato sulla casella. La casella
+     * sta sul bordo sinistro della pagina, quindi l'alone esce dai bordi della sua vista: si disegna nell'overlay della
+     * radice, che non ritaglia. Il tocco non si consuma (il click funziona come prima). Resta almeno 240 ms.
      */
     static void checkHalo(final View target, final float sizeDp, final float centerXDp) {
-        final Context c = target.getContext();
-        final GradientDrawable g = new GradientDrawable();
-        g.setShape(GradientDrawable.OVAL);
-        g.setColor(alpha(U.INK, 0.10f));
+        final Halo h = Halo.disc(target, sizeDp, centerXDp, false);
         target.setOnTouchListener(new View.OnTouchListener() {
-            private ValueAnimator a;
-            private float p;
-            private View root;
-
             public boolean onTouch(View v, android.view.MotionEvent e) {
                 int act = e.getActionMasked();
-                if (act == android.view.MotionEvent.ACTION_DOWN) show(v);
-                else if (act == android.view.MotionEvent.ACTION_UP || act == android.view.MotionEvent.ACTION_CANCEL) hide();
+                if (act == android.view.MotionEvent.ACTION_DOWN) h.down();
+                else if (act == android.view.MotionEvent.ACTION_UP || act == android.view.MotionEvent.ACTION_CANCEL) h.up();
                 return false;
-            }
-
-            private void show(View v) {
-                root = v.getRootView();
-                if (!(root instanceof android.view.ViewGroup)) return;
-                int[] t = new int[2], r = new int[2];
-                v.getLocationInWindow(t);
-                root.getLocationInWindow(r);
-                float cx = t[0] - r[0] + U.dp(c, centerXDp), cy = t[1] - r[1] + v.getHeight() / 2f, h = U.dp(c, sizeDp) / 2f;
-                g.setBounds(Math.round(cx - h), Math.round(cy - h), Math.round(cx + h), Math.round(cy + h));
-                ((android.view.ViewGroup) root).getOverlay().add(g);
-                run(1f);
-            }
-
-            private void hide() {
-                if (root == null) return;
-                run(0f);
-            }
-
-            private void run(final float to) {
-                final ValueAnimator old = a, me = ValueAnimator.ofFloat(p, to);
-                a = me;
-                if (old != null) old.cancel();
-                me.setDuration(Motion.dur(c, Motion.RAPIDO));
-                me.setInterpolator(Motion.DECELERA);
-                me.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                    public void onAnimationUpdate(ValueAnimator v) {
-                        p = (Float) v.getAnimatedValue();
-                        g.setAlpha(Math.round(255 * p));
-                        Rect b = g.getBounds();
-                        float k = 0.8f + 0.2f * p, cx = b.exactCenterX(), cy = b.exactCenterY(), h = U.dp(c, sizeDp) / 2f * k;
-                        g.setBounds(Math.round(cx - h), Math.round(cy - h), Math.round(cx + h), Math.round(cy + h));
-                        g.invalidateSelf();
-                    }
-                });
-                me.addListener(new android.animation.AnimatorListenerAdapter() {
-                    public void onAnimationEnd(android.animation.Animator an) {
-                        if (a == me && to == 0f && root instanceof android.view.ViewGroup) ((android.view.ViewGroup) root).getOverlay().remove(g);
-                    }
-                });
-                me.start();
             }
         });
     }
 
-    /** Riga «Nuovo» tratteggiata: premuta, il bordo scurisce (il tratteggio non si muove) e lo sfondo prende CHIP al 50%. */
+    /** Riga «Nuovo» tratteggiata: premuta, il bordo scurisce (il tratteggio non si muove), lo sfondo prende CHIP al 50% e compare l'alone esterno di 8 dp. */
     static Fade dashed(View v, float radiusDp, float widthDp, float dash, float gap, int stroke) {
         Context c = v.getContext();
         GradientDrawable n = new GradientDrawable(), p = new GradientDrawable();
@@ -253,7 +383,7 @@ final class Press {
         n.setCornerRadius(U.dp(c, radiusDp)); p.setCornerRadius(U.dp(c, radiusDp));
         n.setStroke(U.dp(c, widthDp), stroke, U.dp(c, dash), U.dp(c, gap));
         p.setStroke(U.dp(c, widthDp), U.INK, U.dp(c, dash), U.dp(c, gap));
-        return on(v, n, p);
+        return on(v, n, p).ring(radiusDp, MotionLogic.ALONE_DP);
     }
 
     /** Riga con badge dell'iniziale (contatti): premuta, il cerchio si riempie d'inchiostro e la lettera diventa chiara. */

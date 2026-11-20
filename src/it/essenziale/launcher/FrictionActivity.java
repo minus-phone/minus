@@ -178,7 +178,7 @@ public class FrictionActivity extends Activity {
         home.setGravity(Gravity.CENTER);
         home.setMinHeight(U.dp(this, 52));
         // 0.20 (Evolutiva 016): premuto cambia solo lo sfondo (il testo non si muove); poi lo scatto e la pausa si schiarisce
-        if (scope) Press.outlined(home, U.DARK, U.ON_DARK, 26); else Press.primary(home, U.ON_DARK, MotionLogic.mix(U.ON_DARK, U.DARK, 0.12f), 26);
+        if (scope) Press.outlined(home, U.DARK, U.ON_DARK, 26).dark(true); else Press.primary(home, U.ON_DARK, MotionLogic.mix(U.ON_DARK, U.DARK, 0.12f), 26).dark(true);
         home.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { notNow(true); } });
         openBtn = U.text(this, "", 15, U.ON_DARK_MUTED, true);
         openBtn.setGravity(Gravity.CENTER);
@@ -285,8 +285,8 @@ public class FrictionActivity extends Activity {
         t.setGravity(Gravity.CENTER);
         t.setMinHeight(U.dp(this, 44));
         t.setPadding(U.dp(this, 12), 0, U.dp(this, 12), 0);
-        if (on) Press.primary(t, U.ON_DARK, MotionLogic.mix(U.ON_DARK, U.DARK, 0.12f), 20);
-        else Press.box(t, U.DARK, 0xFF62625C, 20, MotionLogic.mix(U.DARK, U.ON_DARK, 0.10f));
+        if (on) Press.primary(t, U.ON_DARK, MotionLogic.mix(U.ON_DARK, U.DARK, 0.12f), 20).dark(true);
+        else Press.box(t, U.DARK, 0xFF62625C, 20, MotionLogic.mix(U.DARK, U.ON_DARK, 0.10f)).ring(20, MotionLogic.ALONE_PICCOLO_DP).dark(true);
         t.setContentDescription(s + (on ? ", scelto" : ""));
         t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { Motion.scatto(v); r.run(); } });
         LinearLayout.LayoutParams lp = U.wrap();
@@ -325,7 +325,7 @@ public class FrictionActivity extends Activity {
     public void onBackPressed() { notNow(false); }
 
     /**
-     * «Non ora»: lo scatto (solo al tocco), poi la pausa si schiarisce verso lo sfondo della home in LENTO mentre la
+     * «Non ora»: lo scatto e il check (solo al tocco), poi la pausa si schiarisce verso lo sfondo della home in LENTO mentre la
      * home arriva morbida. Con «Rimuovi animazioni», un taglio rapido.
      */
     private void notNow(boolean tap) {
@@ -333,10 +333,14 @@ public class FrictionActivity extends Activity {
         leaving = true;
         h.removeCallbacks(tick);
         if (ring != null) ring.stop();
-        if (tap) Motion.scatto(homeBtn);
+        if (tap) { // 0.21: il tasto resta premuto e la label lascia il posto a un check che si disegna; poi la pausa si schiarisce
+            Motion.scatto(homeBtn);
+            if (!scope && homeBtn.getBackground() instanceof Press.Fade) ((Press.Fade) homeBtn.getBackground()).hold(); // la pillola piena resta premuta (.pill.pressed)
+            Tick.play(homeBtn);
+        }
         if (!demo) { Scope.notNow(this, app.pkg); Beta.add(this, Registro.PAUSE_NOT_NOW); Checks.add(this, Registro.PAUSE_NOT_NOW); }
         Motion.say(rootView, "Pausa chiusa, sei in home");
-        h.postDelayed(new Runnable() { public void run() { goHome(); } }, tap ? 90 : 0); // il tempo di vedere il tasto premuto
+        h.postDelayed(new Runnable() { public void run() { goHome(); } }, tap ? MotionLogic.tickAttesa(Motion.reduced(this)) : 0); // il tempo di vedere il check (mezzo RAPIDO + BASE + 250 ms)
     }
 
     private void goHome() {
@@ -385,8 +389,8 @@ public class FrictionActivity extends Activity {
         int st = ok ? (scope ? 1 : 2) : 0;
         if (st != openState) { // lo sfondo si rifà solo quando cambia stato: lo stato premuto non si interrompe a ogni secondo
             openState = st;
-            if (st == 1) Press.primary(openBtn, U.ON_DARK, MotionLogic.mix(U.ON_DARK, U.DARK, 0.12f), 26);
-            else if (st == 2) Press.outlined(openBtn, U.DARK, U.ON_DARK, 26);
+            if (st == 1) Press.primary(openBtn, U.ON_DARK, MotionLogic.mix(U.ON_DARK, U.DARK, 0.12f), 26).dark(true);
+            else if (st == 2) Press.outlined(openBtn, U.DARK, U.ON_DARK, 26).dark(true);
             else openBtn.setBackground(U.box(this, U.DARK, 0xFF5F5F5A, 26));
         }
         openBtn.setEnabled(ok);

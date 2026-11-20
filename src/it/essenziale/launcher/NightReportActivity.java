@@ -26,7 +26,7 @@ public class NightReportActivity extends BaseActivity {
         c.addView(U.text(this, "Di notte hai scelto la tua alternativa " + alts + (alts == 1 ? " volta" : " volte"), 15, U.INK, false));
         c.addView(U.text(this, opens == 0 ? "Non hai aperto app con la pausa" : opens + (opens == 1 ? " volta" : " volte") + " hai aperto un'app con la pausa, in tutto " + min + " min", 15, U.INK, false));
         // 0.20 (Evolutiva 016): le righe entrano una alla volta (80 ms l'una, BASE, dissolvenza e 8 dp in su);
-        // se sono meno della settimana scorsa, il primo numero scende davanti a te (600 ms, rallentando)
+        // se sono meno della settimana scorsa, il primo numero scende davanti a te (900 ms, ease-in-out)
         boolean red = Motion.reduced(this);
         for (int i = 0; i < c.getChildCount(); i++) Motion.enter(c.getChildAt(i), MotionLogic.rowDelay(red, i), Motion.BASE, 8);
         final int prev = p.getInt(Night.K_UNLOCKS_PREV, -1);
@@ -63,7 +63,7 @@ public class NightReportActivity extends BaseActivity {
         setContentView(root);
     }
 
-    /** Il numero scende da {@code from} a {@code to} in 600 ms, rallentando. TalkBack legge subito il valore finale. */
+    /** Il numero scende da {@code from} a {@code to} in 900 ms, ease-in-out. TalkBack legge subito il valore finale. */
     private void countDown(final TextView t, int from, final int to) {
         t.setContentDescription(unlocksLine(to));
         t.setText(unlocksLine(from));
@@ -71,7 +71,7 @@ public class NightReportActivity extends BaseActivity {
         android.animation.ValueAnimator va = android.animation.ValueAnimator.ofFloat(0f, 1f);
         va.setStartDelay(Motion.BASE);
         va.setDuration(MotionLogic.CONTO_MS);
-        va.setInterpolator(new android.view.animation.LinearInterpolator()); // la curva è in countValue
+        va.setInterpolator(new android.view.animation.LinearInterpolator()); // la curva (ease-in-out) è in countValue
         va.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
             public void onAnimationUpdate(android.animation.ValueAnimator a) {
                 t.setText(unlocksLine(MotionLogic.countValue(f, to, (Float) a.getAnimatedValue())));
@@ -90,7 +90,8 @@ public class NightReportActivity extends BaseActivity {
         t.setGravity(Gravity.CENTER);
         t.setMinHeight(U.dp(this, 52));
         if (filled) Press.primary(t, U.INK, 26); else Press.outlined(t, U.BG, U.INK, 26);
-        t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
+        if (filled) Tick.onClick(t, r); // 0.21: la conferma positiva: la label lascia il posto a un check che si disegna, poi la scelta
+        else t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
         return t;
     }
 }

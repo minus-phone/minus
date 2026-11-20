@@ -68,7 +68,9 @@ public class SearchActivity extends BaseActivity {
         super.onCreate(b);
         LinearLayout root = U.col(this);
         root.setBackgroundColor(U.BG);
-        root.setPadding(U.dp(this, 20), U.dp(this, 12), U.dp(this, 20), U.dp(this, 10));
+        root.setPadding(0, U.dp(this, 12), 0, U.dp(this, 10)); // 0.21: pagina al 100%; i 20 dp sono padding dei blocchi
+        root.setClipChildren(false);
+        root.setClipToPadding(false);
         // 0.13: in alto solo ✕ per tornare alla home; le Impostazioni sono una voce del menu, sopra i recenti
         LinearLayout top = U.row(this);
         // 0.17 (Evolutiva 005): «Cambia impostazioni» in alto, con il segno di −minus: non è una voce della ricerca
@@ -79,7 +81,7 @@ public class SearchActivity extends BaseActivity {
         setT.setPadding(U.dp(this, 10), 0, 0, 0);
         set.addView(setT);
         set.setContentDescription("Cambia impostazioni di −minus");
-        Press.row(set);
+        Press.ringOnly(set, 0, MotionLogic.ALONE_DP); // 0.21: «Cambia impostazioni» non cambia fondo da premuto: ha solo l'alone esterno
         set.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { startActivity(new Intent(SearchActivity.this, SettingsActivity.class).putExtra("back", "Ricerca")); }
         });
@@ -90,6 +92,7 @@ public class SearchActivity extends BaseActivity {
         Press.icon(close, null);
         close.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { finish(); } });
         top.addView(close, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
+        top.setPadding(U.dp(this, 20), 0, U.dp(this, 20), 0);
         root.addView(top, U.full());
 
         scroll = new ScrollView(this);
@@ -97,6 +100,11 @@ public class SearchActivity extends BaseActivity {
         scroll.setVerticalScrollBarEnabled(false);
         results = U.col(this);
         results.setGravity(Gravity.BOTTOM);
+        results.setPadding(U.dp(this, 20), 0, U.dp(this, 20), 0);
+        results.setClipChildren(false);
+        results.setClipToPadding(false);
+        scroll.setClipChildren(false);
+        scroll.setClipToPadding(false);
         scroll.addView(results, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         root.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
@@ -130,11 +138,13 @@ public class SearchActivity extends BaseActivity {
         bar.addView(field, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         LinearLayout.LayoutParams flp = U.full();
         flp.topMargin = U.dp(this, 8);
+        flp.leftMargin = U.dp(this, 20);
+        flp.rightMargin = U.dp(this, 20);
         root.addView(bar, flp);
         TextView hint = U.text(this, "Le altre app si aprono scrivendone il nome.", 12, U.MUTED, false);
         hint.setTypeface(android.graphics.Typeface.create(U.SERIF, android.graphics.Typeface.ITALIC)); // 0.13.6: come nella UI
         hint.setGravity(Gravity.CENTER);
-        hint.setPadding(0, U.dp(this, 6), 0, 0);
+        hint.setPadding(U.dp(this, 20), U.dp(this, 6), U.dp(this, 20), 0);
         root.addView(hint, U.full());
         setContentView(root);
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Evolutiva 016: transizione di schermata. Le durate sono quelle di Motion (RAPIDO 120, BASE 240, LENTO 480). -->
+<!-- Evolutiva 016: transizione di schermata. Le durate sono quelle di Motion (RAPIDO 180, BASE 400, LENTO 720). -->
 <set xmlns:android="http://schemas.android.com/apk/res/android"
     android:shareInterpolator="true"
     android:interpolator="@interpolator/decelera">

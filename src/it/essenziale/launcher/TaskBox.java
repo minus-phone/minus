@@ -15,7 +15,7 @@ import android.view.View;
 
 /**
  * Evolutiva 016 · la casella del task (18 dp, come prima), che si riempie in senso orario, poi la spunta
- * con un rimbalzo di molla. Il riempimento dura RAPIDO, la spunta e il rimbalzo BASE. Senza animazioni:
+ * con un rimbalzo di molla. Il riempimento dura RAPIDO (ease-in-out), la spunta e il rimbalzo BASE. Senza animazioni:
  * tutto diretto. Disegnata a mano, nessuna risorsa.
  */
 final class TaskBox extends View {
@@ -59,16 +59,16 @@ final class TaskBox extends View {
         final float from = progress;
         if (ms <= 0 || from == to) { progress = to; if (to < 1f) tickAlpha = 0f; invalidate(); return; }
         if (to < 1f) tickAlpha = 0f;
-        fillAnim = ValueAnimator.ofFloat(from, to);
+        fillAnim = ValueAnimator.ofFloat(0f, 1f);
         fillAnim.setDuration(ms);
-        fillAnim.setInterpolator(new android.view.animation.LinearInterpolator());
+        fillAnim.setInterpolator(new android.view.animation.LinearInterpolator()); // la curva (ease-in-out) la mette io(), come nel prototipo
         fillAnim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            public void onAnimationUpdate(ValueAnimator a) { progress = (Float) a.getAnimatedValue(); invalidate(); }
+            public void onAnimationUpdate(ValueAnimator a) { progress = from + (to - from) * MotionLogic.io(a.getAnimatedFraction()); invalidate(); }
         });
         fillAnim.start();
     }
 
-    /** La spunta compare e la casella fa un piccolo rimbalzo (molla, un solo rimbalzo). Con le animazioni ridotte, nessun rimbalzo. */
+    /** La spunta compare e la casella fa un piccolo rimbalzo (1 → 1,12 → 1, un solo rimbalzo, stessa curva). Con le animazioni ridotte, nessun rimbalzo. */
     void confirm(boolean bounce) {
         if (fillAnim != null) fillAnim.cancel();
         progress = 1f;
@@ -80,7 +80,7 @@ final class TaskBox extends View {
         o.start();
     }
 
-    /** 1 → 1,12 con la molla, poi → 1 decelerando. */
+    /** 1 → 1,12, poi → 1 (la curva è la stessa). */
     private static PropertyValuesHolder pop(String prop) {
         Keyframe a = Keyframe.ofFloat(0f, 1f), b = Keyframe.ofFloat(0.5f, 1.12f), c = Keyframe.ofFloat(1f, 1f);
         b.setInterpolator(Motion.MOLLA);

@@ -34,10 +34,11 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     private View notifBadge;     // 0.20 (Evolutiva 016, momento 12): il pallino con il numero; il numero scorre quando cambia
     private RollText notifCount;
     private android.widget.ImageView moon; // 0.20 (momento 13): la luna accanto alla data, solo in modalità sera
-    private BrandView brand;    // 0.20 (momento 10): «Il meno che si disegna», mentre si disegna
-    private static boolean coldStart = true; // vero finché la home non è comparsa una volta in questo processo
+    private static boolean seraBack;     // 0.21: la bitmap è la sera che finisce (il contrario)
+    private LinearLayout dateRowView;
     private static android.graphics.Bitmap seraFrom; // la home chiara com'era, per la dissolvenza verso la sera
-    static final String K_HOME_SEEN = "home_seen_at", K_BRAND_DAY = "brand_day";
+    private android.widget.FrameLayout page;   // 0.21: il fondo della home; la festa dei task si disegna dietro i contenuti
+    private FestaView festa;
     private android.widget.FrameLayout sessionWrap;
     private View notifBox, tomorrowLine, setupLine;
     private LinearLayout askBox;
@@ -46,7 +47,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     private int busyRows;
     private boolean dirty, askAnimating;
     private final java.util.Set<String> hiddenDone = new java.util.HashSet<String>();
-    private EditText query;
+    private TextView query; // 0.20.1: solo testo, il tocco lo riceve tutta la barra
     private android.database.ContentObserver observer;
 
     @Override
@@ -58,8 +59,9 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         evening = Night.evening(this);
 
         root = U.col(this);
-        root.setBackgroundColor(U.BG);
-        root.setPadding(U.dp(this, 20), U.dp(this, 8), U.dp(this, 20), U.dp(this, 16)); // 0.13.2: la barra di stato non c'è, la home parte dall'alto
+        root.setPadding(0, U.dp(this, 8), 0, U.dp(this, 16)); // 0.21: la pagina è larga il 100%; i 20 dp sono padding dei blocchi (contenuto, «Nuovo», barra)
+        root.setClipChildren(false);
+        root.setClipToPadding(false); // 0.13.2: la barra di stato non c'è, la home parte dall'alto
         // Il focus iniziale va alla pagina, non al campo di ricerca: niente tastiera automatica
         root.setFocusable(true);
         root.setFocusableInTouchMode(true);
@@ -68,6 +70,11 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         homeScroll = sv;
         sv.setVerticalScrollBarEnabled(false);
         LinearLayout content = U.col(this);
+        content.setPadding(U.dp(this, 20), 0, U.dp(this, 20), 0);
+        content.setClipChildren(false);
+        content.setClipToPadding(false);
+        sv.setClipChildren(false);
+        sv.setClipToPadding(false);
         sv.addView(content);
         root.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
@@ -144,17 +151,18 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         // 0.13.1: sotto, la data e, a destra, la sveglia di oggi finché non ha suonato (anche dopo mezzanotte)
         LinearLayout dateRow = U.row(this);
         dateView = U.text(this, "", 15, U.MUTED, false);
-        dateRow.addView(dateView);
-        if (evening) { // 0.20 (momento 13): la luna (direzione A) accanto alla data, solo di sera
+        if (evening) { // 0.20 (momento 13): la luna (direzione A) accanto alla data, solo di sera; 0.21: prima della data
             moon = Ic.view(this, "ic_notte", U.MUTED, 20);
             if (moon != null) {
                 moon.setContentDescription(null);
-                LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(U.dp(this, 20), U.dp(this, 20));
-                mlp.leftMargin = U.dp(this, 8);
+                moon.setPadding(U.dp(this, 1), U.dp(this, 1), U.dp(this, 1), U.dp(this, 1)); // 20 dp di luna nei 22 dp del suo spazio
+                LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(U.dp(this, MotionLogic.SERA_LUNA_BOX_DP), U.dp(this, MotionLogic.SERA_LUNA_BOX_DP));
+                mlp.rightMargin = U.dp(this, MotionLogic.SERA_DATA_DP - MotionLogic.SERA_LUNA_BOX_DP);
                 mlp.gravity = Gravity.CENTER_VERTICAL;
                 dateRow.addView(moon, mlp);
             }
         }
+        dateRow.addView(dateView);
         // 0.17 (Evolutiva 007): gli eventi di tutto il giorno accanto alla data
         dateChips = new LinearLayout(this);
         dateChips.setPadding(U.dp(this, 10), 0, 0, 0);
@@ -167,6 +175,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
             public void onClick(View v) { if (!U.openAlarms(MainActivity.this)) U.toast(MainActivity.this, "Non trovo l'app Orologio"); }
         });
         dateRow.addView(todayAlarm);
+        dateRowView = dateRow;
         content.addView(dateRow, U.full());
         // 0.11: il tempo dall'ultimo sblocco ha l'aspetto della pillola, solo oltre la soglia
         sessionView.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
@@ -250,8 +259,8 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         });
         LinearLayout.LayoutParams alp = U.full();
         alp.topMargin = U.dp(this, 8);
-        alp.leftMargin = -U.dp(this, 10); // la casella «+» sta in colonna con le caselle dei task
-        alp.rightMargin = -U.dp(this, 10);
+        alp.leftMargin = U.dp(this, 10); // la casella «+» sta in colonna con le caselle dei task (20 dp di pagina - 10 dp)
+        alp.rightMargin = U.dp(this, 10);
         root.addView(add, alp);
 
         // Barra in basso
@@ -259,9 +268,9 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         bar.setPadding(0, U.dp(this, 12), 0, 0);
         bar.addView(Telefono.button(this), Telefono.buttonLp(this)); // 0.19 (Evolutiva 014): il telefono a sinistra della ricerca
         final LinearLayout field = U.row(this);
-        Press.box(field, U.BG, U.INK, 28, U.CHIP); // 0.20: premuta, la barra prende il colore dei chip
+        Press.box(field, U.BG, U.INK, 28, U.CHIP).ring(28, MotionLogic.ALONE_DP); // 0.20: premuta, la barra prende il colore dei chip; 0.21: e un alone esterno di 8 dp
         field.setPadding(U.dp(this, 22), U.dp(this, 6), U.dp(this, 6), U.dp(this, 6));
-        query = new EditText(this);
+        query = new TextView(this);
         query.setHint("Cerca o chiedi");
         query.setHintTextColor(U.HINT);
         query.setTextColor(U.INK);
@@ -269,24 +278,13 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         query.setTypeface(U.SANS);
         query.setBackground(null);
         query.setSingleLine(true);
-        query.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
-        query.setImeOptions(EditorInfo.IME_ACTION_GO);
-        // 0.7: il campo apre la ricerca a tutto schermo (risultati in basso, vicino al pollice)
-        query.setHint("Cerca o chiedi");
+        query.setGravity(Gravity.CENTER_VERTICAL);
+        // 0.7: la barra apre la ricerca a tutto schermo (risultati in basso, vicino al pollice).
+        // 0.20.1: il testo non è un campo e non prende il tocco: lo riceve la barra intera, con il suo stato premuto
+        query.setClickable(false);
         query.setFocusable(false);
-        query.setCursorVisible(false);
-        query.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { openSearch(); }
-        });
-        // il campo è un figlio che riceve il tocco: lo stato premuto lo passa alla barra
-        query.setOnTouchListener(new View.OnTouchListener() {
-            public boolean onTouch(View v, android.view.MotionEvent e) {
-                int a = e.getActionMasked();
-                if (a == android.view.MotionEvent.ACTION_DOWN) field.setPressed(true);
-                else if (a == android.view.MotionEvent.ACTION_UP || a == android.view.MotionEvent.ACTION_CANCEL) field.setPressed(false);
-                return false;
-            }
-        });
+        query.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        field.setContentDescription("Cerca o chiedi");
         field.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { openSearch(); }
         });
@@ -300,9 +298,18 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         field.addView(mic, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
         bar.addView(field, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         // 0.7: Maps è tra le app a portata della ricerca
-        root.addView(bar, U.full());
+        LinearLayout.LayoutParams barLp = U.full();
+        barLp.leftMargin = U.dp(this, 20);
+        barLp.rightMargin = U.dp(this, 20);
+        root.addView(bar, barLp);
 
-        setContentView(root);
+        // 0.21: la festa («Tutto fatto per oggi») sta sullo sfondo: sotto la pagina, che è trasparente
+        page = new android.widget.FrameLayout(this);
+        page.setBackgroundColor(U.BG);
+        festa = new FestaView(this);
+        page.addView(festa, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        page.addView(root, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        setContentView(page);
         root.requestFocus();
         resumeSera();
         observer = U.calendarObserver(new Runnable() { public void run() { buildToday(); buildTomorrow(); } });
@@ -335,9 +342,9 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     /** La home com'è adesso, in una bitmap (per la dissolvenza verso la sera); null se non si può. */
     private android.graphics.Bitmap snapshot() {
         try {
-            if (root.getWidth() <= 0 || root.getHeight() <= 0) return null;
-            android.graphics.Bitmap b = android.graphics.Bitmap.createBitmap(root.getWidth(), root.getHeight(), android.graphics.Bitmap.Config.ARGB_8888);
-            root.draw(new android.graphics.Canvas(b));
+            if (page.getWidth() <= 0 || page.getHeight() <= 0) return null;
+            android.graphics.Bitmap b = android.graphics.Bitmap.createBitmap(page.getWidth(), page.getHeight(), android.graphics.Bitmap.Config.ARGB_8888);
+            page.draw(new android.graphics.Canvas(b));
             return b;
         } catch (Throwable e) {
             return null;
@@ -352,7 +359,9 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     private void resumeSera() {
         final android.graphics.Bitmap from = seraFrom;
         seraFrom = null;
-        if (from == null || !evening || Motion.reduced(this)) return;
+        final boolean back = seraBack;
+        seraBack = false;
+        if (from == null || evening == back || Motion.reduced(this)) return; // sera che comincia: evening; sera che finisce: giorno
         final android.widget.ImageView ov = new android.widget.ImageView(this);
         ov.setImageBitmap(from);
         ov.setScaleType(android.widget.ImageView.ScaleType.FIT_XY);
@@ -362,31 +371,39 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         ov.animate().alpha(0f).setDuration(MotionLogic.SERA_MS).setInterpolator(Motion.DECELERA).withEndAction(new Runnable() {
             public void run() { if (ov.getParent() instanceof ViewGroup) ((ViewGroup) ov.getParent()).removeView(ov); }
         }).start();
+        if (back) { // il contrario: la luna svanisce scendendo di 6 dp, la data torna a sinistra, i colori tornano chiari
+            final android.widget.ImageView m = Ic.view(this, "ic_notte", U.MUTED, 20);
+            if (m != null && dateRowView != null) {
+                m.setPadding(U.dp(this, 1), U.dp(this, 1), U.dp(this, 1), U.dp(this, 1));
+                LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(U.dp(this, MotionLogic.SERA_LUNA_BOX_DP), U.dp(this, MotionLogic.SERA_LUNA_BOX_DP));
+                mlp.rightMargin = U.dp(this, MotionLogic.SERA_DATA_DP - MotionLogic.SERA_LUNA_BOX_DP);
+                mlp.gravity = Gravity.CENTER_VERTICAL;
+                dateRowView.addView(m, 0, mlp);
+                m.animate().alpha(0f).translationY(U.dp(this, MotionLogic.SERA_LUNA_DP)).setDuration(Motion.LENTO).setInterpolator(Motion.DECELERA).start();
+                dateView.animate().translationX(-U.dp(this, MotionLogic.SERA_DATA_DP)).setDuration(Motion.LENTO).setInterpolator(Motion.DECELERA).withEndAction(new Runnable() {
+                    public void run() { dateRowView.removeView(m); dateView.setTranslationX(0f); }
+                }).start();
+            }
+            Motion.say(root, "Giorno");
+            return;
+        }
         if (moon != null) {
             moon.setAlpha(0f);
             moon.setTranslationY(U.dp(this, MotionLogic.SERA_LUNA_DP));
             moon.animate().alpha(1f).translationY(0f).setDuration(Motion.LENTO).setInterpolator(Motion.DECELERA).start();
+            // la data scorre a destra di quanto occupa la luna, nello stesso tempo
+            dateView.setTranslationX(-U.dp(this, MotionLogic.SERA_DATA_DP));
+            dateView.animate().translationX(0f).setDuration(Motion.LENTO).setInterpolator(Motion.DECELERA).start();
         }
         Motion.say(root, "Ora di staccare");
-    }
-
-    /** 0.20 (momento 10): cold start e primo sblocco del mattino, una volta al giorno: il meno che si disegna. */
-    private void maybeBrand() {
-        if (brand != null || OnboardingActivity.running || Onboarding.firstRun(this)) { coldStart = false; return; }
-        android.content.SharedPreferences p = U.prefs(this);
-        long now = System.currentTimeMillis(), today = U.startOfDay(0);
-        long wakeToday = today + Night.wakeMin(this) * 60000L;
-        boolean morning = MotionLogic.morningFirst(p.getLong(K_HOME_SEEN, 0), wakeToday, now);
-        boolean play = MotionLogic.brandMoment(coldStart, morning, today, p.getLong(K_BRAND_DAY, 0));
-        coldStart = false;
-        if (!play) return;
-        p.edit().putLong(K_BRAND_DAY, today).apply();
-        brand = BrandView.play(this, new Runnable() { public void run() { brand = null; refreshNotif(); } });
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        // 0.21: se la sera è cominciata o finita mentre la home non era in vista (schermo spento, un'altra app),
+        // la home si ridisegna subito, senza animazione: prima restavano la luna e i colori della sera anche di mattina
+        if (Night.evening(this) != evening) { recreate(); return; }
         // 0.13.5: la configurazione vive in un suo task; se era aperta (sei diventata home a metà), torna lei
         if (OnboardingActivity.running) OnboardingActivity.bringBack(this);
         Store.addListener(this);
@@ -399,7 +416,6 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         root.requestFocus();
         refresh();
         maybeScrollToTasks();
-        maybeBrand();
     }
 
     // ---------- E003 · gesti ----------
@@ -526,8 +542,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
 
     @Override
     protected void onPause() {
-        U.prefs(this).edit().putLong(K_HOME_SEEN, System.currentTimeMillis()).apply(); // per il primo sblocco del mattino
-        if (brand != null) brand.finish();
+        if (festa != null) festa.stop();
         try { unregisterReceiver(tick); } catch (Exception ignored) {}
         Store.removeListener(this);
         U.watchCalendar(this, observer, false);
@@ -558,9 +573,9 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         askBox.postDelayed(new Runnable() { public void run() { bored = next; closeAsk(true); } }, MotionLogic.SBLOCCO_ATTESA);
     }
 
-    /** Momento 11: la scheda si comprime in una linea d'inchiostro che si ritira a sinistra; sotto, la giornata sale. */
+    /** La scheda si chiude (altezza e dissolvenza in BASE); sotto, la giornata sale. */
     private void closeAsk(final boolean answered) {
-        Motion.leave(askBox, true, new Runnable() {
+        Motion.collapse(askBox, true, new Runnable() {
             public void run() {
                 askBox.removeAllViews();
                 askAnimating = false;
@@ -615,8 +630,9 @@ public class MainActivity extends BaseActivity implements Store.Listener {
             boolean nowEvening = Night.evening(MainActivity.this);
             if (nowEvening != evening) {
                 // 0.20 (momento 13): se la sera comincia mentre guardi la home, i colori scivolano via in 3 s
-                boolean go = MotionLogic.seraAnimates(evening, nowEvening, hasWindowFocus() && brand == null, Motion.reduced(MainActivity.this));
-                if (go) seraFrom = snapshot();
+                boolean go = MotionLogic.seraAnimates(evening, nowEvening, hasWindowFocus(), Motion.reduced(MainActivity.this));
+                boolean back = MotionLogic.giornoAnimates(evening, nowEvening, hasWindowFocus(), Motion.reduced(MainActivity.this));
+                if (go || back) { seraFrom = snapshot(); seraBack = back; }
                 recreate();
                 return;
             }
@@ -651,8 +667,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         dateChips.removeAllViews();
         View chips = U.allDayChips(this, U.events(this, U.startOfDay(0), U.startOfDay(1)));
         if (chips != null) dateChips.addView(chips, U.full());
-        evening = Night.evening(this);
-        if (evening && U.hourNow() >= 12) {
+        if (evening && U.hourNow() >= 12) { // 0.21: «evening» cambia solo con la home ridisegnata (onResume, tick)
             // 195: la sera domani prende il posto di oggi. E002: al posto di «Invece di scorrere» l'avviso
             // dell'ora di staccare (se il telefono era bloccato) e il consiglio della settimana
             todayEmpty = true;
@@ -805,7 +820,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
             TextView ok = U.text(this, "Va bene", 15, U.BG, true);
             ok.setGravity(Gravity.CENTER);
             Press.primary(ok, U.INK, 22);
-            ok.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { Sera.ack(MainActivity.this); buildToday(); } });
+            Tick.onClick(ok, new Runnable() { public void run() { Sera.ack(MainActivity.this); buildToday(); } }); // 0.21: check al posto della label
             LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(0, U.dp(this, 44), 1f);
             blp.rightMargin = U.dp(this, 8);
             btns.addView(ok, blp);
@@ -908,7 +923,9 @@ public class MainActivity extends BaseActivity implements Store.Listener {
 
     private View taskRow(final Tasks.Task t, float sp, boolean showDue, final List<Tasks.Task> scope) {
         LinearLayout r = U.row(this);
-        r.setMinimumHeight(U.dp(this, 44));
+        r.setMinimumHeight(U.dp(this, 48)); // 0.21: come nel prototipo, ogni riga di task è alta 48 dp
+        r.setClipChildren(false); // l'alone (e il fondo premuto) non vengono ritagliati dalla riga
+        r.setClipToPadding(false);
         LinearLayout boxWrap = U.row(this);
         boxWrap.setMinimumWidth(U.dp(this, 30)); // E001: casella più vicina al titolo
         final TaskBox tbox = new TaskBox(this, t.done); // 0.20 (Evolutiva 016): si riempie in senso orario, poi la spunta con la molla
@@ -955,7 +972,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
                 public void onClick(View v) { TaskRows.toggle(st, taskHost); }
             });
             boxWrap.setContentDescription("Segna fatto: " + t.title);
-            Press.checkHalo(boxWrap, 36, 9); // l'alone (alla casella, 36 dp) si disegna sopra la pagina: la casella è sul bordo
+            Press.checkHalo(boxWrap, MotionLogic.ALONE_ICONA_DP, 9); // l'alone (alla casella, 56 dp) si disegna sopra la pagina: la casella è sul bordo
             U.widenLeft(r, boxWrap, 18);
             if (t.app != null && U.installed(this, t.app)) {
                 // 0.13: il task apre la sua app. E001: l'app sta a destra
@@ -983,6 +1000,10 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         public void setDone(String id, boolean done) { Tasks.setDone(MainActivity.this, id, done); }
         public void gone(String id) { hiddenDone.add(id); }
         public void reopened(String id) { hiddenDone.remove(id); }
+        public void festa(int kind, View row) {
+            if (row.getParent() != today || festa == null) return; // vale per i task di oggi, non per quelli di domani
+            festa.play(kind);
+        }
         public void busy(int delta) {
             busyRows = Math.max(0, busyRows + delta);
             if (busyRows == 0) { dirty = false; buildToday(); buildTomorrow(); refreshNotif(); }
@@ -1025,7 +1046,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         boolean on = U.listenerEnabled(this);
         filterOff.setVisibility(on ? View.GONE : View.VISIBLE);
         int n = on ? Store.count(this, Store.WAITING) : 0;
-        notifCount.set(n == 0 ? "" : String.valueOf(n), hasWindowFocus() && brand == null); // momento 12: scorre solo se lo vedi cambiare
+        notifCount.set(n == 0 ? "" : String.valueOf(n), hasWindowFocus()); // momento 12: scorre solo se lo vedi cambiare
         notifBadge.setVisibility(n == 0 ? View.GONE : View.VISIBLE);
         notifBox.setContentDescription(n == 0 ? "Notifiche" : "Notifiche, " + n + " per te");
         // 0.10: una riga sola alla volta. Prima la fine della prova di «Di notte», poi la configurazione
