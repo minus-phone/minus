@@ -46,7 +46,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
     private int busyRows;
     private boolean dirty, askAnimating;
     private final java.util.Set<String> hiddenDone = new java.util.HashSet<String>();
-    private EditText query;
+    private TextView query; // 0.20.1: solo testo, il tocco lo riceve tutta la barra
     private android.database.ContentObserver observer;
 
     @Override
@@ -261,7 +261,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         final LinearLayout field = U.row(this);
         Press.box(field, U.BG, U.INK, 28, U.CHIP); // 0.20: premuta, la barra prende il colore dei chip
         field.setPadding(U.dp(this, 22), U.dp(this, 6), U.dp(this, 6), U.dp(this, 6));
-        query = new EditText(this);
+        query = new TextView(this);
         query.setHint("Cerca o chiedi");
         query.setHintTextColor(U.HINT);
         query.setTextColor(U.INK);
@@ -269,24 +269,13 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         query.setTypeface(U.SANS);
         query.setBackground(null);
         query.setSingleLine(true);
-        query.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
-        query.setImeOptions(EditorInfo.IME_ACTION_GO);
-        // 0.7: il campo apre la ricerca a tutto schermo (risultati in basso, vicino al pollice)
-        query.setHint("Cerca o chiedi");
+        query.setGravity(Gravity.CENTER_VERTICAL);
+        // 0.7: la barra apre la ricerca a tutto schermo (risultati in basso, vicino al pollice).
+        // 0.20.1: il testo non è un campo e non prende il tocco: lo riceve la barra intera, con il suo stato premuto
+        query.setClickable(false);
         query.setFocusable(false);
-        query.setCursorVisible(false);
-        query.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { openSearch(); }
-        });
-        // il campo è un figlio che riceve il tocco: lo stato premuto lo passa alla barra
-        query.setOnTouchListener(new View.OnTouchListener() {
-            public boolean onTouch(View v, android.view.MotionEvent e) {
-                int a = e.getActionMasked();
-                if (a == android.view.MotionEvent.ACTION_DOWN) field.setPressed(true);
-                else if (a == android.view.MotionEvent.ACTION_UP || a == android.view.MotionEvent.ACTION_CANCEL) field.setPressed(false);
-                return false;
-            }
-        });
+        query.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        field.setContentDescription("Cerca o chiedi");
         field.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { openSearch(); }
         });
