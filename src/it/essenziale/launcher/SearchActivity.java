@@ -652,14 +652,17 @@ public class SearchActivity extends BaseActivity {
         VoiceParser.Cmd c = VoiceParser.parse(q, VoiceActivity.names(this), java.util.Calendar.getInstance());
         if (!VoiceParser.ASK.equals(c.type)) act.add(row("Esegui «" + q + "»", "come se lo dicessi a voce", "›", "▶", new Runnable() { public void run() { command(q); } }));
         final String cap = q.substring(0, 1).toUpperCase(Locale.ITALY) + q.substring(1);
-        act.add(row("Aggiungi «" + cap + "»", Quando.addDayOffset(U.hourNow()) == 1 ? "domani" : "oggi", "›", "+", new Runnable() {
+        // 0.23: con un numero scritto, niente sottotitolo grigio («oggi») sotto «Aggiungi»
+        View addRow = row("Aggiungi «" + cap + "»", phone != null ? null : Quando.addDayOffset(U.hourNow()) == 1 ? "domani" : "oggi", "›", "+", new Runnable() {
             public void run() {
                 Intent i = new Intent(SearchActivity.this, AddActivity.class);
                 i.putExtra("title", cap);
                 i.putExtra("day", U.startOfDay(Quando.addDayOffset(U.hourNow())));
                 startActivity(i);
             }
-        }));
+        });
+        if (phone != null) describe(addRow, "Aggiungi «" + cap + "» come impegno, " + (Quando.addDayOffset(U.hourNow()) == 1 ? "domani" : "oggi"));
+        act.add(addRow);
         if (anything) { groups.add(act); titles.add("Azioni"); }
         // Impostazioni di minus
         List<String[]> st = Cerca.settings(q, 3);
@@ -685,7 +688,8 @@ public class SearchActivity extends BaseActivity {
             // 0.20: il riquadro entra in dissolvenza (RAPIDO) invece di comparire; i 10 dp ai lati ci sono sempre (insetRows)
             Press.Fade f = Press.rowBest(r);
             if (rendered && !bestName.equals(lastBestName)) f.appear();
-            r.setContentDescription(bestName + ", primo risultato");
+            CharSequence d0 = r.getContentDescription(); // 0.23: se la riga ha già una descrizione per TalkBack, la si tiene
+            r.setContentDescription((d0 != null ? d0.toString() : bestName) + ", primo risultato");
         }
 
         // dall'alto il meno importante: il primo gruppo finisce attaccato al campo
@@ -740,9 +744,16 @@ public class SearchActivity extends BaseActivity {
         // dall'alto: WhatsApp, Aggiungi ai contatti, Chiama (l'ultima sta vicino al pollice)
         List<View> g = new ArrayList<View>();
         if (Telefono.hasWhatsApp(this))
-            g.add(row("Scrivi su WhatsApp", "Apre la chat con questo numero", "›", "↗", new Runnable() { public void run() { Telefono.whatsapp(SearchActivity.this, typed); } }));
-        g.add(row("Aggiungi ai contatti", "Si apre la rubrica di Android con il numero già scritto", "›", "+", new Runnable() { public void run() { Telefono.newContact(SearchActivity.this, typed); } }));
-        View call = row("Chiama " + typed, "Si apre il tastierino di Android con il numero già scritto", "›", null, new Runnable() { public void run() { Telefono.dial(SearchActivity.this, typed); } });
+        { // 0.23: senza sottotitoli grigi; a TalkBack resta detto cosa si apre
+            View wa = row("Scrivi su WhatsApp", null, "›", "↗", new Runnable() { public void run() { Telefono.whatsapp(SearchActivity.this, typed); } });
+            describe(wa, "Scrivi su WhatsApp. Apre la chat con questo numero");
+            g.add(wa);
+        }
+        View add = row("Aggiungi ai contatti", null, "›", "+", new Runnable() { public void run() { Telefono.newContact(SearchActivity.this, typed); } });
+        describe(add, "Aggiungi ai contatti. Si apre la rubrica di Android con il numero già scritto");
+        g.add(add);
+        View call = row("Chiama " + typed, null, "›", null, new Runnable() { public void run() { Telefono.dial(SearchActivity.this, typed); } });
+        describe(call, "Chiama " + typed + ". Si apre il tastierino di Android con il numero già scritto");
         LinearLayout callRow = (LinearLayout) ((ViewGroup) call).getChildAt(0);
         LinearLayout callIcon = U.row(this);
         callIcon.setGravity(Gravity.CENTER);
@@ -880,6 +891,11 @@ public class SearchActivity extends BaseActivity {
         wrap.addView(row, U.full());
         wrap.addView(U.divider(this));
         return wrap;
+    }
+
+    /** Descrizione per TalkBack della riga (la vista dentro il contenitore che row() restituisce). */
+    private void describe(View wrapped, String d) {
+        if (wrapped instanceof ViewGroup && ((ViewGroup) wrapped).getChildCount() > 0) ((ViewGroup) wrapped).getChildAt(0).setContentDescription(d);
     }
 
     private View personRow(final Hit h) {
