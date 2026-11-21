@@ -115,7 +115,7 @@ public class WeekActivity extends PageActivity {
         int base = week * 7;
         java.text.SimpleDateFormat fd = new java.text.SimpleDateFormat("d MMM", java.util.Locale.ITALY);
         range.setText(fd.format(new java.util.Date(U.startOfDay(base))) + " – " + fd.format(new java.util.Date(U.startOfDay(base + 6))));
-        backToNow.setVisibility(week == 0 ? View.GONE : View.VISIBLE);
+        backToNow.setVisibility(week == 0 ? View.INVISIBLE : View.VISIBLE); // 0.22: INVISIBLE tiene l'altezza: il titolo non si sposta tra le settimane
         updated.setText("Aggiornato alle " + U.hhmm(System.currentTimeMillis()) + " · si aggiorna a ogni modifica");
         // 0.15: i task senza scadenza in alto, dove si vedono (prima stavano in fondo e si perdevano)
         if (week == 0) {

@@ -154,6 +154,16 @@ final class PressB {
     // ---------- Le altre famiglie, con le stesse misure di Press ----------
 
     /** Link di testo (e «‹ Indietro»): anello di 6 dp, il colore passa a INK; il colore a riposo è quello che ha ora. */
+    /**
+     * 0.22: titolo che porta altrove («Settimana» in home): niente riquadro né anello, che su un titolo grande
+     * sembrano un difetto. Premuto, il testo passa dal suo colore all'inchiostro pieno.
+     */
+    static void title(TextView t, int rest) {
+        t.setBackground(null);
+        t.setTextColor(new android.content.res.ColorStateList(
+                new int[][]{{android.R.attr.state_pressed}, {}}, new int[]{U.INK, rest}));
+    }
+
     static void link(TextView t) { Press.link(t, t.getCurrentTextColor()); }
 
     /** Icona o simbolo senza bordo (✕, +, ‹, ›, ↑): alone circolare di 56 dp, da scala 0,8 a 1. */

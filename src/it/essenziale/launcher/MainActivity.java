@@ -103,7 +103,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         week.setGravity(Gravity.BOTTOM);
         week.setPadding(0, 0, U.dp(this, 6), U.dp(this, 6));
         week.setContentDescription("Settimana, apri la vista della settimana");
-        Press.link(week, U.MUTED);
+        PressB.title(week, U.MUTED); // 0.22: un titolo premuto si scurisce soltanto
         week.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { startActivity(new Intent(MainActivity.this, WeekActivity.class)); }
         });
