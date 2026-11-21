@@ -85,6 +85,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="$GITHUB_REF_NAME"
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then TAG="v$V"; fi
-          gh release create "$TAG" build/minus-*.apk --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "−minus $V" \
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG="v$V"
+            # Il tag si crea prima, esplicitamente: «gh release create» con un tag nuovo falliva con
+            # «Published releases must have a valid tag». Se il tag c'è già sullo stesso commit, va bene così.
+            if ! gh api "repos/$GITHUB_REPOSITORY/git/refs/tags/$TAG" >/dev/null 2>&1; then
+              gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA" >/dev/null
+            fi
+          fi
+          gh release create "$TAG" build/minus-*.apk --repo "$GITHUB_REPOSITORY" --verify-tag --title "−minus $V" \
             --notes "Come installarla: [guida](https://github.com/minus-phone/minus/blob/main/INSTALLARE.md)."
