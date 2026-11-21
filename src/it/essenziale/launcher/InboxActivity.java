@@ -32,6 +32,7 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
         TextView gear = U.text(this, "⚙", 26, U.INK, false);
         gear.setGravity(Gravity.CENTER);
         gear.setContentDescription("Impostazioni delle notifiche");
+        Press.icon(gear, null); // 0.21: icona senza bordo, alone di 56 dp
         gear.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 startActivity(new android.content.Intent(InboxActivity.this, SettingsActivity.class)
@@ -61,10 +62,14 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
         clearAll = U.text(this, "Segna tutto come visto", 15, U.INK, true);
         clearAll.setGravity(Gravity.CENTER);
         clearAll.setMinHeight(U.dp(this, 48));
+        clearAll.setPadding(U.dp(this, 16), 0, U.dp(this, 16), 0);
+        Press.link(clearAll, U.INK); // 0.21: link di testo, alone di 6 dp
         clearAll.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { Store.clearLevel(InboxActivity.this, level); }
         });
-        root.addView(clearAll, U.full());
+        LinearLayout.LayoutParams calp = U.wrap();
+        calp.gravity = Gravity.CENTER_HORIZONTAL;
+        root.addView(clearAll, calp);
         setContentView(root);
     }
 
@@ -153,8 +158,23 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
 
     private void usedLong() { U.prefs(this).edit().putBoolean(K_LONG_USED, true).apply(); }
 
+    /**
+     * 0.21: le due linguette (come i chip, alone di 6 dp) hanno ciascuna un solo sfondo, ricolorato: la scelta si cambia
+     * senza ricreare il fondo (l'alone di chi è premuto non resta appeso) e la linguetta non scelta torna trasparente,
+     * con il testo in INK sul fondo della barra, chiaro o scuro che sia.
+     */
+    private final java.util.Map<TextView, android.graphics.drawable.GradientDrawable[]> faces = new java.util.HashMap<TextView, android.graphics.drawable.GradientDrawable[]>();
+
     private void style(TextView t, boolean on) {
-        if (on) Press.chipOn(t, 20);
+        android.graphics.drawable.GradientDrawable[] g = faces.get(t);
+        if (g == null) {
+            g = new android.graphics.drawable.GradientDrawable[]{U.box(this, 0, 0, 20), U.box(this, 0, 0, 20)};
+            faces.put(t, g);
+            Press.on(t, g[0], g[1]).ring(20, MotionLogic.ALONE_PICCOLO_DP);
+        }
+        g[0].setColor(on ? U.INK : 0);
+        g[1].setColor(on ? MotionLogic.mix(U.INK, U.BG, 0.2f) : MotionLogic.mix(U.CHIP, U.INK, 0.08f));
+        t.getBackground().invalidateSelf();
         t.setTextColor(on ? U.BG : U.INK);
     }
 
@@ -222,13 +242,14 @@ public class InboxActivity extends BaseActivity implements Store.Listener {
         TextView seen = U.text(this, "✓", 18, U.INK, false);
         seen.setGravity(Gravity.CENTER);
         seen.setContentDescription("Segna come visto");
-        seen.setBackground(U.box(this, U.BG, U.LINE, 22));
+        Press.outlined(seen, U.BG, U.LINE, 22); // 0.21: pulsante tondo con bordo: riempimento e anello di 8 dp
         seen.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { Store.remove(InboxActivity.this, it.id); }
         });
         LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44));
         slp.leftMargin = U.dp(this, 10);
         r.addView(seen, slp);
+        Press.row(r); // 0.21: riga senza bordo, si scurisce solo il fondo
         r.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { open(it); }
         });

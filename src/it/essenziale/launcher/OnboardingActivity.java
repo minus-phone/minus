@@ -35,7 +35,7 @@ import java.util.Set;
  * Extra: "goal" (dalle Impostazioni: solo i passi di quell'obiettivo, poi lo accende),
  * "only" (un solo passo, per esempio Quando dormi), "again" (rifai tutto).
  */
-public class OnboardingActivity extends BaseActivity {
+public class OnboardingActivity extends PageActivity {
 
     static final int GOALS = 0, HOME = 1, DAY = 2, PORTATA = 3, NOTIF = 4, UNLOCK = 5, DOOM_APPS = 6, DOOM_HOW = 7,
             SLEEP = 8, TRIAL = 9, ALT = 10, READY = 11;
@@ -379,7 +379,8 @@ public class OnboardingActivity extends BaseActivity {
             skip.setPaintFlags(skip.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
             skip.setGravity(Gravity.CENTER);
             skip.setMinHeight(U.dp(this, 44));
-            skip.setPadding(U.dp(this, 12), 0, 0, 0);
+            skip.setPadding(U.dp(this, 12), 0, U.dp(this, 12), 0);
+            PressB.link(skip); // 0.21: «Salta» è un link: anello di 6 dp
             // 0.13.6: «Salta» tiene quello che il passo ha già compilato; il passo va in «Da completare»
             skip.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { skip(); } });
             h.addView(skip);
@@ -443,8 +444,12 @@ public class OnboardingActivity extends BaseActivity {
             TextView b = U.text(this, second, 14, U.MUTED, false);
             b.setGravity(Gravity.CENTER);
             b.setMinHeight(U.dp(this, 44));
+            b.setPadding(U.dp(this, 16), 0, U.dp(this, 16), 0);
+            PressB.link(b); // 0.21: «‹ Indietro» / «Salta» sono link: anello di 6 dp, solo attorno al testo
             b.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r2.run(); } });
-            foot.addView(b, U.full());
+            LinearLayout.LayoutParams blp = U.wrap();
+            blp.gravity = Gravity.CENTER_HORIZONTAL;
+            foot.addView(b, blp);
         }
     }
 
@@ -453,7 +458,7 @@ public class OnboardingActivity extends BaseActivity {
         LinearLayout c = U.row(this);
         c.setMinimumHeight(U.dp(this, 64));
         c.setPadding(U.dp(this, 15), U.dp(this, 10), U.dp(this, 15), U.dp(this, 10));
-        c.setBackground(U.box(this, U.SURFACE, on ? U.INK : U.BORDER, 14));
+        PressB.card(c, U.SURFACE, on ? U.INK : U.BORDER, 14); // 0.21: scheda con il bordo: premuta si scurisce un po', anello di 8 dp
         LinearLayout tx = U.col(this);
         tx.addView(U.text(this, title, 16, U.INK, true));
         if (subtitle != null) tx.addView(U.text(this, subtitle, 13, U.MUTED, false));
@@ -480,13 +485,17 @@ public class OnboardingActivity extends BaseActivity {
         tx.addView(U.text(this, title, 15, U.INK, Boolean.TRUE.equals(toggle))); // 0.16: grassetto se acceso
         if (subtitle != null) tx.addView(U.text(this, subtitle, 12, U.MUTED, false));
         row.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        if (toggle != null) row.addView(U.toggle(this, toggle), new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 26)));
+        if (toggle != null) row.addView(U.toggle(this, toggle, "onb:" + title), new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 26))); // 0.21: il pallino scorre
         else if (right != null) {
             TextView rt = U.text(this, right, 14, U.INK, false);
             rt.setPadding(U.dp(this, 10), 0, 0, 0);
             row.addView(rt);
         }
-        if (r != null) row.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
+        final boolean isToggle = toggle != null;
+        if (r != null) {
+            PressB.row(row); // 0.21: riga senza bordo: si scurisce il fondo (le righe senza azione non si premono)
+            row.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { if (isToggle) Motion.scatto(v); r.run(); } });
+        }
         if (toggle != null) row.setContentDescription(title + (toggle ? ", acceso" : ", spento"));
         body.addView(row, U.full());
         body.addView(U.divider(this));
@@ -514,8 +523,10 @@ public class OnboardingActivity extends BaseActivity {
         t.setPaintFlags(t.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
         t.setMinHeight(U.dp(this, 48));
         t.setGravity(Gravity.CENTER_VERTICAL);
+        t.setPadding(U.dp(this, 4), 0, U.dp(this, 12), 0);
+        PressB.link(t); // 0.21: link di testo: anello di 6 dp, solo attorno al testo
         t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
-        body.addView(t, U.full());
+        body.addView(t, U.wrap());
     }
 
     /** Fila di chip: una sola scelta. */
@@ -958,6 +969,7 @@ public class OnboardingActivity extends BaseActivity {
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 56));
         TextView ini = U.initial(this, p[0], false, 34);
+        final PressB.Face face = PressB.rowWithBadge(r, ini); // 0.21: riga premuta: fondo più scuro e il cerchio dell'iniziale si riempie
         r.addView(ini, new LinearLayout.LayoutParams(U.dp(this, 34), U.dp(this, 34)));
         LinearLayout tx = U.col(this);
         tx.setPadding(U.dp(this, 12), 0, 0, 0);
@@ -967,12 +979,18 @@ public class OnboardingActivity extends BaseActivity {
         if (p[1] != null && p[1].length() > 0) ap.append(ap.length() > 0 ? ", chiamata" : "chiamata");
         tx.addView(U.text(this, ap.toString(), 12, U.MUTED, false));
         r.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        r.addView(U.checkbox(this, on, U.INK), new LinearLayout.LayoutParams(U.dp(this, 22), U.dp(this, 22)));
+        final TaskBox cb = PressB.box(this, on); // 0.21: la casella dei task (riempimento, spunta, rimbalzo)
+        r.addView(cb, new LinearLayout.LayoutParams(U.dp(this, 20), U.dp(this, 20)));
+        PressB.boxHalo(face, cb); // e l'alone di 56 dp
         r.setContentDescription(p[0] + (on ? ", scelta" : ", non scelta"));
         r.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                if (on) chosen.remove(k); else chosen.put(k, p);
-                render();
+                PressB.checkThen(v, cb, !on, new Runnable() {
+                    public void run() {
+                        if (on) chosen.remove(k); else chosen.put(k, p);
+                        render();
+                    }
+                });
             }
         });
         list.addView(r, U.full());
@@ -998,6 +1016,7 @@ public class OnboardingActivity extends BaseActivity {
                 TextView t = U.text(this, "+  " + name, 15, U.INK, false);
                 t.setMinHeight(U.dp(this, 44));
                 t.setGravity(Gravity.CENTER_VERTICAL);
+                PressB.row(t); // 0.21: riga senza bordo
                 t.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         String[] p = {name, numberOf(id)};
@@ -1295,6 +1314,9 @@ public class OnboardingActivity extends BaseActivity {
         ch.setPaintFlags(ch.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
         ch.setMinHeight(U.dp(this, 40));
         ch.setGravity(Gravity.CENTER_VERTICAL);
+        ch.setLayoutParams(U.wrap());
+        ch.setPadding(0, U.dp(this, 4), U.dp(this, 12), 0);
+        PressB.link(ch); // 0.21: «· cambiala» è un link: anello di 6 dp
         ch.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 final int[] opts = {15, 30, 45, 60};
@@ -1398,7 +1420,7 @@ public class OnboardingActivity extends BaseActivity {
             t.setMinHeight(U.dp(this, 44));
             t.setGravity(Gravity.CENTER_VERTICAL);
             t.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
-            t.setBackground(U.box(this, U.BG, U.BORDER, 18));
+            Press.chip(t, U.BG, U.BORDER, 18); // 0.21: chip di idee: un po' più scuro da premuto, anello di 6 dp
             t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { altField.setText(s); altField.setSelection(s.length()); } });
             LinearLayout.LayoutParams lp = U.wrap();
             lp.bottomMargin = U.dp(this, 6);

@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** A portata (0.8): cosa vedi appena tocchi la ricerca, in due blocchi: persone e gruppi, app. */
-public class PortataActivity extends BaseActivity {
+public class PortataActivity extends PageActivity {
 
     private LinearLayout list;
     private PortataPicker picker;
@@ -71,6 +71,7 @@ public class PortataActivity extends BaseActivity {
         TextView link = U.text(this, fixed.isEmpty() ? "Nessuno passa sempre. Si sceglie in Notifiche › Contatti e gruppi ›" : "Si cambiano in Notifiche › Contatti e gruppi ›", 14, U.MUTED, false);
         link.setMinHeight(U.dp(this, 44));
         link.setGravity(Gravity.CENTER_VERTICAL);
+        PressB.row(link); // 0.21: riga di testo che apre un'altra pagina: si scurisce il fondo
         link.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { startActivity(SettingsActivity.peopleIntent(PortataActivity.this, "A portata")); }
         });
@@ -109,9 +110,12 @@ public class PortataActivity extends BaseActivity {
         tx.addView(U.text(this, title, 16, U.INK, false));
         tx.addView(U.text(this, sub, 13, U.MUTED, false));
         r.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        r.addView(U.toggle(this, on), new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 26)));
+        r.addView(U.toggle(this, on, "portata:" + key), new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 26))); // 0.21: il pallino scorre
+        r.setContentDescription(title + ", interruttore, " + (on ? "acceso" : "spento"));
+        PressB.row(r);
         r.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
+                Motion.scatto(v); // lo stesso scatto di tutti gli interruttori
                 Changes.track(PortataActivity.this, what + (on ? " nascoste" : " visibili"), new String[]{key},
                         new Runnable() { public void run() { U.prefs(PortataActivity.this).edit().putBoolean(key, !on).commit(); } },
                         new Runnable() { public void run() { render(); } });
@@ -126,6 +130,7 @@ public class PortataActivity extends BaseActivity {
         t.setGravity(Gravity.CENTER);
         t.setContentDescription(desc);
         t.setLayoutParams(new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
+        PressB.icon(t); // 0.21: ↑ è un'icona: alone circolare di 56 dp
         t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
         return t;
     }

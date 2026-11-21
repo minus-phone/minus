@@ -14,7 +14,7 @@ import android.widget.TextView;
 import java.util.List;
 
 /** 7 giorni alla volta, da oggi, avanti e indietro di settimana in settimana. Tocca un impegno per modificarlo. */
-public class WeekActivity extends BaseActivity {
+public class WeekActivity extends PageActivity {
 
     private LinearLayout list;
     private TextView range, backToNow, updated;
@@ -35,7 +35,8 @@ public class WeekActivity extends BaseActivity {
         backToNow.setPaintFlags(backToNow.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
         backToNow.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
         backToNow.setMinHeight(U.dp(this, 44));
-        backToNow.setPadding(U.dp(this, 12), 0, 0, 0);
+        backToNow.setPadding(U.dp(this, 12), 0, U.dp(this, 4), 0);
+        PressB.link(backToNow); // 0.21: link di testo, anello di 6 dp
         backToNow.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { week = 0; render(); } });
         tr.addView(backToNow);
         root.addView(tr, U.full());
@@ -45,6 +46,7 @@ public class WeekActivity extends BaseActivity {
         TextView prev = U.text(this, "‹", 24, U.INK, false);
         prev.setGravity(Gravity.CENTER);
         prev.setContentDescription("Settimana precedente");
+        PressB.icon(prev); // 0.21: alone circolare di 56 dp
         prev.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { week--; render(); } });
         nav.addView(prev, new LinearLayout.LayoutParams(U.dp(this, 48), U.dp(this, 48)));
         range = U.text(this, "", 16, U.INK, true);
@@ -53,6 +55,7 @@ public class WeekActivity extends BaseActivity {
         TextView next = U.text(this, "›", 24, U.INK, false);
         next.setGravity(Gravity.CENTER);
         next.setContentDescription("Settimana successiva");
+        PressB.icon(next);
         next.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { week++; render(); } });
         nav.addView(next, new LinearLayout.LayoutParams(U.dp(this, 48), U.dp(this, 48)));
         root.addView(nav, U.full());
@@ -112,7 +115,7 @@ public class WeekActivity extends BaseActivity {
         int base = week * 7;
         java.text.SimpleDateFormat fd = new java.text.SimpleDateFormat("d MMM", java.util.Locale.ITALY);
         range.setText(fd.format(new java.util.Date(U.startOfDay(base))) + " – " + fd.format(new java.util.Date(U.startOfDay(base + 6))));
-        backToNow.setVisibility(week == 0 ? View.GONE : View.VISIBLE);
+        backToNow.setVisibility(week == 0 ? View.INVISIBLE : View.VISIBLE); // 0.22: INVISIBLE tiene l'altezza: il titolo non si sposta tra le settimane
         updated.setText("Aggiornato alle " + U.hhmm(System.currentTimeMillis()) + " · si aggiorna a ogni modifica");
         // 0.15: i task senza scadenza in alto, dove si vedono (prima stavano in fondo e si perdevano)
         if (week == 0) {
@@ -124,6 +127,7 @@ public class WeekActivity extends BaseActivity {
                 TextView up = U.text(this, "+", 22, U.INK, false);
                 up.setGravity(Gravity.CENTER);
                 up.setContentDescription("Aggiungi un task senza scadenza");
+                PressB.icon(up);
                 up.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) { startActivity(new Intent(WeekActivity.this, AddActivity.class).putExtra("kind", "task").putExtra("day", 0L)); }
                 });
@@ -139,7 +143,7 @@ public class WeekActivity extends BaseActivity {
             // 0.6: un + per ogni giorno, che apre Aggiungi con quel giorno già scelto
             LinearLayout head = U.row(this);
             List<U.Event> allEv = U.events(this, day, U.startOfDay(d + 1));
-            View chips = U.allDayChips(this, allEv); // 0.17 (Evolutiva 007): tutto il giorno sulla riga del giorno
+            View chips = U.allDayChipsPressed(this, allEv); // 0.17 (Evolutiva 007): tutto il giorno sulla riga del giorno
             TextView hl = U.label(this, name);
             hl.setMinWidth(U.dp(this, 64));
             if (chips == null) head.addView(hl, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
@@ -154,6 +158,7 @@ public class WeekActivity extends BaseActivity {
             TextView plus = U.text(this, "+", 22, U.INK, false);
             plus.setGravity(Gravity.CENTER);
             plus.setContentDescription("Aggiungi a " + name);
+            PressB.icon(plus);
             plus.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     Intent i = new Intent(WeekActivity.this, AddActivity.class);
@@ -174,6 +179,7 @@ public class WeekActivity extends BaseActivity {
             for (final U.Event e : ev) {
                 LinearLayout r = U.row(this);
                 r.setMinimumHeight(U.dp(this, 40));
+                PressB.row(r); // 0.21: riga senza bordo, si scurisce il fondo
                 r.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) { U.openEvent(WeekActivity.this, e); }
                 });
@@ -223,6 +229,7 @@ public class WeekActivity extends BaseActivity {
     private View taskRow(final Tasks.Task k) {
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 40));
+        PressB.row(r); // 0.21: riga senza bordo, si scurisce il fondo (la casella ha il suo alone di 56 dp)
         LinearLayout w = U.row(this);
         w.setMinimumWidth(U.dp(this, 30));
         w.setMinimumHeight(U.dp(this, 44));

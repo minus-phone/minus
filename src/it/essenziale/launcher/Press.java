@@ -102,14 +102,38 @@ final class Press {
         /** Cerchio pieno di {@code sizeDp} (INK al 10%), centrato sulla vista o a {@code centerXDp} dal suo bordo sinistro. */
         static Halo disc(View v, float sizeDp, float centerXDp, boolean grow) { return new Halo(v, false, 0, 0, sizeDp, centerXDp, grow, false); }
 
+        /** Come {@link #disc}, ma chiaro (ON_DARK al 14%) per i fondi scuri fissi (il blocco). */
+        static Halo discOnDark(View v, float sizeDp, float centerXDp, boolean grow) { return new Halo(v, false, 0, 0, sizeDp, centerXDp, grow, true); }
+
         private Halo(View v, boolean ring, float radiusDp, float spreadDp, float sizeDp, float centerXDp, boolean grow, boolean onDark) {
             this.v = v; this.ring = ring; this.radiusDp = radiusDp; this.spreadDp = spreadDp; this.sizeDp = sizeDp; this.centerXDp = centerXDp; this.grow = grow; this.onDark = onDark;
         }
 
         private int color() {
-            if (!ring) return alpha(U.INK, 0.10f);
+            if (!ring) return onDark ? alpha(U.ON_DARK, 0.14f) : alpha(U.INK, 0.10f);
             if (onDark) return alpha(U.ON_DARK, 0.18f);
             return U.dark ? alpha(U.INK, 0.16f) : alpha(U.INK, 0.10f);
+        }
+
+        /** Rete di sicurezza (0.21): se la vista non è più premuta, o è uscita di scena, l'alone si toglie comunque. */
+        private final Runnable guard = new Runnable() {
+            public void run() {
+                if (!shown) return;
+                boolean away = v.getWindowVisibility() != View.VISIBLE || !v.isShown();
+                if (away) { drop(); return; }
+                if (!v.isPressed() && hide == null) up();
+                MAIN.postDelayed(this, 400);
+            }
+        };
+
+        /** Toglie l'alone subito, senza animazione. */
+        private void drop() {
+            if (hide != null) { MAIN.removeCallbacks(hide); hide = null; }
+            MAIN.removeCallbacks(guard);
+            if (anim != null) anim.cancel();
+            View root = v.getRootView();
+            if (aura != null && root instanceof ViewGroup) ((ViewGroup) root).getOverlay().remove(aura);
+            aura = null; shown = false; p = 0f;
         }
 
         void down() {
@@ -127,6 +151,8 @@ final class Press {
                 ((ViewGroup) root).getOverlay().add(aura);
                 shown = true;
                 downAt = SystemClock.uptimeMillis();
+                MAIN.removeCallbacks(guard);
+                MAIN.postDelayed(guard, 700);
             }
             run(1f);
         }
@@ -135,7 +161,14 @@ final class Press {
             if (!shown) return;
             long wait = MotionLogic.aloneRestante(SystemClock.uptimeMillis() - downAt);
             if (hide != null) MAIN.removeCallbacks(hide);
-            hide = new Runnable() { public void run() { hide = null; Halo.this.run(0f); } };
+            hide = new Runnable() {
+                public void run() {
+                    hide = null;
+                    Halo.this.run(0f);
+                    // se l'animazione non finisce (schermata in pausa), l'alone si toglie comunque
+                    MAIN.postDelayed(new Runnable() { public void run() { if (shown && hide == null && !v.isPressed()) drop(); } }, Motion.dur(v.getContext(), Motion.RAPIDO) + 120);
+                }
+            };
             if (wait <= 0) hide.run(); else MAIN.postDelayed(hide, wait);
         }
 
@@ -253,11 +286,33 @@ final class Press {
 
         @Override public boolean isStateful() { return true; }
 
+        /** Il fondo premuto (e chi si registra in {@code listener}) resta almeno 240 ms anche con un tocco veloce. */
+        Fade minHold() { minHold = true; return this; }
+
+        private boolean minHold;
+        private long downAt;
+        private Runnable pendingRelease;
+
         @Override protected boolean onStateChange(int[] state) {
             boolean now = false;
             for (int s : state) if (s == android.R.attr.state_pressed) now = true;
             if (now == down) return false;
             down = now;
+            if (pendingRelease != null) { MAIN.removeCallbacks(pendingRelease); pendingRelease = null; }
+            if (now) downAt = SystemClock.uptimeMillis();
+            else if (minHold) {
+                long wait = MotionLogic.aloneRestante(SystemClock.uptimeMillis() - downAt);
+                if (wait > 0) {
+                    pendingRelease = new Runnable() { public void run() { pendingRelease = null; apply(false); } };
+                    MAIN.postDelayed(pendingRelease, wait);
+                    return true;
+                }
+            }
+            apply(now);
+            return true;
+        }
+
+        private void apply(boolean now) {
             if (listener != null) listener.onPress(now);
             if (ringSpreadDp > 0 && getCallback() instanceof View) {
                 if (ring == null) ring = Halo.ring((View) getCallback(), ringDp, ringSpreadDp, ringDark);
@@ -271,7 +326,6 @@ final class Press {
                 public void onAnimationUpdate(ValueAnimator a) { p = (Float) a.getAnimatedValue(); invalidateSelf(); }
             });
             va.start();
-            return true;
         }
 
         @Override public void setAlpha(int a) {}
@@ -323,10 +377,19 @@ final class Press {
         return on(v, null, shape(c, alpha(U.CHIP, 0.6f), 0, 12));
     }
 
+    /**
+     * Tessera con l'iniziale e il nome sotto (la fila «Contatti e gruppi»): premuta, il fondo scurisce, la tessera si
+     * riempie d'inchiostro e la lettera diventa chiara (RAPIDO, almeno 240 ms). {@code tile} è il TextView con l'iniziale.
+     */
+    static Fade tile(View v, TextView tile) { return rowWithBadge(v, tile); }
+
     /** Riga già evidenziata (primo risultato): premuta, il riquadro scurisce (#DCD8CD sul chiaro). */
     static Fade rowBest(View v) {
         Context c = v.getContext();
-        return on(v, shape(c, U.CHIP, 0, 12), shape(c, U.dark ? MotionLogic.mix(U.CHIP, U.INK, 0.06f) : 0xFFDCD8CD, 0, 12));
+        Drawable old = v.getBackground();
+        Fade f = on(v, shape(c, U.CHIP, 0, 12), shape(c, U.dark ? MotionLogic.mix(U.CHIP, U.INK, 0.06f) : 0xFFDCD8CD, 0, 12));
+        if (old instanceof Fade) { f.listener = ((Fade) old).listener; f.minHold = ((Fade) old).minHold; } // il badge con l'iniziale continua a reagire
+        return f;
     }
 
     /** Solo l'alone esterno (nessun cambio di fondo): il «Cambia impostazioni» della ricerca. {@code radiusDp} 0 = angoli vivi. */
@@ -353,6 +416,33 @@ final class Press {
             public void onPress(boolean pressed) { if (h == null) h = Halo.disc(v, MotionLogic.ALONE_ICONA_DP, -1, true); h.set(pressed); }
         };
         return f;
+    }
+
+    /** Icona senza bordo su fondo scuro fisso (blocco, pausa): alone di 56 dp chiaro. */
+    static Fade iconOnDark(final View v, Drawable normal) {
+        Fade f = on(v, normal, null);
+        f.listener = new OnPress() {
+            private Halo h;
+            public void onPress(boolean pressed) { if (h == null) h = Halo.discOnDark(v, MotionLogic.ALONE_ICONA_DP, -1, true); h.set(pressed); }
+        };
+        return f;
+    }
+
+    /** Link di testo su fondo scuro fisso: fondo ON_DARK all'8% dietro la riga e alone di 8 dp chiaro; il testo non si muove. */
+    static Fade linkOnDark(View v) {
+        Context c = v.getContext();
+        return on(v, null, shape(c, alpha(U.ON_DARK, 0.08f), 0, 10)).ring(10, MotionLogic.ALONE_PICCOLO_DP).dark(true);
+    }
+
+    /** Riga senza bordo su fondo scuro fisso: premuta, si schiarisce appena (ON_DARK all'8%), nessun alone. */
+    static Fade rowOnDark(View v) {
+        Context c = v.getContext();
+        return on(v, null, shape(c, alpha(U.ON_DARK, 0.08f), 0, 12));
+    }
+
+    /** Pillola con bordo su fondo scuro fisso: riempimento ON_DARK al 10%, alone chiaro di 8 dp. */
+    static Fade outlinedOnDark(View v, int bg, int stroke, float radiusDp) {
+        return box(v, bg, stroke, radiusDp, MotionLogic.mix(bg, U.ON_DARK, 0.10f)).ring(radiusDp, MotionLogic.ALONE_DP).dark(true);
     }
 
     /** Icona tonda con il bordo (il telefono): nessun movimento dell'icona, alone esterno di 8 dp attorno al cerchio. */
@@ -388,7 +478,7 @@ final class Press {
 
     /** Riga con badge dell'iniziale (contatti): premuta, il cerchio si riempie d'inchiostro e la lettera diventa chiara. */
     static Fade rowWithBadge(View row, TextView badge) {
-        Fade f = row(row);
+        Fade f = row(row).minHold();
         f.listener = new BadgeFx(badge);
         return f;
     }

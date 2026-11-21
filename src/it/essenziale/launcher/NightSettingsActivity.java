@@ -20,7 +20,7 @@ import java.util.Set;
  * mattino, scala di grigi, rapporto) stanno nella pagina dell'obiettivo. Prima qui c'era la
  * vecchia pagina «Di notte» della 0.10, con alternativa, orari e prova.
  */
-public class NightSettingsActivity extends BaseActivity {
+public class NightSettingsActivity extends PageActivity {
 
     private LinearLayout list;
 
@@ -60,6 +60,7 @@ public class NightSettingsActivity extends BaseActivity {
             TextView x = U.text(this, "✕", 16, U.INK, false);
             x.setGravity(Gravity.CENTER);
             x.setContentDescription("Togli " + label + " dalle app frenate di notte");
+            PressB.icon(x); // 0.21: ✕ è un'icona: alone circolare di 56 dp
             x.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     Changes.track(NightSettingsActivity.this, "Di notte: tolta " + label, new String[]{Night.K_APPS},
@@ -74,6 +75,7 @@ public class NightSettingsActivity extends BaseActivity {
         TextView add = U.text(this, "+ Aggiungi un'app", 15, U.INK, false);
         add.setMinHeight(U.dp(this, 48));
         add.setGravity(Gravity.CENTER_VERTICAL);
+        PressB.row(add); // 0.21: riga senza bordo
         add.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pick(); } });
         list.addView(add, U.full());
         String more = Night.scopeOn(this) && !U.pausedPkgs(this).isEmpty()

@@ -16,7 +16,7 @@ import android.widget.TextView;
  * Mostra cosa conta e cosa non conta mai, gli ultimi giorni registrati, e permette di inviarlo
  * (condivisione di Android: si vede tutto il testo prima di mandarlo) o di cancellarlo.
  */
-public class BetaActivity extends BaseActivity {
+public class BetaActivity extends PageActivity {
 
     private LinearLayout box;
 
@@ -49,9 +49,19 @@ public class BetaActivity extends BaseActivity {
         tx.addView(U.text(this, "Registro per la beta", 16, U.INK, false));
         tx.addView(U.text(this, on ? sinceText() : "Spento · non conta niente", 13, U.MUTED, false));
         r.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        r.addView(U.toggle(this, on), new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 26)));
+        r.addView(U.toggle(this, on, "beta:on"), new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 26))); // 0.21: il pallino scorre
         r.setContentDescription("Registro per la beta, " + (on ? "acceso" : "spento"));
-        r.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { if (on) askOff(); else { Beta.setOn(BetaActivity.this, true); render(); } } });
+        PressB.row(r); // 0.21: riga senza bordo: si scurisce il fondo
+        r.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                Motion.scatto(v);
+                if (on) { askOff(); return; }
+                // 0.21: come gli altri interruttori: scorre, «acceso · Annulla»
+                Changes.track(BetaActivity.this, "Registro per la beta acceso", new String[]{Beta.K_ON, Beta.K_CODE, Beta.K_SINCE, Beta.K_LOG},
+                        new Runnable() { public void run() { Beta.setOn(BetaActivity.this, true); } },
+                        new Runnable() { public void run() { render(); } });
+            }
+        });
         LinearLayout.LayoutParams rlp = U.full();
         rlp.topMargin = U.dp(this, 8);
         box.addView(r, rlp);
@@ -150,7 +160,7 @@ public class BetaActivity extends BaseActivity {
         TextView t = U.text(this, s, 16, primary ? U.BG : U.INK, true);
         t.setGravity(Gravity.CENTER);
         t.setMinHeight(U.dp(this, 52));
-        if (primary) Press.chipOn(t, 26); else Press.chip(t, U.BG, U.LINE, 26);
+        if (primary) Press.primary(t, U.INK, 26); else PressB.pill(t, U.BG, U.LINE, 26); // 0.21: pillole: anello di 8 dp
         return t;
     }
 }

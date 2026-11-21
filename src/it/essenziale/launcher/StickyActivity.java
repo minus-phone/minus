@@ -74,6 +74,7 @@ public class StickyActivity extends BaseActivity {
         t.setMinHeight(U.dp(this, 44));
         t.setPadding(U.dp(this, 8), 0, U.dp(this, 2), 0);
         t.setContentDescription(desc);
+        Press.link(t, U.INK); // 0.21: link di testo: fondo e anello di 6 dp
         t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
         return t;
     }

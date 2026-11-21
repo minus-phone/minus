@@ -106,7 +106,7 @@ final class Aspetto {
         TextView t = U.text(a, s, 13, sel ? U.BG : U.INK, false);
         t.setGravity(Gravity.CENTER);
         t.setMinHeight(U.dp(a, 44));
-        if (sel) Press.chipOn(t, 9); else Press.row(t);
+        if (sel) Press.chipOn(t, 9); else PressB.tabOff(t, U.SURFACE, 9); // 0.21: la scheda non scelta resta leggibile anche sullo scuro
         t.setContentDescription(s + (sel ? ", scelto" : ""));
         t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
         return t;

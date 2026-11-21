@@ -11,7 +11,7 @@ import android.widget.TextView;
 import java.util.List;
 
 /** Modifiche recenti (0.6): le ultime 20 scelte degli ultimi 30 giorni, ognuna si ripristina. */
-public class ChangesActivity extends BaseActivity {
+public class ChangesActivity extends PageActivity {
 
     private LinearLayout list;
 
@@ -62,6 +62,7 @@ public class ChangesActivity extends BaseActivity {
             back.setMinHeight(U.dp(this, 44));
             back.setPadding(U.dp(this, 10), 0, 0, 0);
             back.setContentDescription("Ripristina: " + c.desc);
+            PressB.link(back); // 0.21: «Ripristina» è un link: anello di 6 dp
             back.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     Changes.restore(ChangesActivity.this, c, new Runnable() { public void run() { render(); } });

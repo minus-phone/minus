@@ -157,7 +157,7 @@ public class FrictionActivity extends Activity {
                 alt.setMinHeight(U.dp(this, 54));
                 alt.setGravity(Gravity.CENTER_VERTICAL);
                 alt.setPadding(U.dp(this, 16), 0, U.dp(this, 16), 0);
-                alt.setBackground(U.box(this, U.DARK, U.ON_DARK, 14));
+                Press.outlined(alt, U.DARK, U.ON_DARK, 14).dark(true); // 0.21: pillola con bordo sulla pausa scura: fondo chiaro e anello di 8 dp
                 alt.setOnClickListener(new View.OnClickListener() {
                     public void onClick(View v) {
                         Night.count(FrictionActivity.this, Night.K_ALTS, 1);

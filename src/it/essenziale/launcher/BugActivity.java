@@ -17,7 +17,7 @@ import android.widget.TextView;
  * vedi tutto il testo prima di mandarlo. Il registro di «Cosa vede Essenziale» è facoltativo e non
  * contiene mai il testo dei messaggi.
  */
-public class BugActivity extends BaseActivity {
+public class BugActivity extends PageActivity {
 
     static final String[] KINDS = {"Una notifica non arriva", "Un'app non si apre", "Qualcosa è lento", "Altro"};
     private String kind = KINDS[0];
@@ -93,8 +93,10 @@ public class BugActivity extends BaseActivity {
         tx.addView(U.text(this, "Allega «Cosa vede −minus»", 15, U.INK, false));
         tx.addView(U.text(this, "Ultimi 2 giorni: app, nomi e livello. Mai il testo dei messaggi", 12, U.MUTED, false));
         r.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        r.addView(U.toggle(this, attach), new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 26)));
-        r.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { attach = !attach; render(); } });
+        r.addView(U.toggle(this, attach, "bug:attach"), new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 26))); // 0.21: il pallino scorre
+        r.setContentDescription("Allega «Cosa vede −minus», interruttore, " + (attach ? "acceso" : "spento"));
+        PressB.row(r); // 0.21: riga senza bordo: si scurisce il fondo
+        r.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { Motion.scatto(v); attach = !attach; render(); } });
         box.addView(r, U.full());
         box.addView(U.text(this, "Si aggiungono da soli: " + info(), 12, U.MUTED, false));
     }

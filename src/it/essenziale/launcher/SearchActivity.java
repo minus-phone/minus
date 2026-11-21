@@ -69,8 +69,6 @@ public class SearchActivity extends BaseActivity {
         LinearLayout root = U.col(this);
         root.setBackgroundColor(U.BG);
         root.setPadding(0, U.dp(this, 12), 0, U.dp(this, 10)); // 0.21: pagina al 100%; i 20 dp sono padding dei blocchi
-        root.setClipChildren(false);
-        root.setClipToPadding(false);
         // 0.13: in alto solo ✕ per tornare alla home; le Impostazioni sono una voce del menu, sopra i recenti
         LinearLayout top = U.row(this);
         // 0.17 (Evolutiva 005): «Cambia impostazioni» in alto, con il segno di −minus: non è una voce della ricerca
@@ -101,10 +99,10 @@ public class SearchActivity extends BaseActivity {
         results = U.col(this);
         results.setGravity(Gravity.BOTTOM);
         results.setPadding(U.dp(this, 20), 0, U.dp(this, 20), 0);
+        // 0.21: la ScrollView ritaglia ai suoi bordi (mai sopra l'intestazione o sotto la barra); il contenuto interno non ritaglia nel suo padding,
+        // gli aloni stanno nell'overlay della radice
         results.setClipChildren(false);
         results.setClipToPadding(false);
-        scroll.setClipChildren(false);
-        scroll.setClipToPadding(false);
         scroll.addView(results, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         root.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
@@ -517,8 +515,9 @@ public class SearchActivity extends BaseActivity {
         t.setMaxLines(2);
         t.setPadding(0, U.dp(this, 8), 0, 0);
         c.addView(t);
+        // 0.21: anche le tessere delle persone (il clic lo mette personChip) hanno lo stato premuto: tessera piena d'inchiostro, lettera chiara
+        if (!more) Press.tile(c, i); else if (r != null) Press.row(c);
         if (r != null) {
-            Press.row(c);
             c.setContentDescription(name);
             c.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
         }

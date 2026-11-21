@@ -42,10 +42,18 @@ public class VoiceActivity extends BaseActivity {
         TextView back = U.text(this, "‹  Home", 16, U.INK, false);
         back.setMinHeight(U.dp(this, 44));
         back.setGravity(Gravity.CENTER_VERTICAL);
+        back.setPadding(0, 0, U.dp(this, 16), 0);
+        back.setMinimumWidth(U.dp(this, 48));
+        Press.link(back, U.INK).pad(U.dp(this, 8)); // 0.21: link di testo
         back.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { finish(); } });
-        head.addView(back, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        head.addView(back, U.wrap());
+        head.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
         TextView help = U.text(this, "Cosa posso dire", 14, U.INK, false);
         help.setPaintFlags(help.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        help.setMinHeight(U.dp(this, 44));
+        help.setGravity(Gravity.CENTER_VERTICAL);
+        help.setPadding(U.dp(this, 8), 0, U.dp(this, 8), 0);
+        Press.link(help, U.INK); // 0.21: link di testo (sottolineato): fondo e anello di 6 dp
         help.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { startActivity(new Intent(VoiceActivity.this, VoiceHelpActivity.class)); }
         });
@@ -173,8 +181,12 @@ public class VoiceActivity extends BaseActivity {
         TextView c = U.text(this, "Annulla", 15, U.INK, false);
         c.setGravity(Gravity.CENTER);
         c.setMinHeight(U.dp(this, 48));
+        c.setPadding(U.dp(this, 16), 0, U.dp(this, 16), 0);
+        Press.link(c, U.INK); // 0.21: «Annulla» è un link di testo
         c.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { finish(); } });
-        card.addView(c, U.full());
+        LinearLayout.LayoutParams clp = U.wrap();
+        clp.gravity = Gravity.CENTER_HORIZONTAL;
+        card.addView(c, clp);
     }
 
     private void notFound(String what, String action, String cta, final Class<?> target) {
