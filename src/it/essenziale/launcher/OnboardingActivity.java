@@ -89,6 +89,10 @@ public class OnboardingActivity extends PageActivity {
         sv.addView(body);
         root.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         foot = U.col(this);
+        foot.setClipChildren(false);
+        foot.setClipToPadding(false);
+        root.setClipChildren(false);
+        root.setClipToPadding(false);
         root.addView(foot, U.full());
         setContentView(root);
         prepare(); // dalle Impostazioni si parte già dal passo dell'obiettivo
@@ -378,8 +382,9 @@ public class OnboardingActivity extends PageActivity {
             TextView skip = U.text(this, "Salta", 13, U.MUTED, false);
             skip.setPaintFlags(skip.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
             skip.setGravity(Gravity.CENTER);
-            skip.setMinHeight(U.dp(this, 44));
-            skip.setPadding(U.dp(this, 12), 0, U.dp(this, 12), 0);
+            skip.setMinHeight(U.dp(this, 48));
+            skip.setMinWidth(U.dp(this, 64));
+            skip.setPadding(U.dp(this, 12), U.dp(this, 8), U.dp(this, 12), U.dp(this, 8));
             PressB.link(skip); // 0.21: «Salta» è un link: anello di 6 dp
             // 0.13.6: «Salta» tiene quello che il passo ha già compilato; il passo va in «Da completare»
             skip.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { skip(); } });
@@ -442,9 +447,13 @@ public class OnboardingActivity extends PageActivity {
         foot.addView(t, U.full());
         if (second != null) {
             TextView b = U.text(this, second, 14, U.MUTED, false);
+            // 0.23: «‹ Indietro» non si taglia: tocco di 48 dp, testo centrato con aria sopra e sotto, larghezza minima
+            // più grande del testo (una lettera al bordo non viene ritagliata) e nessun ritaglio dal contenitore
             b.setGravity(Gravity.CENTER);
-            b.setMinHeight(U.dp(this, 44));
-            b.setPadding(U.dp(this, 16), 0, U.dp(this, 16), 0);
+            b.setMinHeight(U.dp(this, 48));
+            b.setMinWidth(U.dp(this, 160));
+            b.setPadding(U.dp(this, 20), U.dp(this, 8), U.dp(this, 20), U.dp(this, 8));
+            b.setIncludeFontPadding(true);
             PressB.link(b); // 0.21: «‹ Indietro» / «Salta» sono link: anello di 6 dp, solo attorno al testo
             b.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r2.run(); } });
             LinearLayout.LayoutParams blp = U.wrap();
@@ -523,7 +532,7 @@ public class OnboardingActivity extends PageActivity {
         t.setPaintFlags(t.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
         t.setMinHeight(U.dp(this, 48));
         t.setGravity(Gravity.CENTER_VERTICAL);
-        t.setPadding(U.dp(this, 4), 0, U.dp(this, 12), 0);
+        t.setPadding(U.dp(this, 4), U.dp(this, 6), U.dp(this, 12), U.dp(this, 6));
         PressB.link(t); // 0.21: link di testo: anello di 6 dp, solo attorno al testo
         t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
         body.addView(t, U.wrap());
@@ -881,6 +890,8 @@ public class OnboardingActivity extends PageActivity {
         if (!peopleLoaded) loadPeople();
         if (!contacts) {
             card(new String[]{"La rubrica non è collegata", "Senza accesso ai contatti non si possono proporre i preferiti né mettere la stella. Puoi aggiungere le persone a mano."}, true);
+            // 0.23: il link per dare l'accesso sta qui, con la rubrica che sblocca, non in fondo alla pagina
+            link("Concedi l'accesso ai contatti", new Runnable() { public void run() { grantContacts(); } });
             TextView pick = U.text(this, "Scegli dalla rubrica", 15, U.INK, true);
             pick.setGravity(Gravity.CENTER);
             pick.setMinHeight(U.dp(this, 48));
@@ -919,7 +930,11 @@ public class OnboardingActivity extends PageActivity {
         if (candidates.isEmpty())
             list.addView(U.text(this, contacts ? "Nessun preferito in rubrica: cerca qui sopra le persone da aggiungere." : "Ancora nessuno.", 14, U.MUTED, false));
         for (final String[] p : candidates.values()) personRow(list, p);
-        if (contacts && Stars.canWrite(this)) {
+        if (contacts && !Stars.canWrite(this)) {
+            // 0.23: la modifica dei contatti manca: la proposta sta sotto l'elenco delle persone, non in fondo
+            card(new String[]{"Senza stella, col silenzio di Android queste persone non squillano. I loro messaggi passano comunque."}, false);
+            link("Concedi l'accesso ai contatti", new Runnable() { public void run() { grantContacts(); } });
+        } else if (contacts) {
             TextView st = U.text(this, "★ Metteremo la stella in rubrica a chi scegli, così squilla anche col silenzio di sistema, anche nelle altre app.", 13, U.INK, false);
             st.setPadding(0, U.dp(this, 8), 0, 0);
             body.addView(st);
@@ -928,10 +943,6 @@ public class OnboardingActivity extends PageActivity {
         line("Gruppi che passano sempre", "Gli altri aspettano in Per te. Compaiono qui quando arrivano le prime notifiche dei gruppi", null, "›", new Runnable() {
             public void run() { startActivity(new Intent(OnboardingActivity.this, GroupsActivity.class).putExtra("back", "Chi conta")); }
         });
-        if (!contacts || !Stars.canWrite(this)) {
-            card(new String[]{"Senza stella, col silenzio di Android queste persone non squillano. I loro messaggi passano comunque."}, false);
-            link("Concedi l'accesso ai contatti", new Runnable() { public void run() { Onboarding.openAppInfo(OnboardingActivity.this); } });
-        }
         card(new String[]{"Conversazioni aperte", "Se rispondi a qualcuno che non è in elenco, ti avvisa per 12 ore. Gruppi 1 ora, mai di notte."}, true);
         primary("Fatto", new Runnable() {
             public void run() {
@@ -942,6 +953,14 @@ public class OnboardingActivity extends PageActivity {
                 render();
             }
         }, "‹ Cosa ti avvisa", new Runnable() { public void run() { who = false; render(); } });
+    }
+
+    /** Il permesso Contatti: la finestra di Android se si può ancora chiedere, altrimenti Info app. */
+    private void grantContacts() {
+        if (!askedContacts && !Onboarding.hasContacts(this)) {
+            askedContacts = true;
+            requestPermissions(new String[]{android.Manifest.permission.READ_CONTACTS, android.Manifest.permission.WRITE_CONTACTS}, REQ_CONTACTS);
+        } else Onboarding.openAppInfo(this);
     }
 
     private void picked(Uri u) {
@@ -1312,10 +1331,10 @@ public class OnboardingActivity extends PageActivity {
         ((TextView) c.getChildAt(1)).setTypeface(U.SANS_B);
         TextView ch = (TextView) c.getChildAt(2);
         ch.setPaintFlags(ch.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
-        ch.setMinHeight(U.dp(this, 40));
+        ch.setMinHeight(U.dp(this, 48));
         ch.setGravity(Gravity.CENTER_VERTICAL);
         ch.setLayoutParams(U.wrap());
-        ch.setPadding(0, U.dp(this, 4), U.dp(this, 12), 0);
+        ch.setPadding(0, U.dp(this, 6), U.dp(this, 12), U.dp(this, 6));
         PressB.link(ch); // 0.21: «· cambiala» è un link: anello di 6 dp
         ch.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
