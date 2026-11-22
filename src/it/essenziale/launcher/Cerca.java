@@ -105,6 +105,7 @@ public final class Cerca {
             {"Sveglia", "sveglia orologio allarme", "alarms"},
             {"Comandi vocali", "voce microfono parla", "voice"},
             {"Impegni e task nella schermata di blocco", "schermata di blocco lock privacy", "area:0"},
+            {"Attività in corso sul blocco", "schermata di blocco lock consegna taxi chiamata timer cronometro musica navigazione live update attività in corso", "area:0"},
             {"Meno interferenze sul sonno", "notte sonno sveglia buio letto insonnia sera staccare dormire", "area:4"},
             {"La tua alternativa", "alternativa invece di scorrere scrollare leggere", "area:-1"},
             {"Permessi che mancano", "permessi silenzio non disturbare home predefinita attivazione concedi", "area:6"},

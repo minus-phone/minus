@@ -79,9 +79,20 @@ public class FilterService extends NotificationListenerService implements Store.
         }
     };
 
+    /** 0.24 (E019): il guardiano vivo, da cui la schermata di blocco legge le attività in corso. */
+    private static volatile FilterService inst;
+
+    /** Le notifiche attive ora, o null se il guardiano non è connesso. */
+    static StatusBarNotification[] active() {
+        FilterService s = inst;
+        if (s == null) return null;
+        try { return s.getActiveNotifications(); } catch (Exception e) { return null; }
+    }
+
     @Override
     public void onListenerConnected() {
         super.onListenerConnected();
+        inst = this;
         Store.addListener(this);
         IntentFilter f = new IntentFilter(Intent.ACTION_SCREEN_ON);
         f.addAction(Intent.ACTION_USER_PRESENT);
@@ -105,6 +116,8 @@ public class FilterService extends NotificationListenerService implements Store.
 
     /** Chiamato da Android 7+ (stesso nome del metodo di sistema). */
     public void onListenerDisconnected() {
+        if (inst == this) inst = null;
+        Live.changed();
         handler.removeCallbacks(sessionCheck);
         Store.removeListener(this);
         try { unregisterReceiver(screenOn); } catch (Exception ignored) {}
@@ -118,8 +131,12 @@ public class FilterService extends NotificationListenerService implements Store.
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
-        handle(sbn, true);
+        try { handle(sbn, true); } finally { Live.changed(); }
     }
+
+    /** Prima di Android 8 il sistema chiama solo questa; dopo, quella con il motivo. */
+    @Override
+    public void onNotificationRemoved(StatusBarNotification sbn) { Live.changed(); }
 
     @Override
     public void onChanged() { updateStatus(); }
@@ -287,6 +304,7 @@ public class FilterService extends NotificationListenerService implements Store.
      * aprendo quella chat: la conversazione resta aperta per 12 ore, come da Notifiche di Essenziale.
      */
     public void onNotificationRemoved(StatusBarNotification sbn, RankingMap rankingMap, int reason) {
+        Live.changed();
         try {
             if (reason != 1) return;
             String code = Rules.chatCode(sbn.getPackageName());

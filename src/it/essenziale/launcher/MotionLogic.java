@@ -107,6 +107,10 @@ public final class MotionLogic {
         if (reduced) return 1f;
         return io((t - tickDisegnoDa()) / (float) BASE);
     }
+    /** 0.24: quando il check è disegnato tutto (mezzo RAPIDO + BASE = 490 ms); l'azione non può partire prima. */
+    public static int tickDisegnoFine() { return tickDisegnoDa() + BASE; }
+    /** Vero se a t ms (dal tocco) l'azione può partire: il disegno è finito. Ridotto: il check è già intero. */
+    public static boolean tickAzionePuoPartire(long t, boolean reduced) { return reduced || t >= tickDisegnoFine(); }
     /** Il ritardo dell'azione dopo il tocco: con le animazioni ridotte il check è subito lì, ma 80 ms bastano a vederlo. */
     public static int tickAttesa(boolean reduced) { return reduced ? RIDOTTO + TICK_EXTRA_MS : tickAttesa(); }
 

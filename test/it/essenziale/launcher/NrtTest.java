@@ -72,6 +72,7 @@ public class NrtTest {
         serale();
         telefono();
         movimento();
+        attivitaInCorso();
         System.out.println("\nTotale: " + pass + " superati, " + fail + " falliti");
         FileWriter w = new FileWriter(a.length > 0 ? a[0] : "nrt-report.md");
         w.write("# Essenziale 0.6 · NRT automatico\n\nSuperati: " + pass + " · Falliti: " + fail + "\n");
@@ -934,6 +935,66 @@ public class NrtTest {
         eq("Settimana 27: il consiglio 2", Serale.tipIndex(2927, 2900), 1);
     }
 
+    // ---------- Evolutiva 019 · attività in corso sul blocco ----------
+
+    static LiveLogic.Note ln(String pkg, String cat, int flags, String title, String text) {
+        LiveLogic.Note n = new LiveLogic.Note();
+        n.pkg = pkg; n.ownPkg = "it.essenziale.launcher"; n.category = cat; n.flags = flags; n.title = title; n.text = text; n.when = 1000;
+        return n;
+    }
+
+    static void attivitaInCorso() {
+        sec("Attività in corso sul blocco (E019)");
+        final int ON = LiveLogic.FLAG_ONGOING_EVENT, FG = 0x40;
+        long now = 10000000L;
+        LiveLogic.Note n = ln("com.maps", "navigation", ON, "Arrivo 10:08", "Esci dalla navigazione");
+        check("Navigazione in corso: sì", LiveLogic.isLive(n, now), null);
+        n = ln("com.x", null, ON | FG, "Servizio", "Sincronizzazione"); check("Servizio in primo piano senza categoria: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "service", ON, "Titolo", "Testo"); check("Categoria servizio: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "promo", ON, "Offerta", "-50%"); check("Promozione: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "recommendation", ON, "Per te", "Un film"); check("Raccomandazione: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "status", ON, "Stato", "ok"); check("Categoria stato: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "sys", ON, "Sistema", "ok"); check("Categoria sistema: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "progress", ON, "Scarico file", "40%"); n.hasProgress = true; check("Avanzamento con barra: sì", LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "progress", ON, "Scarico file", "40%"); check("Avanzamento senza barra: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "call", ON, "Mamma", "Chiamata in corso"); check("Chiamata in corso: sì", LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "call", 0, "Mamma", "Chiamata in arrivo"); check("Chiamata non in corso (in arrivo): no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.clock", "stopwatch", ON, "Cronometro", "00:12"); check("Cronometro: sì", LiveLogic.isLive(n, now), null);
+        n = ln("com.clock", "workout", ON, "Corsa", "5 km"); check("Allenamento: sì", LiveLogic.isLive(n, now), null);
+        n = ln("com.clock", "alarm", ON, "Timer", "04:10"); n.chrono = true; n.countdown = true; check("Timer (sveglia con conto alla rovescia): sì", LiveLogic.isLive(n, now), null);
+        n = ln("com.clock", "alarm", ON, "Sveglia", "07:00"); check("Sveglia: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.clock", "alarm", ON, "Sveglia", "07:00"); n.chrono = true; check("Sveglia con cronometro che sale: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.rider", null, ON, "Il rider è a 8 minuti", "Ordine 4821"); n.promoted = true; check("Live Update promosso (A16): sì, anche senza categoria", LiveLogic.isLive(n, now), null);
+        n = ln("com.rider", null, ON, "Il rider è a 8 minuti", "Ordine 4821"); n.progressStyle = true; check("ProgressStyle in corso: sì", LiveLogic.isLive(n, now), null);
+        n = ln("com.rider", null, 0, "Titolo", "Testo"); n.progressStyle = true; check("ProgressStyle non in corso: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.rider", "promo", ON, "Titolo", "Testo"); n.promoted = true; check("Promosso ma categoria promo: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "navigation", ON | LiveLogic.FLAG_GROUP_SUMMARY, "Riepilogo", "3 notifiche"); check("Riepilogo di gruppo: no", !LiveLogic.isLive(n, now), null);
+        n = ln("it.essenziale.launcher", "navigation", ON, "Nostra", "Nostra"); check("La nostra: no", !LiveLogic.isLive(n, now), null);
+        n = ln("android", "progress", ON, "Sistema", "40%"); n.hasProgress = true; check("Pacchetto di sistema: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.vpn", "progress", ON, "VPN attiva", "Connesso"); n.hasProgress = true; check("VPN: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "progress", ON, "App in esecuzione", "Tocca per i dettagli"); n.hasProgress = true; check("«In esecuzione»: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "progress", ON, "Uso della batteria", "Alto"); n.hasProgress = true; check("Batteria: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "navigation", ON, "", ""); check("Senza titolo né testo: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "transport", 0, "Brano", "Artista"); n.media = true; n.playing = true; n.since = now - 1000;
+        check("Musica in riproduzione: sì (anche non «in corso»)", LiveLogic.isLive(n, now), null);
+        n.playing = false; n.since = now - 4 * 60000L; check("Musica in pausa da 4 minuti: sì", LiveLogic.isLive(n, now), null);
+        n.since = now - 5 * 60000L - 1; check("Musica in pausa da più di 5 minuti: no", !LiveLogic.isLive(n, now), null);
+        n.since = 0; check("Musica in pausa, da quando non si sa: no", !LiveLogic.isLive(n, now), null);
+        n.playing = true; check("Musica che riparte: torna", LiveLogic.isLive(n, now), null);
+
+        List<LiveLogic.Note> all = new ArrayList<LiveLogic.Note>();
+        for (int i = 0; i < 4; i++) { LiveLogic.Note x = ln("com.x" + i, "navigation", ON, "Attività " + i, "t"); x.when = 100 + i; x.key = "k" + i; all.add(x); }
+        LiveLogic.Note bad = ln("com.bad", "service", ON, "Servizio", "t"); bad.when = 999; all.add(bad);
+        List<LiveLogic.Note> pk = LiveLogic.pick(all, now, LiveLogic.MAX);
+        eq("Al massimo 2", pk.size(), 2);
+        eq("La più recente per prima", pk.get(0).key, "k3");
+        eq("Poi la seguente", pk.get(1).key, "k2");
+        check("Il servizio, anche se più recente, non entra", !pk.contains(bad), null);
+        eq("Nessuna attività: lista vuota", LiveLogic.pick(new ArrayList<LiveLogic.Note>(), now, 2).size(), 0);
+        eq("TalkBack: app, titolo, testo", LiveLogic.describe("Consegne", "Il rider è a 8 minuti", "Ordine 4821"), "Consegne. Il rider è a 8 minuti. Ordine 4821");
+        eq("TalkBack: senza testo", LiveLogic.describe("Musica", "Brano", null), "Musica. Brano");
+    }
+
     static void movimento() {
         sec("E016 · Movimento e feedback (parte pura di Motion)");
         eq("Rapido 180 ms", MotionLogic.RAPIDO, 180);
@@ -1010,6 +1071,12 @@ public class NrtTest {
         eq("Tick: a 290 ms il check è a metà", MotionLogic.tickCheck(290, false), 0.5f);
         eq("Tick: a 490 ms il check è finito", MotionLogic.tickCheck(490, false), 1f);
         eq("Tick, ridotto: il check c'è subito", MotionLogic.tickCheck(0, true), 1f);
+        eq("Tick 0.24: il disegno finisce a 490 ms", MotionLogic.tickDisegnoFine(), 490);
+        check("Tick 0.24: l'azione non parte prima della fine del disegno", !MotionLogic.tickAzionePuoPartire(489, false) && MotionLogic.tickAzionePuoPartire(490, false), null);
+        check("Tick 0.24: l'attesa dell'azione è dopo la fine del disegno", MotionLogic.tickAttesa(false) >= MotionLogic.tickDisegnoFine() && MotionLogic.tickAzionePuoPartire(MotionLogic.tickAttesa(false), false), null);
+        eq("Tick 0.24: all'attesa il check è intero", MotionLogic.tickCheck(MotionLogic.tickAttesa(false), false), 1f);
+        { boolean mn = true; float pv = 0f; for (int t = 0; t <= MotionLogic.tickAttesa(false); t += 16) { float k = MotionLogic.tickCheck(t, false); if (k < pv) mn = false; pv = k; } check("Tick 0.24: il check cresce sempre, a ogni fotogramma", mn && pv == 1f, null); }
+        check("Tick 0.24, ridotto: l'azione può partire subito, il check è intero", MotionLogic.tickAzionePuoPartire(0, true) && MotionLogic.tickCheck(0, true) == 1f, null);
         eq("Alone: 8 dp attorno a pillole e icone tonde", MotionLogic.ALONE_DP, 8f);
         eq("Alone: 6 dp attorno a chip e link", MotionLogic.ALONE_PICCOLO_DP, 6f);
         eq("Alone: sulla casella e le icone senza bordo, 56 dp", MotionLogic.ALONE_ICONA_DP, 56);

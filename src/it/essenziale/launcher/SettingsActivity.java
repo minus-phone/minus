@@ -172,6 +172,9 @@ public class SettingsActivity extends PageActivity {
                         new Runnable() { public void run() { render(); } });
             }
         });
+        // 0.24 (Evolutiva 019): consegne, taxi, chiamate, timer, musica: le attività avviate da te, com'è la scheda dell'app
+        prefToggle("Attività in corso sul blocco", "Consegne, taxi, chiamate, timer, musica: al massimo 2, solo quelle che hai avviato tu", Live.K_ON, true,
+                "Attività in corso sul blocco accese", "Attività in corso sul blocco spente");
     }
 
     private void day() { home(); }
