@@ -57,6 +57,7 @@ public class NrtTest {
         groupsV06();
         quando();
         cerca();
+        cerca020();
         tempo();
         scopoNotte();
         rowsCompat();
@@ -466,6 +467,160 @@ public class NrtTest {
         eq("Pillola: in chiamata o in navigazione non c'è", Tempo.state(true, true, true, 25, false, true, 0, 0), Tempo.HIDE);
         eq("Pillola: dopo il tocco un puntino per 10 minuti", Tempo.state(true, true, true, 25, false, false, 5 * m + Tempo.DOT_MS, 6 * m), Tempo.DOT);
         eq("Pillola: poi torna", Tempo.state(true, true, true, 25, false, false, 5 * m, 6 * m), Tempo.PILL);
+    }
+
+    // ---- Evolutiva 020 · La ricerca: ordine fisso, limiti, spareggio, Migliore ----
+    static Cerca.Cand cd(String key, int kind, String label, int score) { return new Cerca.Cand(key, kind, label, score); }
+    static List<String> keys(List<Cerca.Cand> l) { List<String> o = new ArrayList<String>(); for (Cerca.Cand c : l) o.add(c.key); return o; }
+
+    static void cerca020() {
+        sec("F2. Ricerca 0.24 (Evolutiva 020): una riga sola, un ordine fisso");
+        eq("Gruppi nell'ordine fisso", Arrays.toString(Cerca.TITOLI), "[Contatti e gruppi, App, Impegni, Azioni, Impostazioni, Chiedi]");
+        eq("Limiti 3/3/2/2/2/1 (Migliore 1 a parte)", Arrays.toString(Cerca.LIMITI), "[3, 3, 2, 2, 2, 1]");
+        eq("In tutto 8 righe", Cerca.MAX_RIGHE, 8);
+        // Migliore: il punteggio più alto vince, senza titolo e tolto dal suo gruppo
+        List<Cerca.Cand> a = new ArrayList<Cerca.Cand>();
+        a.add(cd("p:marco", Cerca.PERSONA, "Marco", 30));
+        a.add(cd("a:maps", Cerca.APP, "Maps", 35));
+        a.add(cd("x:chiedi", Cerca.CHIEDI, "Chiedi", 0));
+        Cerca.Plan p = Cerca.plan(a, -1);
+        eq("Migliore: l'app con il punteggio più alto", p.best.key, "a:maps");
+        eq("Migliore: tolto dal suo gruppo App", p.groups.get(Cerca.APP).size(), 0);
+        eq("Migliore: la persona resta nel suo gruppo", keys(p.groups.get(Cerca.PERSONA)).toString(), "[p:marco]");
+        // spareggio: a pari punteggio persone > app > impegni > impostazioni
+        a = new ArrayList<Cerca.Cand>();
+        a.add(cd("s:1", Cerca.IMPOSTAZIONE, "Mail impostazioni", 30));
+        a.add(cd("ev:1", Cerca.IMPEGNO, "Mario", 30));
+        a.add(cd("a:mail", Cerca.APP, "Mail", 30));
+        a.add(cd("p:mara", Cerca.PERSONA, "Mara", 30));
+        eq("Spareggio di tipo: persone prima", Cerca.plan(a, -1).best.key, "p:mara");
+        a.remove(3);
+        eq("Spareggio di tipo: poi le app", Cerca.plan(a, -1).best.key, "a:mail");
+        a.remove(2);
+        eq("Spareggio di tipo: poi gli impegni", Cerca.plan(a, -1).best.key, "ev:1");
+        a.remove(1);
+        eq("Spareggio di tipo: infine le impostazioni", Cerca.plan(a, -1).best.key, "s:1");
+        // stesso tipo: il più recente, poi l'alfabeto senza accenti
+        a = new ArrayList<Cerca.Cand>();
+        a.add(cd("a:b", Cerca.APP, "Banca", 30).recent(100));
+        a.add(cd("a:a", Cerca.APP, "Azienda", 30).recent(100));
+        a.add(cd("a:c", Cerca.APP, "Chat", 30).recent(500));
+        a.add(cd("a:e", Cerca.APP, "Èra", 30).recent(100));
+        p = Cerca.plan(a, -1);
+        eq("Stesso tipo: il più recente è Migliore", p.best.key, "a:c");
+        eq("Stesso tipo: poi alfabetico senza accenti (Azienda, Banca, Èra dopo Banca)", keys(p.groups.get(Cerca.APP)).toString(), "[a:a, a:b, a:e]");
+        eq("App: oltre le 3 righe «Vedi tutti» conta quelle nascoste (4 meno Migliore = 3 da mostrare)", p.more[Cerca.APP], 0);
+        a.add(cd("a:z", Cerca.APP, "Zeta", 30).recent(100));
+        p = Cerca.plan(a, -1);
+        eq("App: Migliore + 3 righe, una nascosta", p.groups.get(Cerca.APP).size() + "/" + p.more[Cerca.APP], "3/1");
+        eq("Vedi tutti apre il gruppo sul posto (fino a 8)", Cerca.plan(a, Cerca.APP).groups.get(Cerca.APP).size(), 4);
+        eq("Vedi tutti: poi niente nascosto", Cerca.plan(a, Cerca.APP).more[Cerca.APP], 0);
+        // il punteggio batte il tipo; il +5 conta
+        a = new ArrayList<Cerca.Cand>();
+        a.add(cd("p:x", Cerca.PERSONA, "Xavier", 10));
+        a.add(cd("a:x", Cerca.APP, "Xapp", 20));
+        eq("Il punteggio più alto vince anche contro una persona", Cerca.plan(a, -1).best.key, "a:x");
+        // Azioni e Chiedi non sono mai Migliore
+        a = new ArrayList<Cerca.Cand>();
+        a.add(cd("x:esegui", Cerca.AZIONE, "Esegui", 99));
+        a.add(cd("q:chiedi", Cerca.CHIEDI, "Chiedi", 99));
+        p = Cerca.plan(a, -1);
+        check("Azioni e Chiedi non sono mai Migliore", p.best == null, null);
+        // zero risultati: nessuna preselezione, Chiedi con tre righe, Aggiungi nascosto
+        a = new ArrayList<Cerca.Cand>();
+        a.add(cd("x:aggiungi", Cerca.AZIONE, "Aggiungi", 0).needsHit());
+        a.add(cd("q:chiedi", Cerca.CHIEDI, "Chiedi", 0).order(0));
+        a.add(cd("q:web", Cerca.CHIEDI, "Web", 0).order(1));
+        a.add(cd("q:store", Cerca.CHIEDI, "Store", 0).order(2));
+        p = Cerca.plan(a, -1);
+        check("Zero risultati: nessuna preselezione (Invio non fa niente)", p.best == null && !p.anything, null);
+        eq("Zero risultati: Chiedi ha tre righe", keys(p.groups.get(Cerca.CHIEDI)).toString(), "[q:chiedi, q:web, q:store]");
+        eq("Zero risultati: «Aggiungi come impegno» non compare", p.groups.get(Cerca.AZIONE).size(), 0);
+        eq("Annuncio senza risultati", Cerca.announcement(null, 0), "Nessun risultato");
+        // con un risultato Chiedi è una riga sola e Aggiungi compare
+        a.add(cd("a:maps", Cerca.APP, "Maps", 30));
+        p = Cerca.plan(a, -1);
+        eq("Un risultato: Chiedi torna a una riga", keys(p.groups.get(Cerca.CHIEDI)).toString(), "[q:chiedi]");
+        eq("Un risultato: Aggiungi compare", keys(p.groups.get(Cerca.AZIONE)).toString(), "[x:aggiungi]");
+        eq("Annuncio: Migliore e conto", Cerca.announcement("Maps", 2), "Migliore: Maps. 2 risultati");
+        eq("Annuncio: un risultato", Cerca.announcement(null, 1), "1 risultato");
+        // massimo 8 righe, Chiedi riservata: i gruppi in basso si accorciano
+        a = new ArrayList<Cerca.Cand>();
+        for (int i = 0; i < 6; i++) a.add(cd("p:" + i, Cerca.PERSONA, "P" + i, 30 - i));
+        for (int i = 0; i < 6; i++) a.add(cd("a:" + i, Cerca.APP, "A" + i, 20 - i));
+        for (int i = 0; i < 4; i++) a.add(cd("ev:" + i, Cerca.IMPEGNO, "E" + i, 15 - i));
+        for (int i = 0; i < 4; i++) a.add(cd("s:" + i, Cerca.IMPOSTAZIONE, "S" + i, 10 - i).order(i));
+        a.add(cd("x:esegui", Cerca.AZIONE, "Esegui", 0).order(0));
+        a.add(cd("x:aggiungi", Cerca.AZIONE, "Aggiungi", 0).order(1).needsHit());
+        a.add(cd("q:chiedi", Cerca.CHIEDI, "Chiedi", 0));
+        p = Cerca.plan(a, -1);
+        eq("Al massimo 8 righe in tutto", p.rows(), 8);
+        eq("Pieno: Migliore + 3 persone + 3 app", (p.best == null ? 0 : 1) + p.groups.get(Cerca.PERSONA).size() + p.groups.get(Cerca.APP).size(), 7);
+        eq("Pieno: gli impegni, le azioni e le impostazioni sono tagliati", p.groups.get(Cerca.IMPEGNO).size() + p.groups.get(Cerca.AZIONE).size() + p.groups.get(Cerca.IMPOSTAZIONE).size(), 0);
+        eq("Pieno: Chiedi tiene il suo posto", keys(p.groups.get(Cerca.CHIEDI)).toString(), "[q:chiedi]");
+        eq("Pieno: gli impegni nascosti si contano per «Vedi tutti»", p.more[Cerca.IMPEGNO], 4);
+        // limiti per gruppo quando c'è posto
+        a = new ArrayList<Cerca.Cand>();
+        for (int i = 0; i < 4; i++) a.add(cd("ev:" + i, Cerca.IMPEGNO, "E" + i, 15).recent(-i));
+        for (int i = 0; i < 4; i++) a.add(cd("s:" + i, Cerca.IMPOSTAZIONE, "S" + i, 10).order(i));
+        a.add(cd("q:chiedi", Cerca.CHIEDI, "Chiedi", 0));
+        p = Cerca.plan(a, -1);
+        eq("Impegni: Migliore il più vicino, poi 2 righe", p.best.key + " " + keys(p.groups.get(Cerca.IMPEGNO)), "ev:0 [ev:1, ev:2]");
+        eq("Impostazioni: 2 righe nell'ordine dell'elenco", keys(p.groups.get(Cerca.IMPOSTAZIONE)).toString(), "[s:0, s:1]");
+        eq("Impostazioni: 2 nascoste", p.more[Cerca.IMPOSTAZIONE], 2);
+        // numero (E014): Chiama è Migliore se non c'è un contatto unico
+        a = new ArrayList<Cerca.Cand>();
+        a.add(cd("c:1", Cerca.PERSONA, "Giulia", 50));
+        a.add(cd("c:2", Cerca.PERSONA, "Paolo", 50));
+        a.add(cd("x:chiama", Cerca.AZIONE, "Chiama 346", 100).canBest());
+        a.add(cd("x:wa", Cerca.AZIONE, "WhatsApp", 0).order(0));
+        a.add(cd("x:addc", Cerca.AZIONE, "Aggiungi ai contatti", 0).order(1));
+        p = Cerca.plan(a, -1);
+        eq("Numero: due contatti, Migliore è «Chiama»", p.best.key, "x:chiama");
+        eq("Numero: poi i contatti", keys(p.groups.get(Cerca.PERSONA)).toString(), "[c:1, c:2]");
+        eq("Numero: Azioni WhatsApp e Aggiungi ai contatti", keys(p.groups.get(Cerca.AZIONE)).toString(), "[x:wa, x:addc]");
+        eq("Numero: il suggerimento è «Chiama»", Cerca.hint(p.best), "Chiama");
+        a.remove(2);
+        a.remove(1);
+        a.set(0, cd("c:1", Cerca.PERSONA, "Giulia", 100));
+        p = Cerca.plan(a, -1);
+        eq("Numero: un contatto unico è Migliore", p.best.key, "c:1");
+        eq("Numero: il suggerimento del contatto è «Apri»", Cerca.hint(p.best), "Apri");
+        check("Senza Migliore niente suggerimento", Cerca.hint(null) == null, null);
+        // parte scritta in grassetto
+        eq("Grassetto: l'inizio", Arrays.toString(Cerca.match("Mamma", "ma")), "[0, 2]");
+        eq("Grassetto: senza accenti sul titolo con accenti", Arrays.toString(Cerca.match("Città del Messico", "citta")), "[0, 5]");
+        eq("Grassetto: una parola che inizia così", Arrays.toString(Cerca.match("Trade Republic", "rep")), "[6, 9]");
+        eq("Grassetto: contiene", Arrays.toString(Cerca.match("Calcetto mercoledì", "rcol")), "[11, 15]");
+        eq("Grassetto: accento nel titolo, scritto senza", Arrays.toString(Cerca.match("Mercoledì", "dì")), "[7, 9]");
+        check("Grassetto: niente in comune", Cerca.match("Maps", "zz") == null && Cerca.match("Maps", "") == null, null);
+        // scorrimento: si azzera solo con testo vuoto o prima lettera diversa
+        check("Scorrimento: una lettera in più resta", !Cerca.resetsScroll("ma", "mar"), null);
+        check("Scorrimento: una lettera in meno resta", !Cerca.resetsScroll("mar", "ma"), null);
+        check("Scorrimento: la prima lettera cambia, si azzera", Cerca.resetsScroll("ma", "pa"), null);
+        check("Scorrimento: testo vuoto, si azzera", Cerca.resetsScroll("ma", ""), null);
+        check("Scorrimento: da vuoto a scritto, si azzera", Cerca.resetsScroll("", "m"), null);
+        // campo vuoto: sezioni senza doppioni, A portata con persone prima
+        List<Cerca.Cand> open = new ArrayList<Cerca.Cand>(), rec = new ArrayList<Cerca.Cand>(), port = new ArrayList<Cerca.Cand>();
+        open.add(cd("p:ilde", Cerca.PERSONA, "Ilde", 0));
+        rec.add(cd("p:ilde", Cerca.PERSONA, "Ilde", 0));
+        rec.add(cd("a:claude", Cerca.APP, "Claude", 0));
+        rec.add(cd("p:marta", Cerca.PERSONA, "Marta", 0));
+        rec.add(cd("a:mail", Cerca.APP, "Mail", 0));
+        port.add(cd("a:maps", Cerca.APP, "Maps", 0));
+        port.add(cd("p:fam", Cerca.PERSONA, "Famiglia", 0));
+        port.add(cd("a:claude", Cerca.APP, "Claude", 0));
+        for (int i = 0; i < 6; i++) port.add(cd("a:x" + i, Cerca.APP, "X" + i, 0));
+        java.util.Set<String> used = new java.util.HashSet<String>();
+        Cerca.Piece po = Cerca.take(open, used, Cerca.VUOTA_APERTE), pr = Cerca.take(rec, used, Cerca.VUOTA_RECENTI), pp = Cerca.take(Cerca.peopleFirst(port), used, Cerca.VUOTA_PORTATA);
+        eq("Aperte ora: max 2", Cerca.VUOTA_APERTE, 2);
+        eq("Recenti: niente doppioni con Aperte ora, max 2", keys(pr.shown).toString(), "[a:claude, p:marta]");
+        check("Recenti: una voce in più, «more»", pr.more, null);
+        eq("A portata: max 5, persone prima, senza doppioni", keys(pp.shown).toString(), "[p:fam, a:maps, a:x0, a:x1, a:x2]");
+        check("A portata: «Vedi tutti» perché ce n'è altro", pp.more, null);
+        // impostazioni come risultati
+        eq("Impostazioni come risultati: «permessi»", Cerca.SETTINGS[Cerca.settingCands("permessi").get(0).order][2], "area:6");
+        check("Impostazioni come risultati: una lettera non basta", Cerca.settingCands("p").isEmpty(), null);
     }
 
     static void cerca() {

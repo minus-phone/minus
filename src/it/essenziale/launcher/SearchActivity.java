@@ -5,21 +5,31 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
+import android.graphics.Outline;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.speech.RecognizerIntent;
 import android.text.Editable;
 import android.text.InputType;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.text.style.MetricAffectingSpan;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -27,14 +37,22 @@ import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * La ricerca (0.7): un solo accesso a persone, gruppi, app, impegni, azioni e impostazioni.
- * I risultati sono appoggiati in basso: il gruppo più importante sta vicino al campo e al pollice.
  * 0.12: tastiera chiusa all'apertura, ✕ in alto a destra. 0.13: Impostazioni come prima voce, sopra i recenti.
+ * 0.24 (Evolutiva 020, contenitore B): schermo intero, campo in alto, risultati dall'alto in basso. Una sola riga per ogni
+ * risultato (tipo a sinistra, titolo con la parte scritta in grassetto, suggerimento solo sulla preselezionata) e un
+ * ordine fisso: Migliore, Contatti e gruppi, App, Impegni, Azioni, Impostazioni, Chiedi (regole in {@link Cerca}).
+ * Scrivendo non si ricostruisce la lista: le righe si riusano per chiave e si muovono sul posto.
  */
 public class SearchActivity extends BaseActivity {
 
@@ -51,61 +69,46 @@ public class SearchActivity extends BaseActivity {
     private LinearLayout results;
     private ScrollView scroll;
     private EditText query;
-    private TextView clear;
+    private View clear;
     private List<U.AppInfo> apps;
-    private Runnable best;
-    private View bestView; // 0.18 (Evolutiva 013)
-    private String bestName;
-    // 0.20 (Evolutiva 016), momento 7: i risultati si riordinano senza sfarfallio
-    private boolean insetRows;          // ogni riga riserva sempre 10 dp ai lati, anche a campo vuoto (il testo non si sposta mai)
-    private boolean rendered;           // la prima volta niente movimento
-    private String lastBestName;
-    private int hitCount;
+    private Runnable best;                 // ciò che apre Invio; null senza risultati
+    private boolean rendered;              // la prima volta niente movimento
+    private boolean scheduled;             // un solo ridisegno per frame
+    private String lastQ = "";
+    private int expanded = -1;             // gruppo aperto da «Vedi tutti» mentre si scrive
+    private boolean portataAll;            // «Vedi tutti» di A portata a campo vuoto
     private final android.os.Handler announce = new android.os.Handler();
+    private final Map<String, Drawable.ConstantState> icons = new HashMap<String, Drawable.ConstantState>();
+    // ricerche lente (rubrica, calendario) fuori dal thread principale
+    private final ExecutorService io = Executors.newSingleThreadExecutor();
+    private List<U.Event> events;          // impegni dei prossimi 30 giorni, letti una volta
+    private List<Hit> rubricaHits = new ArrayList<Hit>();
+    private String rubricaAsked = "";
+    private List<Hit> numberHits = new ArrayList<Hit>();
+    private String numberAsked = "";
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         LinearLayout root = U.col(this);
         root.setBackgroundColor(U.BG);
-        root.setPadding(0, U.dp(this, 12), 0, U.dp(this, 10)); // 0.21: pagina al 100%; i 20 dp sono padding dei blocchi
-        // 0.13: in alto solo ✕ per tornare alla home; le Impostazioni sono una voce del menu, sopra i recenti
+        root.setPadding(0, U.dp(this, 12), 0, U.dp(this, 0));
+        root.setClipChildren(true);
+        // prima riga: ✕ a sinistra, «Cambia impostazioni» (icona) a destra
         LinearLayout top = U.row(this);
-        // 0.17 (Evolutiva 005): «Cambia impostazioni» in alto, con il segno di −minus: non è una voce della ricerca
-        LinearLayout set = U.row(this);
-        set.setMinimumHeight(U.dp(this, 48));
-        set.addView(new Mark(this, U.INK), new LinearLayout.LayoutParams(U.dp(this, 24), U.dp(this, 24)));
-        TextView setT = U.text(this, "Cambia impostazioni", 16, U.INK, false);
-        setT.setPadding(U.dp(this, 10), 0, 0, 0);
-        set.addView(setT);
-        set.setContentDescription("Cambia impostazioni di −minus");
-        Press.ringOnly(set, 0, MotionLogic.ALONE_DP); // 0.21: «Cambia impostazioni» non cambia fondo da premuto: ha solo l'alone esterno
+        top.setPadding(U.dp(this, 6), 0, U.dp(this, 6), 0);
+        ImageView close = iconButton("ic_chiudi", "Chiudi la ricerca", U.INK, 24, 44);
+        close.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { finish(); } });
+        top.addView(close, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
+        top.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
+        ImageView set = iconButton("ic_impostazioni", "Cambia impostazioni", U.INK, 24, 44);
         set.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { startActivity(new Intent(SearchActivity.this, SettingsActivity.class).putExtra("back", "Ricerca")); }
         });
-        top.addView(set, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView close = U.text(this, "✕", 18, U.INK, false);
-        close.setGravity(Gravity.CENTER);
-        close.setContentDescription("Chiudi la ricerca");
-        Press.icon(close, null);
-        close.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { finish(); } });
-        top.addView(close, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
-        top.setPadding(U.dp(this, 20), 0, U.dp(this, 20), 0);
+        top.addView(set, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
         root.addView(top, U.full());
 
-        scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
-        scroll.setVerticalScrollBarEnabled(false);
-        results = U.col(this);
-        results.setGravity(Gravity.BOTTOM);
-        results.setPadding(U.dp(this, 20), 0, U.dp(this, 20), 0);
-        // 0.21: la ScrollView ritaglia ai suoi bordi (mai sopra l'intestazione o sotto la barra); il contenuto interno non ritaglia nel suo padding,
-        // gli aloni stanno nell'overlay della radice
-        results.setClipChildren(false);
-        results.setClipToPadding(false);
-        scroll.addView(results, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        root.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-
+        // seconda riga: pulsante telefono e campo (con il microfono), come in home
         LinearLayout field = U.row(this);
         field.setBackground(U.box(this, U.SURFACE, U.INK, 26));
         field.setPadding(U.dp(this, 16), U.dp(this, 2), U.dp(this, 6), U.dp(this, 2));
@@ -118,32 +121,65 @@ public class SearchActivity extends BaseActivity {
         query.setSingleLine(true);
         query.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         query.setImeOptions(EditorInfo.IME_ACTION_GO);
+        query.setId(View.generateViewId());
         field.addView(query, new LinearLayout.LayoutParams(0, U.dp(this, 48), 1f));
-        clear = U.text(this, "✕", 16, U.MUTED, false);
-        clear.setGravity(Gravity.CENTER);
-        clear.setContentDescription("Cancella");
-        Press.icon(clear, null);
-        clear.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { query.setText(""); } });
+        ImageView cl = Ic.view(this, "ic_chiudi", U.MUTED, 20);
+        if (cl == null) cl = new ImageView(this);
+        cl.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        cl.setPadding(U.dp(this, 10), U.dp(this, 12), U.dp(this, 10), U.dp(this, 12));
+        cl.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        cl.setContentDescription("Cancella");
+        cl.setVisibility(View.GONE);
+        Press.icon(cl, null);
+        cl.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { query.setText(""); } });
+        clear = cl;
         field.addView(clear, new LinearLayout.LayoutParams(U.dp(this, 40), U.dp(this, 44)));
         MicView mic = new MicView(this, true); // 0.19 (Evolutiva 014): microfono a contorno
         mic.setContentDescription("Comando vocale");
         mic.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { voice(); } });
         field.addView(mic, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
-        // 0.19 (Evolutiva 014): il pulsante telefono sta dov'è in home, a sinistra del campo, sulla stessa riga alta 62
         field.setMinimumHeight(U.dp(this, 62));
         LinearLayout bar = U.row(this);
         bar.addView(Telefono.button(this), Telefono.buttonLp(this));
         bar.addView(field, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         LinearLayout.LayoutParams flp = U.full();
-        flp.topMargin = U.dp(this, 8);
-        flp.leftMargin = U.dp(this, 20);
-        flp.rightMargin = U.dp(this, 20);
+        flp.topMargin = U.dp(this, 2);
+        flp.leftMargin = U.dp(this, 12);
+        flp.rightMargin = U.dp(this, 12);
         root.addView(bar, flp);
-        TextView hint = U.text(this, "Le altre app si aprono scrivendone il nome.", 12, U.MUTED, false);
-        hint.setTypeface(android.graphics.Typeface.create(U.SERIF, android.graphics.Typeface.ITALIC)); // 0.13.6: come nella UI
-        hint.setGravity(Gravity.CENTER);
-        hint.setPadding(U.dp(this, 20), U.dp(this, 6), U.dp(this, 20), 0);
-        root.addView(hint, U.full());
+        // TalkBack: il campo viene letto per primo
+        close.setAccessibilityTraversalAfter(query.getId());
+
+        // i risultati scendono dall'alto; il contenitore ritaglia le righe ai suoi bordi (mai sopra l'intestazione)
+        scroll = new ScrollView(this);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.setClipChildren(true);
+        scroll.setClipToPadding(true);
+        results = U.col(this);
+        results.setPadding(U.dp(this, 12), U.dp(this, 8), U.dp(this, 12), U.dp(this, 24));
+        results.setClipChildren(true);
+        scroll.addView(results, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        scroll.setOnTouchListener(new View.OnTouchListener() {
+            private float y0, x0;
+            private boolean top0, hidden;
+            public boolean onTouch(View v, MotionEvent e) {
+                switch (e.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN: y0 = e.getY(); x0 = e.getX(); top0 = scroll.getScrollY() == 0; hidden = false; break;
+                    case MotionEvent.ACTION_MOVE:
+                        // la tastiera si chiude appena si scorre (oltre ~12 dp)
+                        if (!hidden && Math.abs(e.getY() - y0) > U.dp(SearchActivity.this, 12)) { hidden = true; hideKeyboard(); }
+                        break;
+                    case MotionEvent.ACTION_UP:
+                        // tirata verso il basso dalla cima della lista: la ricerca si chiude, come è salita (dal basso)
+                        float dy = e.getY() - y0;
+                        if (top0 && dy > U.dp(SearchActivity.this, 140) && Math.abs(e.getX() - x0) < dy / 2) finish();
+                        break;
+                    default: break;
+                }
+                return false;
+            }
+        });
         setContentView(root);
 
         query.addTextChangedListener(new TextWatcher() {
@@ -154,9 +190,9 @@ public class SearchActivity extends BaseActivity {
         query.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             public boolean onEditorAction(TextView v, int id, KeyEvent e) { if (best != null) best.run(); return true; }
         });
-        // 0.12: la tastiera resta chiusa (si vedono recenti, app e persone); si apre toccando il campo.
+        // 0.12: la tastiera resta chiusa (si vedono aperte ora, recenti e a portata); si apre toccando il campo.
         // Impostazioni › App › «Apri subito la tastiera» la riporta come prima
-        if (U.prefs(this).getBoolean(U.K_KEYBOARD, false)) { // 0.18 (Evolutiva 013): anche dal gesto Su la tastiera resta chiusa
+        if (U.prefs(this).getBoolean(U.K_KEYBOARD, false)) { // 0.18 (Evolutiva 013)
             // 0.20 (Evolutiva 016): il campo prende il focus (e la tastiera si apre) a fine transizione, non a metà
             root.setFocusableInTouchMode(true);
             root.requestFocus();
@@ -175,18 +211,38 @@ public class SearchActivity extends BaseActivity {
         if (getIntent().getBooleanExtra("voice", false)) voice();
     }
 
+    /** Un'icona della direzione A che si tocca: riquadro di {@code boxDp}, icona di {@code sizeDp}, alone da premuta. */
+    private ImageView iconButton(String name, String desc, int color, int sizeDp, int boxDp) {
+        ImageView v = Ic.view(this, name, color, sizeDp);
+        if (v == null) v = new ImageView(this);
+        v.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        int pad = U.dp(this, (boxDp - sizeDp) / 2f);
+        v.setPadding(pad, pad, pad, pad);
+        v.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        v.setContentDescription(desc);
+        v.setClickable(true);
+        v.setFocusable(true);
+        Press.icon(v, null);
+        return v;
+    }
+
+    private void hideKeyboard() {
+        android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (imm != null && query != null) imm.hideSoftInputFromWindow(query.getWindowToken(), 0);
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
         apps = null;
-        render();
+        loadEvents();
+        renderNow();
     }
 
     /** 0.20 (Evolutiva 016): esce verso il basso (salita al contrario, BASE), prima si chiude la tastiera. */
     @Override
     public void finish() {
-        android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-        if (imm != null && query != null) imm.hideSoftInputFromWindow(query.getWindowToken(), 0);
+        hideKeyboard();
         super.finish();
         Motion.closeSearch(this);
     }
@@ -194,123 +250,345 @@ public class SearchActivity extends BaseActivity {
     @Override
     protected void onDestroy() {
         announce.removeCallbacksAndMessages(null);
+        io.shutdownNow();
         super.onDestroy();
     }
 
-    // ---------------------------------------------------------------------
+    // ---------- Ricerche lente, fuori dal thread principale ----------
+
+    /** Gli impegni dei prossimi 30 giorni si leggono una volta (e a ogni ritorno); poi si filtrano a ogni lettera senza interrogare il calendario. */
+    private void loadEvents() {
+        if (!U.hasCalendar(this)) { events = null; return; }
+        final long from = System.currentTimeMillis() - 3600000L, to = U.startOfDay(30);
+        io.execute(new Runnable() {
+            public void run() {
+                final List<U.Event> list = U.events(SearchActivity.this, from, to);
+                runOnUiThread(new Runnable() { public void run() { if (isFinishing()) return; events = list; render(); } });
+            }
+        });
+    }
+
+    /** Rubrica per nome: una richiesta alla volta; arriva dopo le persone di −minus e le app, che si vedono subito. */
+    private void askRubrica(final String q) {
+        if (q.equals(rubricaAsked) || !Onboarding.hasContacts(this) || Cerca.norm(q).length() < 2) return;
+        rubricaAsked = q;
+        io.execute(new Runnable() {
+            public void run() {
+                final List<Hit> found = rubrica(q);
+                runOnUiThread(new Runnable() {
+                    public void run() {
+                        if (isFinishing()) return;
+                        rubricaHits = found;
+                        render();
+                    }
+                });
+            }
+        });
+    }
+
+    /** Rubrica per numero: i contatti il cui numero contiene le cifre scritte. */
+    private void askNumbers(final String digits) {
+        if (digits.equals(numberAsked) || !Onboarding.hasContacts(this)) return;
+        numberAsked = digits;
+        io.execute(new Runnable() {
+            public void run() {
+                final List<Hit> found = numberContacts(digits);
+                runOnUiThread(new Runnable() {
+                    public void run() {
+                        if (isFinishing()) return;
+                        numberHits = found;
+                        render();
+                    }
+                });
+            }
+        });
+    }
+
+    // ---------- Ridisegno: una volta per frame, righe riusate per chiave ----------
+
+    private final Runnable renderRun = new Runnable() { public void run() { scheduled = false; renderNow(); } };
 
     private void render() {
-        // 0.20 (Evolutiva 016): se arriva un altro carattere mentre qualcosa si muove, quel movimento finisce subito (mai code)
-        for (int i = 0; i < results.getChildCount(); i++) {
-            View c = results.getChildAt(i);
-            c.animate().cancel();
-            c.setTranslationY(0f);
-            c.setAlpha(1f);
-        }
-        results.getOverlay().clear();
-        final java.util.Map<String, Integer> oldTop = new java.util.HashMap<String, Integer>();
-        final java.util.Map<String, View> oldView = new java.util.HashMap<String, View>();
-        final java.util.List<String> oldKeys = new java.util.ArrayList<String>();
-        final boolean animate = rendered;
-        if (animate) {
-            java.util.Map<String, Integer> seen = new java.util.HashMap<String, Integer>();
-            int[] loc = new int[2];
-            for (int i = 0; i < results.getChildCount(); i++) {
-                View c = results.getChildAt(i);
-                String k = uniqueKey(c, seen);
-                c.getLocationInWindow(loc);
-                oldTop.put(k, loc[1]);
-                oldView.put(k, c);
-                oldKeys.add(k);
-            }
-        }
-        results.removeAllViews();
-        best = null;
-        bestView = null;
-        bestName = null;
+        if (scheduled || results == null) return;
+        scheduled = true;
+        results.postOnAnimation(renderRun);
+    }
+
+    private void renderNow() {
         String q = query.getText().toString().trim();
         boolean clearWas = clear.getVisibility() == View.VISIBLE;
         // ✕ del campo: compare e sparisce in dissolvenza (RAPIDO), senza scala
-        if (q.length() > 0 && !clearWas) { clear.setVisibility(View.VISIBLE); if (animate) Motion.enter(clear, 0, Motion.RAPIDO, 0); }
+        if (q.length() > 0 && !clearWas) { clear.setVisibility(View.VISIBLE); if (rendered) Motion.enter(clear, 0, Motion.RAPIDO, 0); }
         else if (q.length() == 0 && clearWas) clear.setVisibility(View.GONE);
-        insetRows = true; // 0.20: i 10 dp ai lati ci sono anche a campo vuoto, così il testo non si sposta tra vuoto e scrittura
-        hitCount = 0;
-        if (q.length() == 0) empty(); else found(q);
+        // lo scorrimento si azzera solo se il testo diventa vuoto o cambia la prima lettera; altrimenti resta
+        if (Cerca.resetsScroll(lastQ, q)) { scroll.scrollTo(0, 0); expanded = -1; if (q.length() == 0) portataAll = false; }
+        lastQ = q;
+        List<Item> items = new ArrayList<Item>();
+        best = null;
+        hitsNow = 0;
+        bestLabel = null;
+        if (q.length() == 0) buildEmpty(items); else buildTyped(q, items);
+        show(items);
         rendered = true;
-        lastBestName = bestName;
-        final java.util.Map<String, View> ghosts = oldView;
-        final android.view.ViewTreeObserver vto = results.getViewTreeObserver();
-        vto.addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
-            public boolean onPreDraw() {
-                results.getViewTreeObserver().removeOnPreDrawListener(this);
-                scroll.scrollTo(0, Math.max(0, results.getHeight() - scroll.getHeight())); // i risultati restano ancorati in basso
-                if (animate) transitions(oldTop, ghosts, oldKeys);
-                return true;
-            }
-        });
-        scroll.post(new Runnable() { public void run() { scroll.fullScroll(View.FOCUS_DOWN); } });
-        // un solo annuncio, 600 ms dopo l'ultimo carattere («3 risultati», «Nessun risultato»), mai uno a tasto
+        // un solo annuncio, 600 ms dopo l'ultimo cambiamento, mai uno a tasto
         announce.removeCallbacksAndMessages(null);
         if (q.length() > 0) {
-            final int n = hitCount;
-            announce.postDelayed(new Runnable() {
-                public void run() { Motion.say(results, n == 0 ? "Nessun risultato" : n + (n == 1 ? " risultato" : " risultati")); }
-            }, 600);
+            final String say = Cerca.announcement(bestLabel, hitsNow);
+            announce.postDelayed(new Runnable() { public void run() { Motion.say(results, say); } }, 600);
         }
     }
 
-    /** Una chiave stabile per una riga: il suo primo testo (stessa riga = stesso elemento fra un carattere e l'altro). */
-    private static String uniqueKey(View v, java.util.Map<String, Integer> seen) {
-        String k = firstText(v);
-        if (k == null) k = v.getClass().getSimpleName();
-        Integer n = seen.get(k);
-        seen.put(k, n == null ? 1 : n + 1);
-        return k + "#" + (n == null ? 0 : n);
+    private int hitsNow;
+    private String bestLabel;
+
+    // ---------- Il modello: intestazioni, righe e una nota ----------
+
+    private static final int T_HEAD = 0, T_ROW = 1, T_NOTE = 2;
+    private static final int L_APP = 0, L_PERSON = 1, L_ICON = 2;
+
+    private static final class Item {
+        int type, lead, group;
+        String key, title, sub, q, pkg, cls, icon, hint, desc, dupSub;
+        boolean best, more, personRow;
+        Runnable run;
+
+        static Item row(String key, int lead, String title) { Item i = new Item(); i.type = T_ROW; i.key = key; i.lead = lead; i.title = title; return i; }
     }
 
-    private static String firstText(View v) {
-        if (v instanceof TextView) return ((TextView) v).getText().toString();
-        if (v instanceof ViewGroup) {
-            ViewGroup g = (ViewGroup) v;
-            for (int i = 0; i < g.getChildCount(); i++) { String t = firstText(g.getChildAt(i)); if (t != null && t.length() > 0) return t; }
+    private Item iconRow(String key, String icon, String title, Runnable run) {
+        Item i = Item.row(key, L_ICON, title);
+        i.icon = icon; i.run = run;
+        return i;
+    }
+
+    private Item personItem(String key, String name, String sub, Runnable run) {
+        Item i = Item.row(key, L_PERSON, name);
+        i.sub = sub; i.run = run; i.personRow = true;
+        return i;
+    }
+
+    private Item appItem(final U.AppInfo a, Set<String> paused, final boolean tap) {
+        Item i = Item.row("a:" + a.pkg, L_APP, a.label);
+        i.pkg = a.pkg; i.cls = a.cls;
+        if (paused.contains(a.pkg)) i.sub = "si apre dopo " + U.pauseSeconds(this) + " secondi";
+        i.run = new Runnable() { public void run() { tapped = tap; openApp(a.pkg, a.label); } };
+        return i;
+    }
+
+    // ---------- Campo vuoto: Aperte ora, Recenti, A portata ----------
+
+    private void buildEmpty(List<Item> out) {
+        Set<String> paused = U.pausedPkgs(this);
+        long now = System.currentTimeMillis();
+        if (apps == null) apps = U.sortedApps(this);
+        Map<String, U.AppInfo> byPkg = new HashMap<String, U.AppInfo>();
+        for (U.AppInfo a : apps) byPkg.put(a.pkg, a);
+        Set<String> groups = groupNames();
+        final List<String[]> fixed = byLastTouch(fixedPeople(this));
+        Set<String> used = new HashSet<String>();
+        Map<String, Item> ent = new HashMap<String, Item>();
+
+        // Aperte ora: le conversazioni aperte (solo se ce ne sono), la più recente prima
+        List<Cerca.Cand> open = new ArrayList<Cerca.Cand>();
+        if (U.prefs(this).getBoolean(K_ACTIVE_ON, true)) {
+            List<Rules.Conv> cs = new ArrayList<Rules.Conv>();
+            for (Rules.Conv c : Convs.load(this)) if (c.isOpen(now) && c.listed(now) && !Rules.isCallTitle(c.name)) cs.add(c);
+            Collections.sort(cs, new Comparator<Rules.Conv>() {
+                public int compare(Rules.Conv a, Rules.Conv b) { return Long.compare(Rules.touched(b), Rules.touched(a)); }
+            });
+            Map<String, Set<String>> nums = new HashMap<String, Set<String>>();
+            for (Rules.Conv c : cs) {
+                String[] f = fixedMatch(c, fixed, nums);
+                String name = f != null ? f[0] : Rules.groupName(c.name);
+                String key = "p:" + Cerca.norm(name);
+                if (ent.containsKey(key)) continue;
+                final Hit h = new Hit();
+                h.name = Rules.groupName(c.name); h.code = c.code; h.group = c.group;
+                Item it = personItem(key, name, "aperta fino alle " + U.hhmm(c.until), new Runnable() { public void run() { openHit(h); } });
+                ent.put(key, it);
+                open.add(new Cerca.Cand(key, Cerca.PERSONA, name, 0));
+            }
+        }
+        // Recenti: ciò che hai cercato nelle ultime 2 ore
+        List<Cerca.Cand> rec = new ArrayList<Cerca.Cand>();
+        if (U.prefs(this).getBoolean(K_RECENT_ON, true)) {
+            for (final String[] r : recents(this)) {
+                if (r.length < 3 || ("app".equals(r[0]) && paused.contains(r[1])) || !Cerca.recentVisible(r, now)) continue;
+                Item it;
+                String key;
+                if ("app".equals(r[0])) {
+                    U.AppInfo a = byPkg.get(r[1]);
+                    if (a == null) continue;
+                    key = "a:" + a.pkg;
+                    it = appItem(a, paused, false);
+                    it.run = new Runnable() { public void run() { openRecent(r); } };
+                } else {
+                    key = "p:" + Cerca.norm(r[2]);
+                    it = personItem(key, r[2], groups.contains(Cerca.norm(r[2])) ? "Gruppo" : null, new Runnable() { public void run() { openRecent(r); } });
+                }
+                if (ent.containsKey(key)) continue;
+                ent.put(key, it);
+                rec.add(new Cerca.Cand(key, "app".equals(r[0]) ? Cerca.APP : Cerca.PERSONA, r[2], 0));
+            }
+        }
+        // A portata: persone e gruppi, poi le app (l'ordine scelto in A portata)
+        List<Cerca.Cand> port = new ArrayList<Cerca.Cand>();
+        for (final String[] f : fixed) {
+            String key = "p:" + Cerca.norm(f[0]);
+            if (!ent.containsKey(key)) {
+                boolean g = "g".equals(f[2]);
+                ent.put(key, personItem(key, f[0], g ? "Gruppo" : null, new Runnable() { public void run() { openFixed(f); } }));
+            }
+            port.add(new Cerca.Cand(key, Cerca.PERSONA, f[0], 0));
+        }
+        for (String[] a : portata(this)) {
+            U.AppInfo ai = byPkg.get(a[0]);
+            if (ai == null) continue;
+            String key = "a:" + ai.pkg;
+            if (!ent.containsKey(key)) ent.put(key, appItem(ai, paused, true));
+            port.add(new Cerca.Cand(key, Cerca.APP, ai.label, 0));
+        }
+        Cerca.Piece pOpen = Cerca.take(open, used, Cerca.VUOTA_APERTE);
+        Cerca.Piece pRec = Cerca.take(rec, used, Cerca.VUOTA_RECENTI);
+        Cerca.Piece pPort = Cerca.take(Cerca.peopleFirst(port), used, portataAll ? MAX_PORTATA : Cerca.VUOTA_PORTATA);
+        addEmpty(out, "h:aperte", "Aperte ora", pOpen, ent, false);
+        addEmpty(out, "h:recenti", "Recenti", pRec, ent, false);
+        addEmpty(out, "h:portata", "A portata", pPort, ent, true);
+        if (out.isEmpty()) {
+            Item n = new Item();
+            n.type = T_NOTE; n.key = "note"; n.title = "Scrivi il nome di una persona, di un'app o di un impegno. Puoi anche chiedere o dire un comando.";
+            out.add(n);
+        }
+    }
+
+    private void addEmpty(List<Item> out, String key, String title, Cerca.Piece p, Map<String, Item> ent, boolean allowMore) {
+        if (p.shown.isEmpty()) return;
+        Item h = new Item();
+        h.type = T_HEAD; h.key = key; h.title = title;
+        if (allowMore && p.more && !portataAll) {
+            h.more = true;
+            h.run = new Runnable() { public void run() { portataAll = true; render(); } };
+        }
+        out.add(h);
+        for (Cerca.Cand c : p.shown) out.add(ent.get(c.key));
+    }
+
+    /** I nomi (normalizzati) dei gruppi che −minus conosce. */
+    private Set<String> groupNames() {
+        Set<String> out = new HashSet<String>();
+        for (Rules.Conv c : Convs.load(this)) if (c.group) out.add(Cerca.norm(Rules.groupName(c.name)));
+        for (String[] r : U.rows(U.prefs(this).getString(U.K_GROUPS, ""))) if (r.length > 0) out.add(Cerca.norm(Rules.groupName(r[0])));
+        return out;
+    }
+
+    /** La persona o il gruppo di «chi passa sempre» che è la stessa di questa conversazione (stesso nome o stesso numero). */
+    private String[] fixedMatch(Rules.Conv c, List<String[]> fixed, Map<String, Set<String>> nums) {
+        String n = Cerca.norm(Rules.groupName(c.name));
+        for (String[] f : fixed) if (Cerca.norm(f[0]).equals(n)) return f;
+        if (c.group) return null;
+        Set<String> cn = Nums.forConv(this, c.name);
+        if (cn.isEmpty()) return null;
+        for (String[] f : fixed) {
+            if ("g".equals(f[2])) continue;
+            Set<String> fn = nums.get(f[0]);
+            if (fn == null) {
+                fn = new HashSet<String>();
+                for (Rules.Person p : Rules.people(U.cfg(this, U.K_CONTACTS, U.DEF_CONTACTS))) if (p.name.equals(f[0])) fn.addAll(Nums.forPerson(this, p));
+                nums.put(f[0], fn);
+            }
+            if (!Collections.disjoint(fn, cn)) return f;
         }
         return null;
     }
 
+    /** Una persona o un gruppo di «chi passa sempre»: si apre come dalla tessera di prima. */
+    private void openFixed(String[] f) {
+        boolean group = "g".equals(f[2]);
+        if (!group) for (Rules.Person p : Rules.people(U.cfg(this, U.K_CONTACTS, U.DEF_CONTACTS)))
+            if (Cerca.norm(p.name).equals(Cerca.norm(f[0]))) { openPerson(p); return; }
+        Hit h = new Hit();
+        h.name = f[0]; h.code = f[1]; h.group = group;
+        openHit(h);
+    }
+
+    // ---------- Il ridisegno sul posto ----------
+
     /**
-     * Le righe che restano si spostano al loro posto (RAPIDO, decelera), quelle nuove entrano in dissolvenza, quelle che
-     * spariscono svaniscono dov'erano. Con «Rimuovi animazioni»: solo dissolvenze da 80 ms, niente spostamenti.
+     * Le righe che restano si riusano (stessa chiave = stessa vista, cambia solo il testo e il grassetto) e si spostano al
+     * loro posto in RAPIDO; quelle nuove entrano in dissolvenza dove stanno; quelle che spariscono svaniscono dov'erano.
+     * Righe di altezza minima fissa: una riga non cambia altezza se compare la riga muta. Con «Rimuovi animazioni»:
+     * solo dissolvenze da 80 ms, nessun movimento.
      */
-    private void transitions(java.util.Map<String, Integer> oldTop, java.util.Map<String, View> oldView, java.util.List<String> oldKeys) {
-        boolean red = Motion.reduced(this);
-        int ms = Motion.dur(this, Motion.RAPIDO);
-        java.util.Map<String, Integer> seen = new java.util.HashMap<String, Integer>();
-        java.util.Set<String> kept = new java.util.HashSet<String>();
-        int[] loc = new int[2];
+    private void show(List<Item> items) {
+        final boolean animate = rendered;
+        final Map<String, View> oldView = new HashMap<String, View>();
+        final Map<String, Integer> oldTop = new HashMap<String, Integer>();
         for (int i = 0; i < results.getChildCount(); i++) {
             View c = results.getChildAt(i);
-            String k = uniqueKey(c, seen);
-            Integer was = oldTop.get(k);
-            if (was == null) {
+            c.animate().cancel(); // se arriva un'altra lettera mentre qualcosa si muove, quel movimento finisce subito
+            c.setTranslationY(0f);
+            c.setAlpha(1f);
+            String k = (String) c.getTag();
+            oldView.put(k, c);
+            oldTop.put(k, c.getTop());
+        }
+        results.getOverlay().clear();
+        final Set<String> fresh = new HashSet<String>();
+        Set<String> keep = new HashSet<String>();
+        List<View> order = new ArrayList<View>();
+        for (Item it : items) {
+            View v = oldView.get(it.key);
+            boolean isNew = v == null;
+            if (isNew) {
+                v = create(it);
+                v.setTag(it.key);
+                fresh.add(it.key);
+            }
+            bind(v, it, animate && !isNew);
+            keep.add(it.key);
+            order.add(v);
+        }
+        boolean same = results.getChildCount() == order.size();
+        for (int i = 0; same && i < order.size(); i++) if (results.getChildAt(i) != order.get(i)) same = false;
+        if (!same) {
+            results.removeAllViews();
+            for (View v : order) results.addView(v);
+        }
+        final List<View> ghosts = new ArrayList<View>();
+        for (Map.Entry<String, View> e : oldView.entrySet()) if (!keep.contains(e.getKey())) ghosts.add(e.getValue());
+        if (!animate || (same && ghosts.isEmpty() && fresh.isEmpty())) return;
+        final java.util.Map<String, Integer> was = oldTop;
+        results.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
+            public boolean onPreDraw() {
+                results.getViewTreeObserver().removeOnPreDrawListener(this);
+                transitions(was, fresh, ghosts);
+                return true;
+            }
+        });
+    }
+
+    private void transitions(Map<String, Integer> oldTop, Set<String> fresh, List<View> ghosts) {
+        boolean red = Motion.reduced(this);
+        int ms = Motion.dur(this, Motion.RAPIDO);
+        for (int i = 0; i < results.getChildCount(); i++) {
+            View c = results.getChildAt(i);
+            String k = (String) c.getTag();
+            if (fresh.contains(k)) {
                 c.setAlpha(0f);
                 c.animate().alpha(1f).setDuration(ms).setInterpolator(Motion.DECELERA).start();
                 continue;
             }
-            kept.add(k);
-            c.getLocationInWindow(loc);
-            int dy = was - loc[1];
-            if (!red && Math.abs(dy) > 1) {
+            Integer was = oldTop.get(k);
+            if (was == null || red) continue;
+            int dy = was - c.getTop();
+            if (Math.abs(dy) > 1) {
                 c.setTranslationY(dy);
                 c.animate().translationY(0f).setDuration(ms).setInterpolator(Motion.DECELERA).start();
             }
         }
-        results.getLocationInWindow(loc);
-        final int base = loc[1];
-        for (String k : oldKeys) {
-            if (kept.contains(k)) continue;
-            final View g = oldView.get(k);
+        for (final View g : ghosts) {
             g.setAlpha(1f);
-            g.setTranslationY(red ? 0f : oldTop.get(k) - base - g.getTop());
+            g.setTranslationY(0f);
             results.getOverlay().add(g);
             g.animate().alpha(0f).setDuration(ms).setInterpolator(Motion.DECELERA).withEndAction(new Runnable() {
                 public void run() { results.getOverlay().remove(g); }
@@ -318,249 +596,171 @@ public class SearchActivity extends BaseActivity {
         }
     }
 
-    // ---------- Al tocco (0.8): recenti, app, persone e gruppi ----------
-
-    private void empty() {
-        List<View> blocks = new ArrayList<View>();
-        Set<String> paused = U.pausedPkgs(this);
-        // dall'alto: recenti, app, persone e gruppi (vicino al pollice). Ogni blocco su una riga che scorre di lato.
-        // 0.13.6: l'aspetto della proposta UI (canvas «Ricerca»): voci a riga, griglia per le app, persone come avatar
-        // 0.17: «Impostazioni» non è più nell'elenco: sta in alto
-        if (U.prefs(this).getBoolean(K_RECENT_ON, true)) {
-            // 0.13.7: di nuovo una riga che scorre di lato
-            LinearLayout chips = hrow();
-            long nowMs = System.currentTimeMillis();
-            for (final String[] r : recents(this)) {
-                if (r.length < 3 || ("app".equals(r[0]) && paused.contains(r[1])) || !Cerca.recentVisible(r, nowMs)) continue;
-                // 0.15: un pallino distingue persone e gruppi dalle app
-                boolean who = !"app".equals(r[0]);
-                View ch = chip(who ? "● " + r[2] : r[2], new Runnable() { public void run() { openRecent(r); } });
-                if (who) ch.setContentDescription("Persona o gruppo: " + r[2]);
-                chips.addView(ch, chipLp());
-            }
-            if (chips.getChildCount() > 0) { blocks.add(sectionLabel("Cercate di recente")); chips.setPadding(side(), 0, 0, 0); blocks.add(scrollOf(chips)); }
+    private View create(Item it) {
+        switch (it.type) {
+            case T_HEAD: return new HeadView();
+            case T_NOTE: return noteView();
+            default: return new RowView(it);
         }
-        List<String[]> pt = portata(this);
-        if (!pt.isEmpty()) {
-            blocks.add(sectionLabel("App a portata"));
-            // 0.13.7: tre colonne, al massimo tre righe
-            for (int i = 0; i < pt.size() && i < 9; i += 3) {
-                LinearLayout line = U.row(this);
-                for (int k = i; k < i + 3; k++) {
-                    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-                    if (k < i + 2) lp.rightMargin = U.dp(this, 14);
-                    // 0.15: la cella vuota ha altezza 0. Con WRAP_CONTENT una View vuota prende tutta l'altezza
-                    // disponibile: con 5 app la seconda riga diventava altissima e spingeva giù persone e gruppi
-                    if (k >= pt.size()) { lp.height = 0; line.addView(new View(this), lp); continue; }
-                    final String[] a = pt.get(k);
-                    final boolean pz = paused.contains(a[0]);
-                    line.addView(gridCell(a[1] + (pz ? " · pausa" : ""), new Runnable() { public void run() { tapped = true; openApp(a[0], a[1]); } }), lp);
-                }
-                line.setPadding(side(), 0, side(), 0);
-                blocks.add(line);
-            }
-        }
-
-        // Persone e gruppi: chi passa sempre come avatar; sotto, le conversazioni attive (le 3 più recenti)
-        final List<String[]> fixed = fixedPeople(this);
-        Set<String> fixedKeys = new java.util.HashSet<String>();
-        for (String[] f : fixed) fixedKeys.add(Cerca.norm(f[0]));
-        // 0.13.8: la stessa persona si riconosce dal numero («Filippo» in rubrica, «Filippo Ferro» in chat)
-        Set<String> fixedNums = new java.util.HashSet<String>();
-        for (Rules.Person p : Rules.people(U.cfg(this, U.K_CONTACTS, U.DEF_CONTACTS)))
-            if (p.section.equalsIgnoreCase("Sempre")) fixedNums.addAll(Nums.forPerson(this, p));
-        List<Rules.Conv> cs = new ArrayList<Rules.Conv>();
-        if (U.prefs(this).getBoolean(K_ACTIVE_ON, true)) {
-            long now = System.currentTimeMillis();
-            // 0.15: solo le conversazioni che hai avviato, a cui hai risposto o che hai aperto da una notifica:
-            // quelle non ancora aperte restano in Per te
-            for (Rules.Conv c : Convs.load(this))
-                if (c.listed(now) && !Rules.isCallTitle(c.name) && !fixedKeys.contains(Cerca.norm(Rules.groupName(c.name)))
-                        && (c.group || java.util.Collections.disjoint(fixedNums, Nums.forConv(this, c.name)))) cs.add(c);
-            Collections.sort(cs, new Comparator<Rules.Conv>() {
-                public int compare(Rules.Conv a, Rules.Conv b) { return Long.compare(Rules.touched(b), Rules.touched(a)); }
-            });
-        }
-        blocks.add(sectionLabel("Contatti e gruppi")); // 0.18 (Evolutiva 009)
-        LinearLayout av = hrow();
-        av.setPadding(side(), 0, 0, 0);
-        av.setGravity(Gravity.TOP);
-        for (final String[] f : byLastTouch(fixed)) av.addView(personChip(f));
-        // senza nessuno che passa sempre, invita a sceglierlo
-        if (fixed.isEmpty()) av.addView(avatar("+", "Scegli chi passa sempre", false, true, new Runnable() {
-            public void run() { startActivity(SettingsActivity.peopleIntent(SearchActivity.this, "Ricerca")); }
-        }));
-        blocks.add(scrollOf(av));
-        for (int i = 0; i < cs.size() && i < MAX_ACTIVE; i++) blocks.add(convRow(cs.get(i)));
-        // 0.15: «Vedi tutti» in fondo alle conversazioni attive, dove si cerca; prima stava in fondo agli avatar
-        TextView all = U.text(this, "Vedi tutti  ›", 15, U.INK, false);
-        all.setMinHeight(U.dp(this, 48));
-        all.setGravity(Gravity.CENTER_VERTICAL);
-        all.setContentDescription("Vedi tutti i contatti e i gruppi");
-        Press.link(all, U.INK);
-        all.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { startActivity(SettingsActivity.peopleIntent(SearchActivity.this, "Ricerca")); }
-        });
-        blocks.add(inset(all));
-        if (blocks.isEmpty()) {
-            TextView t = U.text(this, "Scrivi il nome di una persona, di un'app o di un impegno. Puoi anche chiedere o dire un comando.", 12, U.MUTED, false);
-            t.setPadding(side(), 0, side(), U.dp(this, 8));
-            blocks.add(t);
-        }
-        for (View v : blocks) results.addView(v, U.full());
     }
 
-    private int side() { return U.dp(this, 10); }
-
-    /** Il testo a campo vuoto parte dallo stesso punto di quando scrivi: 10 dp dal bordo (le righe lo riservano già). */
-    private <T extends View> T inset(T v) {
-        v.setPadding(side(), v.getPaddingTop(), v.getPaddingRight() + side(), v.getPaddingBottom());
-        return v;
+    private void bind(View v, Item it, boolean animateBest) {
+        if (v instanceof RowView) ((RowView) v).bind(it, animateBest);
+        else if (v instanceof HeadView) ((HeadView) v).bind(it);
+        else if (v instanceof TextView) ((TextView) v).setText(it.title);
     }
 
-    /** 0.15: chi passa sempre, con prima le conversazioni in corso e poi chi hai sentito più di recente. */
-    private List<String[]> byLastTouch(List<String[]> fixed) {
-        long now = System.currentTimeMillis();
-        List<Rules.Conv> convs = Convs.load(this);
-        java.util.Map<String, Rules.Person> persons = new java.util.HashMap<String, Rules.Person>();
-        for (Rules.Person p : Rules.people(U.cfg(this, U.K_CONTACTS, U.DEF_CONTACTS))) persons.put(Cerca.norm(p.name), p);
-        java.util.Map<String, Long> last = new java.util.HashMap<String, Long>();
-        Set<String> live = new java.util.HashSet<String>();
-        java.util.Map<String, String[]> byName = new java.util.LinkedHashMap<String, String[]>();
-        for (String[] f : fixed) {
-            byName.put(f[0], f);
-            String key = Cerca.norm(f[0]);
-            Rules.Person p = "g".equals(f[2]) ? null : persons.get(key);
-            Set<String> nums = p == null ? java.util.Collections.<String>emptySet() : Nums.forPerson(this, p);
-            long t = 0;
-            for (Rules.Conv c : convs) {
-                boolean same = Cerca.norm(Rules.groupName(c.name)).equals(key)
-                        || (!c.group && !nums.isEmpty() && !java.util.Collections.disjoint(nums, Nums.forConv(this, c.name)));
-                if (!same) continue;
-                t = Math.max(t, Rules.touched(c));
-                if (c.listed(now)) live.add(f[0]);
-            }
-            last.put(f[0], t);
-        }
-        List<String[]> out = new ArrayList<String[]>();
-        for (String n : Cerca.byLast(new ArrayList<String>(byName.keySet()), last, live)) out.add(byName.get(n));
-        return out;
-    }
-
-    private LinearLayout hrow() {
-        LinearLayout l = new LinearLayout(this);
-        l.setOrientation(LinearLayout.HORIZONTAL);
-        l.setGravity(Gravity.CENTER_VERTICAL);
-        return l;
-    }
-
-    private LinearLayout.LayoutParams chipLp() {
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.rightMargin = U.dp(this, 6);
-        return lp;
-    }
-
-    /** Una riga che scorre di lato; l'ultimo elemento resta tagliato sul bordo e dice che ce n'è altro. */
-    private View scrollOf(LinearLayout row) {
-        android.widget.HorizontalScrollView h = new android.widget.HorizontalScrollView(this);
-        h.setHorizontalScrollBarEnabled(false);
-        h.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        h.setPadding(0, 0, 0, U.dp(this, 6));
-        h.addView(row);
-        return h;
-    }
-
-    /** 0.13.6: persona o gruppo che passa sempre, come avatar: iniziale in un cerchio (quadrato per i gruppi) e nome sotto. */
-    private View personChip(final String[] f) {
-        final boolean group = "g".equals(f[2]);
-        String n0 = f[0].trim();
-        View c = avatar(n0.length() > 0 ? n0.substring(0, 1).toUpperCase(Locale.ITALY) : "?", shortName(f[0]), group, false, null);
-        c.setContentDescription((group ? "Gruppo " : "") + f[0]);
-        c.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                if (!group) for (Rules.Person p : Rules.people(U.cfg(SearchActivity.this, U.K_CONTACTS, U.DEF_CONTACTS)))
-                    if (Cerca.norm(p.name).equals(Cerca.norm(f[0]))) { openPerson(p); return; }
-                Hit h = new Hit();
-                h.name = f[0]; h.code = f[1]; h.group = group;
-                openHit(h);
-            }
-        });
-        return c;
-    }
-
-    private static String shortName(String n) {
-        String t = n.trim();
-        int sp = t.indexOf(' ');
-        return sp > 0 && t.length() > 12 ? t.substring(0, sp) : t;
-    }
-
-    private View avatar(String ini, String name, boolean group, boolean more, final Runnable r) {
-        LinearLayout c = U.col(this);
-        c.setGravity(Gravity.CENTER_HORIZONTAL);
-        c.setPadding(0, U.dp(this, 2), U.dp(this, 18), U.dp(this, 4));
-        c.setMinimumWidth(U.dp(this, 64));
-        TextView i = U.title(this, ini, more ? 18 : 20, more ? U.MUTED : U.INK);
-        i.setTypeface(more ? U.SANS : U.SERIF);
-        i.setGravity(Gravity.CENTER);
-        android.graphics.drawable.GradientDrawable d = new android.graphics.drawable.GradientDrawable();
-        d.setCornerRadius(U.dp(this, group ? 14 : 28));
-        // 0.16: sfondo grigio, nessun bordo, iniziale in Literata regolare
-        if (more) d.setStroke(U.dp(this, 1), U.MUTED, U.dp(this, 3), U.dp(this, 3));
-        else d.setColor(U.CHIP);
-        i.setBackground(d);
-        c.addView(i, new LinearLayout.LayoutParams(U.dp(this, 56), U.dp(this, 56)));
-        TextView t = U.text(this, name, 14, more ? U.MUTED : U.INK, false);
-        t.setGravity(Gravity.CENTER);
-        t.setMaxWidth(U.dp(this, 84));
-        t.setMaxLines(2);
-        t.setPadding(0, U.dp(this, 8), 0, 0);
-        c.addView(t);
-        // 0.21: anche le tessere delle persone (il clic lo mette personChip) hanno lo stato premuto: tessera piena d'inchiostro, lettera chiara
-        if (!more) Press.tile(c, i); else if (r != null) Press.row(c);
-        if (r != null) {
-            c.setContentDescription(name);
-            c.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
-        }
-        return c;
-    }
-
-    private TextView sectionLabel(String s) {
-        TextView t = U.label(this, s);
-        t.setLetterSpacing(0.12f);
-        t.setPadding(side(), U.dp(this, 22), side(), U.dp(this, 6)); // 10 dp ai lati, come i titoli di gruppo mentre scrivi
+    private View noteView() {
+        TextView t = U.text(this, "", 15, U.INK, false);
+        t.setPadding(U.dp(this, 10), U.dp(this, 10), U.dp(this, 10), U.dp(this, 2));
+        t.setLayoutParams(U.full());
         return t;
     }
 
-    private View settingsRow() {
-        LinearLayout row = U.row(this);
-        row.setMinimumHeight(U.dp(this, 48));
-        TextView g = U.text(this, "⚙", 18, U.INK, false);
-        g.setPadding(0, 0, U.dp(this, 12), 0);
-        row.addView(g);
-        row.addView(U.text(this, "Impostazioni", 17, U.INK, false), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        row.addView(U.text(this, "›", 17, U.MUTED, false));
-        row.setContentDescription("Impostazioni");
-        row.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { startActivity(new Intent(SearchActivity.this, SettingsActivity.class).putExtra("back", "Ricerca")); }
-        });
-        LinearLayout wrap = U.col(this);
-        wrap.addView(row, U.full());
-        wrap.addView(U.divider(this));
-        return wrap;
+    /** Il pezzo scritto, in grassetto (Atkinson bold, il corsivo e il resto restano com'è). */
+    private static final class Bold extends MetricAffectingSpan {
+        @Override public void updateDrawState(TextPaint p) { p.setTypeface(U.SANS_B); }
+        @Override public void updateMeasureState(TextPaint p) { p.setTypeface(U.SANS_B); }
     }
 
-    private View gridCell(String s, final Runnable r) {
-        LinearLayout wrap = U.col(this);
-        TextView t = U.text(this, s, 15, U.INK, false);
-        t.setSingleLine(true);
-        t.setEllipsize(TextUtils.TruncateAt.END);
-        t.setMinHeight(U.dp(this, 46));
-        t.setGravity(Gravity.CENTER_VERTICAL);
-        Press.row(t);
-        t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
-        wrap.addView(t, U.full());
-        wrap.addView(U.divider(this));
-        return wrap;
+    /** Il titolo di un gruppo: scritta in maiuscole spaziate (12), a destra «Vedi tutti ›» se ce n'è altro. Letto da TalkBack come intestazione. */
+    private final class HeadView extends LinearLayout {
+        final TextView label, link;
+        Runnable onMore;
+
+        HeadView() {
+            super(SearchActivity.this);
+            setOrientation(HORIZONTAL);
+            setGravity(Gravity.BOTTOM);
+            setMinimumHeight(U.dp(SearchActivity.this, 36));
+            setPadding(U.dp(SearchActivity.this, 10), U.dp(SearchActivity.this, 10), U.dp(SearchActivity.this, 10), U.dp(SearchActivity.this, 2));
+            label = U.text(SearchActivity.this, "", 12, U.MUTED, false);
+            label.setLetterSpacing(0.12f);
+            label.setPadding(0, 0, 0, U.dp(SearchActivity.this, 5));
+            U.heading(label);
+            addView(label, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            link = U.text(SearchActivity.this, "Vedi tutti  ›", 13, U.INK, false);
+            link.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+            link.setPadding(U.dp(SearchActivity.this, 10), 0, U.dp(SearchActivity.this, 2), 0);
+            link.setMinHeight(U.dp(SearchActivity.this, 36));
+            link.setMinWidth(U.dp(SearchActivity.this, 72));
+            Press.link(link, U.INK);
+            link.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { if (onMore != null) onMore.run(); } });
+            addView(link, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            setLayoutParams(U.full());
+        }
+
+        void bind(Item it) {
+            label.setText(it.title.toUpperCase(Locale.ITALY));
+            label.setContentDescription(it.title);
+            link.setVisibility(it.more ? View.VISIBLE : View.GONE);
+            link.setContentDescription("Vedi tutti: " + it.title);
+            onMore = it.run;
+        }
+    }
+
+    /**
+     * Una riga, sempre la stessa: elemento di tipo da 32 dp (icona dell'app, cerchio con l'iniziale, icona a linea), titolo
+     * da 16 con la parte scritta in grassetto, riga muta da 13 solo se distingue, suggerimento a destra solo sulla preselezionata.
+     * Alta almeno 52 dp; margini 10, intervallo 12. Niente frecce, linee, link.
+     */
+    private final class RowView extends LinearLayout {
+        final TextView title, sub, hint;
+        final TextView badge;      // l'iniziale (persone), per lo stato premuto
+        final ImageView appIcon;   // l'icona dell'app, quando c'è
+        final Press.Fade fx;
+        Runnable action;
+
+        RowView(Item it) {
+            super(SearchActivity.this);
+            final Context c = SearchActivity.this;
+            setOrientation(HORIZONTAL);
+            setGravity(Gravity.CENTER_VERTICAL);
+            setMinimumHeight(U.dp(c, 52));
+            setPadding(U.dp(c, 10), 0, U.dp(c, 10), 0);
+            FrameLayout lead = new FrameLayout(c);
+            TextView ini = null;
+            ImageView ai = null;
+            if (it.lead == L_PERSON) {
+                ini = U.initial(c, it.title, false, 32); // sempre un cerchio, anche per i gruppi
+                lead.addView(ini, new FrameLayout.LayoutParams(U.dp(c, 32), U.dp(c, 32)));
+            } else if (it.lead == L_APP) {
+                ai = new ImageView(c);
+                ai.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                ai.setOutlineProvider(new ViewOutlineProvider() {
+                    @Override public void getOutline(View v, Outline o) { o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), U.dp(c, 9)); }
+                });
+                ai.setClipToOutline(true);
+                ai.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+                lead.addView(ai, new FrameLayout.LayoutParams(U.dp(c, 32), U.dp(c, 32)));
+            } else {
+                ImageView ic = Ic.view(c, it.icon, U.INK, 24);
+                if (ic != null) {
+                    FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(U.dp(c, 24), U.dp(c, 24));
+                    lp.gravity = Gravity.CENTER;
+                    lead.addView(ic, lp);
+                }
+            }
+            lead.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            addView(lead, new LinearLayout.LayoutParams(U.dp(c, 32), U.dp(c, 32)));
+            badge = ini;
+            appIcon = ai;
+            LinearLayout tx = U.col(c);
+            tx.setGravity(Gravity.CENTER_VERTICAL);
+            tx.setPadding(U.dp(c, 12), 0, U.dp(c, 6), 0);
+            title = U.text(c, "", 16, U.INK, false);
+            title.setSingleLine(true);
+            title.setEllipsize(TextUtils.TruncateAt.END);
+            tx.addView(title);
+            sub = U.text(c, "", 13, U.MUTED, false);
+            sub.setSingleLine(true);
+            sub.setEllipsize(TextUtils.TruncateAt.END);
+            sub.setVisibility(View.GONE);
+            tx.addView(sub);
+            addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            hint = U.text(c, "", 13, U.INK, true);
+            hint.setVisibility(View.GONE);
+            addView(hint, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            fx = Press.rowSwitch(this, ini);
+            setClickable(true);
+            setFocusable(true);
+            setOnClickListener(new View.OnClickListener() { public void onClick(View v) { if (action != null) action.run(); } });
+            setLayoutParams(U.full());
+        }
+
+        void bind(Item it, boolean animateBest) {
+            if (badge != null) badge.setText(it.title.replace("[", "").trim().length() > 0 ? it.title.replace("[", "").trim().substring(0, 1).toUpperCase(Locale.ITALY) : "?");
+            if (appIcon != null && appIcon.getDrawable() == null) appIcon.setImageDrawable(appIcon(it.pkg, it.cls));
+            SpannableString s = new SpannableString(it.title);
+            int[] m = it.q == null ? null : Cerca.match(it.title, it.q);
+            if (m != null) s.setSpan(new Bold(), m[0], m[1], Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            title.setText(s);
+            if (it.sub != null && it.sub.length() > 0) { sub.setText(it.sub); sub.setVisibility(View.VISIBLE); } else sub.setVisibility(View.GONE);
+            hint.setText(it.hint == null ? "" : it.hint);
+            hint.setVisibility(it.best && it.hint != null ? View.VISIBLE : View.GONE);
+            action = it.run;
+            String d = it.desc != null ? it.desc : it.title + (it.sub != null && it.sub.length() > 0 ? ", " + it.sub : "");
+            setContentDescription(it.best ? d + ", primo risultato" : d);
+            fx.setBest(it.best, animateBest);
+        }
+    }
+
+    /** L'icona dell'app così com'è (colori veri), dallo stesso pacchetto; null se non si trova. */
+    private Drawable appIcon(String pkg, String cls) {
+        if (pkg == null) return null;
+        Drawable.ConstantState cs = icons.get(pkg);
+        if (cs == null) {
+            try {
+                android.content.pm.PackageManager pm = getPackageManager();
+                Drawable d = cls != null ? pm.getActivityIcon(new android.content.ComponentName(pkg, cls)) : pm.getApplicationIcon(pkg);
+                cs = d.getConstantState();
+                if (cs == null) return d;
+                icons.put(pkg, cs);
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        return cs.newDrawable(getResources());
     }
 
     /** 0.8: chi passa sempre, persone e gruppi insieme, nell'ordine scelto in A portata: {nome, codice app, "g" se gruppo}. */
@@ -593,188 +793,206 @@ public class SearchActivity extends BaseActivity {
 
     private static class Hit {
         int rank;
-        String name, sub, code, badges;
+        String name, code, number, apps;
         boolean group, strong;
         Rules.Person person;
         long contactId = -1;
+        long until, last;
     }
 
-    private void found(final String q) {
-        List<List<View>> groups = new ArrayList<List<View>>(); // dal più importante (vicino al campo)
-        List<String> titles = new ArrayList<String>();
-
-        // 0.19 (Evolutiva 014): da 3 cifre, i contatti con quel numero e poi Chiama, Aggiungi ai contatti, WhatsApp
+    private void buildTyped(final String q, List<Item> out) {
+        if (apps == null) apps = U.sortedApps(this);
+        Map<String, Item> ent = new HashMap<String, Item>();
+        List<Cerca.Cand> cands = new ArrayList<Cerca.Cand>();
+        long now = System.currentTimeMillis();
+        Map<String, Long> recentAt = recentTimes();
         final String phone = Cerca.phoneSearch(q);
-        if (phone != null) numberGroups(q, phone, groups, titles);
+        final String typed = q.trim();
 
-        // Persone e gruppi
-        List<Hit> people = phone != null ? new ArrayList<Hit>() : peopleHits(q);
-        hitCount += people.size();
-        if (!people.isEmpty()) {
-            List<View> g = new ArrayList<View>();
-            for (int i = 0; i < people.size() && i < 4; i++) g.add(personRow(people.get(i)));
-            groups.add(g); titles.add("Contatti e gruppi");
-            final Hit h = people.get(0);
-            if (best == null) { best = new Runnable() { public void run() { openHit(h); } }; bestView = g.get(0); bestName = h.name; }
-        }
-        // App
-        List<U.AppInfo> appHits = appHits(q);
-        hitCount += appHits.size();
-        if (!appHits.isEmpty()) {
-            List<View> g = new ArrayList<View>();
-            Set<String> paused = U.pausedPkgs(this);
-            for (int i = 0; i < appHits.size() && i < 4; i++) {
-                final U.AppInfo a = appHits.get(i);
-                g.add(row(a.label, paused.contains(a.pkg) ? "si apre dopo " + U.pauseSeconds(this) + " secondi" : null, "›", "◻", new Runnable() { public void run() { openApp(a.pkg, a.label); } }));
+        if (phone != null) {
+            numberCandidates(typed, phone, ent, cands);
+        } else {
+            askRubrica(q);
+            // persone e gruppi: quelli di −minus subito, la rubrica quando arriva
+            List<Hit> people = peopleLocal(q);
+            Set<String> seen = new HashSet<String>();
+            for (Hit h : people) seen.add(Cerca.norm(h.name));
+            for (Hit r : rubricaHits) {
+                String k = Cerca.norm(r.name);
+                if (seen.contains(k) || !(Cerca.score(r.name, q) > 0 || r.name.toLowerCase(Locale.ITALY).contains(q.toLowerCase(Locale.ITALY)))) continue;
+                r.rank = Math.max(1, Cerca.rank(r.name, q, false));
+                people.add(r);
+                seen.add(k);
             }
-            groups.add(g); titles.add("App");
-            final U.AppInfo a0 = appHits.get(0);
-            if (best == null || phone == null && Cerca.score(a0.label, q) > (people.isEmpty() ? 0 : Cerca.score(people.get(0).name, q))) {
-                best = new Runnable() { public void run() { openApp(a0.pkg, a0.label); } };
-                bestView = g.get(0); bestName = a0.label;
+            for (final Hit h : people) {
+                String key = "p:" + Cerca.norm(h.name);
+                Item it = personItem(key, h.name, null, new Runnable() { public void run() { openHit(h); } });
+                if (h.until > now) it.sub = "aperta fino alle " + U.hhmm(h.until);
+                else if (h.group) it.sub = "Gruppo";
+                it.q = q;
+                it.dupSub = h.contactId >= 0 ? "in rubrica" : h.apps;
+                ent.put(key, it);
+                Long rt = recentAt.get(key);
+                cands.add(new Cerca.Cand(key, Cerca.PERSONA, h.name, h.rank).recent(Math.max(h.last, rt == null ? 0 : rt)));
             }
         }
-        // Impegni dei prossimi 30 giorni
-        if (U.hasCalendar(this) && q.length() >= 2) {
-            List<View> g = new ArrayList<View>();
-            for (final U.Event e : U.events(this, System.currentTimeMillis() - 3600000L, U.startOfDay(30))) {
-                if (Cerca.score(e.title, q) == 0) continue;
+        // app
+        Set<String> paused = U.pausedPkgs(this);
+        Set<String> pref = new HashSet<String>();
+        for (String[] a : portata(this)) pref.add(a[0]);
+        for (U.AppInfo a : apps) {
+            int s = Cerca.rank(a.label, q, pref.contains(a.pkg));
+            if (s == 0) continue;
+            Item it = appItem(a, paused, false);
+            it.q = q;
+            ent.put(it.key, it);
+            Long rt = recentAt.get(it.key);
+            cands.add(new Cerca.Cand(it.key, Cerca.APP, a.label, s).recent(rt == null ? 0 : rt));
+        }
+        // impegni dei prossimi 30 giorni
+        if (events != null && q.length() >= 2) {
+            for (final U.Event e : events) {
+                int s = Cerca.score(e.title, q);
+                if (s == 0) continue;
                 String when = (e.begin < U.startOfDay(1) ? "oggi" : e.begin < U.startOfDay(2) ? "domani" : U.dayLabel(e.begin).toLowerCase(Locale.ITALY))
                         + (e.allDay ? "" : " · " + U.hhmm(e.begin));
-                g.add(row(e.title, when, "›", "▤", new Runnable() { public void run() { U.openEvent(SearchActivity.this, e); } }));
-                if (g.size() >= 3) break;
+                String key = "ev:" + e.eventId + ":" + e.instBegin;
+                if (ent.containsKey(key)) continue;
+                Item it = iconRow(key, "ic_calendario", e.title, new Runnable() { public void run() { U.openEvent(SearchActivity.this, e); } });
+                it.sub = when; it.q = q;
+                ent.put(key, it);
+                cands.add(new Cerca.Cand(key, Cerca.IMPEGNO, e.title, s * 10).recent(-(e.begin / 1000L)));
             }
-            if (!g.isEmpty()) { groups.add(g); titles.add("Impegni"); }
         }
-        boolean anything = !groups.isEmpty();
-        // Azioni
-        List<View> act = new ArrayList<View>();
+        // azioni
         VoiceParser.Cmd c = VoiceParser.parse(q, VoiceActivity.names(this), java.util.Calendar.getInstance());
-        if (!VoiceParser.ASK.equals(c.type)) act.add(row("Esegui «" + q + "»", "come se lo dicessi a voce", "›", "▶", new Runnable() { public void run() { command(q); } }));
-        final String cap = q.substring(0, 1).toUpperCase(Locale.ITALY) + q.substring(1);
-        // 0.23: con un numero scritto, niente sottotitolo grigio («oggi») sotto «Aggiungi»
-        View addRow = row("Aggiungi «" + cap + "»", phone != null ? null : Quando.addDayOffset(U.hourNow()) == 1 ? "domani" : "oggi", "›", "+", new Runnable() {
-            public void run() {
-                Intent i = new Intent(SearchActivity.this, AddActivity.class);
-                i.putExtra("title", cap);
-                i.putExtra("day", U.startOfDay(Quando.addDayOffset(U.hourNow())));
-                startActivity(i);
-            }
-        });
-        if (phone != null) describe(addRow, "Aggiungi «" + cap + "» come impegno, " + (Quando.addDayOffset(U.hourNow()) == 1 ? "domani" : "oggi"));
-        act.add(addRow);
-        if (anything) { groups.add(act); titles.add("Azioni"); }
-        // Impostazioni di minus
-        List<String[]> st = Cerca.settings(q, 3);
-        if (!st.isEmpty()) {
-            List<View> g = new ArrayList<View>();
-            for (final String[] e : st) g.add(row(e[0], "Impostazioni", "›", null, new Runnable() { public void run() { openSetting(e[2]); } }));
-            groups.add(g); titles.add("Impostazioni di −minus");
-            anything = true;
+        if (!VoiceParser.ASK.equals(c.type)) {
+            Item it = iconRow("x:esegui", "ic_microfono", "Esegui «" + q + "»", new Runnable() { public void run() { command(q); } });
+            ent.put(it.key, it);
+            cands.add(new Cerca.Cand(it.key, Cerca.AZIONE, it.title, 0).order(0));
         }
-        // Chiedi, sempre per ultimo (lontano dal campo)
-        List<View> ask = new ArrayList<View>();
-        ask.add(row("Chiedi «" + q + "» all'assistente", null, "↗", null, new Runnable() { public void run() { ask(q); } }));
-        if (!anything) {
-            ask.add(row("Cerca sul web", null, "↗", null, new Runnable() { public void run() { web(q); } }));
-            ask.add(row("Cerca nel Play Store", null, "↗", null, new Runnable() { public void run() { store(q); } }));
-            groups.add(act); titles.add("Azioni");
-        }
-        groups.add(ask); titles.add("Chiedi");
-        if (best == null) best = new Runnable() { public void run() { ask(q); } };
-        // 0.18 (Evolutiva 013): il risultato che Invio apre è già scelto: solo il riquadro più scuro
-        if (bestView instanceof ViewGroup && ((ViewGroup) bestView).getChildCount() > 0) {
-            View r = ((ViewGroup) bestView).getChildAt(0);
-            // 0.20: il riquadro entra in dissolvenza (RAPIDO) invece di comparire; i 10 dp ai lati ci sono sempre (insetRows)
-            Press.Fade f = Press.rowBest(r);
-            if (rendered && !bestName.equals(lastBestName)) f.appear();
-            CharSequence d0 = r.getContentDescription(); // 0.23: se la riga ha già una descrizione per TalkBack, la si tiene
-            r.setContentDescription((d0 != null ? d0.toString() : bestName) + ", primo risultato");
-        }
-
-        // dall'alto il meno importante: il primo gruppo finisce attaccato al campo
-        if (!anything) {
-            TextView t = U.text(this, "Nessuna persona, app o impegno con «" + q + "».", 15, U.INK, false);
-            t.setPadding(U.dp(this, 10), 0, U.dp(this, 10), U.dp(this, 6));
-            results.addView(t, U.full());
-        }
-        for (int i = groups.size() - 1; i >= 0; i--) {
-            TextView lab = U.label(this, titles.get(i));
-            lab.setPadding(U.dp(this, 10), lab.getPaddingTop(), U.dp(this, 10), lab.getPaddingBottom()); // come le righe, che hanno sempre 10 dp ai lati
-            results.addView(lab, U.full());
-            for (View v : groups.get(i)) results.addView(v, U.full());
-        }
-    }
-
-    /** 0.19 (Evolutiva 014): i contatti con quel numero (vicino al campo) e le tre azioni sul numero. Senza permesso contatti, solo le tre azioni. */
-    private void numberGroups(final String q, final String digits, List<List<View>> groups, List<String> titles) {
-        final String typed = q.trim();
-        List<Hit> found = new ArrayList<Hit>();
-        if (Onboarding.hasContacts(this)) {
-            Cursor cur = null;
-            try {
-                cur = getContentResolver().query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                        new String[]{ContactsContract.CommonDataKinds.Phone.CONTACT_ID, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER},
-                        null, null, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC");
-                Set<Long> seen = new java.util.HashSet<Long>();
-                while (cur != null && cur.moveToNext() && found.size() < 4) {
-                    long id = cur.getLong(0);
-                    String name = cur.getString(1), num = cur.getString(2);
-                    if (name == null || seen.contains(id) || !Cerca.numberMatches(num, digits)) continue;
-                    seen.add(id);
-                    Hit h = new Hit();
-                    h.name = name; h.contactId = id; h.sub = num;
-                    found.add(h);
+        if (phone == null) {
+            final String cap = q.substring(0, 1).toUpperCase(Locale.ITALY) + q.substring(1);
+            Item it = iconRow("x:aggiungi", "ic_aggiungi", "Aggiungi «" + cap + "»", new Runnable() {
+                public void run() {
+                    Intent i = new Intent(SearchActivity.this, AddActivity.class);
+                    i.putExtra("title", cap);
+                    i.putExtra("day", U.startOfDay(Quando.addDayOffset(U.hourNow())));
+                    startActivity(i);
                 }
-            } catch (Exception ignored) {
-            } finally {
-                if (cur != null) cur.close();
+            });
+            it.sub = "Impegno · " + (Quando.addDayOffset(U.hourNow()) == 1 ? "domani" : "oggi");
+            ent.put(it.key, it);
+            cands.add(new Cerca.Cand(it.key, Cerca.AZIONE, it.title, 0).order(1).needsHit());
+        }
+        // impostazioni di −minus
+        for (Cerca.Cand s : Cerca.settingCands(q)) {
+            final String dest = Cerca.SETTINGS[s.order][2];
+            Item it = iconRow(s.key, "ic_impostazioni", s.label, new Runnable() { public void run() { openSetting(dest); } });
+            it.q = q;
+            ent.put(it.key, it);
+            cands.add(s);
+        }
+        // Chiedi, sempre per ultimo (tre righe solo se non c'è altro)
+        if (phone == null) {
+            Item it = iconRow("q:chiedi", "ic_info", "Chiedi «" + q + "» all'assistente", new Runnable() { public void run() { ask(q); } });
+            ent.put(it.key, it);
+            cands.add(new Cerca.Cand(it.key, Cerca.CHIEDI, it.title, 0).order(0));
+            Item w = iconRow("q:web", "ic_cerca", "Cerca sul web", new Runnable() { public void run() { web(q); } });
+            ent.put(w.key, w);
+            cands.add(new Cerca.Cand(w.key, Cerca.CHIEDI, w.title, 0).order(1));
+            Item st = iconRow("q:store", "ic_cerca", "Cerca nel Play Store", new Runnable() { public void run() { store(q); } });
+            ent.put(st.key, st);
+            cands.add(new Cerca.Cand(st.key, Cerca.CHIEDI, st.title, 0).order(2));
+        }
+
+        Cerca.Plan plan = Cerca.plan(cands, expanded);
+        hitsNow = plan.hits();
+        // nessun risultato: nessuna preselezione (Invio non fa niente) e una frase che lo dice
+        if (!plan.anything && phone == null) {
+            Item n = new Item();
+            n.type = T_NOTE; n.key = "note"; n.title = "Nessun contatto, app o impegno con «" + q + "».";
+            out.add(n);
+        }
+        if (plan.best != null) {
+            Item b = ent.get(plan.best.key);
+            b.best = true;
+            b.hint = Cerca.hint(plan.best);
+            best = b.run;
+            bestLabel = b.title;
+            out.add(b);
+        }
+        // due «Marco» in elenco: la riga muta dice quale è quale
+        Map<String, Integer> names = new HashMap<String, Integer>();
+        List<Item> people = new ArrayList<Item>();
+        if (plan.best != null && ent.get(plan.best.key).personRow) people.add(ent.get(plan.best.key));
+        for (Cerca.Cand cd : plan.groups.get(Cerca.PERSONA)) people.add(ent.get(cd.key));
+        for (Item p : people) { String k = Cerca.norm(p.title); Integer n = names.get(k); names.put(k, n == null ? 1 : n + 1); }
+        for (Item p : people) if (p.sub == null && names.get(Cerca.norm(p.title)) > 1 && p.dupSub != null && p.dupSub.length() > 0) p.sub = p.dupSub;
+        for (int k = 0; k < 6; k++) {
+            List<Cerca.Cand> g = plan.groups.get(k);
+            if (g.isEmpty()) continue;
+            Item h = new Item();
+            h.type = T_HEAD; h.key = "h:" + k; h.title = Cerca.TITOLI[k]; h.group = k;
+            if (plan.more[k] > 0) {
+                h.more = true;
+                final int kk = k;
+                h.run = new Runnable() { public void run() { expanded = kk; render(); } };
             }
-        }
-        if (!found.isEmpty()) {
-            List<View> g = new ArrayList<View>();
-            for (Hit h : found) g.add(personRow(h));
-            groups.add(g); titles.add("Contatti e gruppi");
-            if (found.size() == 1) { // un solo contatto: è già scelto
-                final Hit h = found.get(0);
-                best = new Runnable() { public void run() { openHit(h); } };
-                bestView = g.get(0); bestName = h.name;
-            }
-        }
-        // dall'alto: WhatsApp, Aggiungi ai contatti, Chiama (l'ultima sta vicino al pollice)
-        List<View> g = new ArrayList<View>();
-        if (Telefono.hasWhatsApp(this))
-        { // 0.23: senza sottotitoli grigi; a TalkBack resta detto cosa si apre
-            View wa = row("Scrivi su WhatsApp", null, "›", "↗", new Runnable() { public void run() { Telefono.whatsapp(SearchActivity.this, typed); } });
-            describe(wa, "Scrivi su WhatsApp. Apre la chat con questo numero");
-            g.add(wa);
-        }
-        View add = row("Aggiungi ai contatti", null, "›", "+", new Runnable() { public void run() { Telefono.newContact(SearchActivity.this, typed); } });
-        describe(add, "Aggiungi ai contatti. Si apre la rubrica di Android con il numero già scritto");
-        g.add(add);
-        View call = row("Chiama " + typed, null, "›", null, new Runnable() { public void run() { Telefono.dial(SearchActivity.this, typed); } });
-        describe(call, "Chiama " + typed + ". Si apre il tastierino di Android con il numero già scritto");
-        LinearLayout callRow = (LinearLayout) ((ViewGroup) call).getChildAt(0);
-        LinearLayout callIcon = U.row(this);
-        callIcon.setGravity(Gravity.CENTER);
-        callIcon.setBackground(U.box(this, U.BG, U.LINE, 8));
-        callIcon.addView(new Telefono.Icon(this, U.MUTED), new LinearLayout.LayoutParams(U.dp(this, 22), U.dp(this, 22)));
-        LinearLayout.LayoutParams cilp = new LinearLayout.LayoutParams(U.dp(this, 34), U.dp(this, 34));
-        cilp.rightMargin = U.dp(this, 12);
-        callRow.addView(callIcon, 0, cilp);
-        g.add(call);
-        groups.add(g); titles.add("Numero");
-        if (best == null) {
-            best = new Runnable() { public void run() { Telefono.dial(SearchActivity.this, typed); } };
-            bestView = call; bestName = "Chiama " + typed;
+            out.add(h);
+            for (Cerca.Cand cd : g) out.add(ent.get(cd.key));
         }
     }
 
-    private List<Hit> peopleHits(String q) {
+    /** Con un numero scritto (da 3 cifre): Migliore è il contatto unico o «Chiama»; poi i contatti con quel numero; Azioni: WhatsApp, Aggiungi ai contatti. */
+    private void numberCandidates(final String typed, String digits, Map<String, Item> ent, List<Cerca.Cand> cands) {
+        askNumbers(digits);
+        List<Hit> found = new ArrayList<Hit>();
+        for (Hit h : numberHits) if (Cerca.numberMatches(h.number, digits)) found.add(h);
+        boolean unique = found.size() == 1;
+        for (final Hit h : found) {
+            String key = "c:" + h.contactId;
+            Item it = personItem(key, h.name, h.number, new Runnable() { public void run() { openHit(h); } });
+            ent.put(key, it);
+            cands.add(new Cerca.Cand(key, Cerca.PERSONA, h.name, unique ? 100 : 50));
+        }
+        if (!unique) {
+            Item call = iconRow("x:chiama", "ic_telefono", "Chiama " + typed, new Runnable() { public void run() { Telefono.dial(SearchActivity.this, typed); } });
+            call.desc = "Chiama " + typed + ". Si apre il tastierino di Android con il numero già scritto";
+            ent.put(call.key, call);
+            cands.add(new Cerca.Cand(call.key, Cerca.AZIONE, call.title, 100).canBest());
+        }
+        if (Telefono.hasWhatsApp(this)) {
+            Item wa = iconRow("x:wa", "ic_chat", "Scrivi su WhatsApp", new Runnable() { public void run() { Telefono.whatsapp(SearchActivity.this, typed); } });
+            wa.desc = "Scrivi su WhatsApp. Apre la chat con questo numero";
+            ent.put(wa.key, wa);
+            cands.add(new Cerca.Cand(wa.key, Cerca.AZIONE, wa.title, 0).order(0));
+        }
+        Item add = iconRow("x:addc", "ic_contatti", "Aggiungi ai contatti", new Runnable() { public void run() { Telefono.newContact(SearchActivity.this, typed); } });
+        add.desc = "Aggiungi ai contatti. Si apre la rubrica di Android con il numero già scritto";
+        ent.put(add.key, add);
+        cands.add(new Cerca.Cand(add.key, Cerca.AZIONE, add.title, 0).order(1));
+    }
+
+    /** Quando hai aperto per l'ultima volta app e persone cercate (dai «cercati di recente»), per lo spareggio. */
+    private Map<String, Long> recentTimes() {
+        Map<String, Long> m = new HashMap<String, Long>();
+        for (String[] r : recents(this)) {
+            if (r.length < 4) continue;
+            try {
+                long t = Long.parseLong(r[3].trim());
+                m.put("app".equals(r[0]) ? "a:" + r[1] : "p:" + Cerca.norm(r[2]), t);
+            } catch (NumberFormatException ignored) {}
+        }
+        return m;
+    }
+
+    /** Persone e gruppi che −minus conosce (chi passa sempre, i frequenti, le conversazioni viste), senza la rubrica. */
+    private List<Hit> peopleLocal(String q) {
         List<Hit> out = new ArrayList<Hit>();
-        Set<String> seen = new java.util.HashSet<String>();
-        java.util.Map<String, String> rules = U.groupRules(this);
-        java.util.Map<String, Rules.Conv> conv = new java.util.HashMap<String, Rules.Conv>();
+        Set<String> seen = new HashSet<String>();
+        Map<String, String> rules = U.groupRules(this);
+        Map<String, Rules.Conv> conv = new HashMap<String, Rules.Conv>();
         long now = System.currentTimeMillis();
         for (Rules.Conv c : Convs.load(this)) {
             String k = Cerca.norm(Rules.groupName(c.name));
@@ -782,13 +1000,15 @@ public class SearchActivity extends BaseActivity {
             if (o == null || c.until > o.until || c.last > o.last) conv.put(k, c);
         }
         for (Rules.Person p : Rules.people(U.cfg(this, U.K_CONTACTS, U.DEF_CONTACTS))) {
-            int s = Cerca.rank(p.name, q, p.section.equalsIgnoreCase("Sempre"));
+            Rules.Conv c = conv.get(Cerca.norm(p.name));
+            boolean always = p.section.equalsIgnoreCase("Sempre");
+            int s = Cerca.rank(p.name, q, always || (c != null && c.isOpen(now)));
             if (s == 0) continue;
             Hit h = new Hit();
-            h.rank = s; h.name = p.name; h.person = p; h.strong = p.section.equalsIgnoreCase("Sempre");
-            h.sub = status(this, conv.get(Cerca.norm(p.name)), p, null, now);
-            h.badges = TextUtils.join(" ", p.apps);
+            h.rank = s; h.name = p.name; h.person = p; h.strong = always;
             h.code = p.apps.isEmpty() ? "WA" : p.apps.get(0);
+            h.apps = names(p.apps);
+            if (c != null) { h.until = c.isOpen(now) ? c.until : 0; h.last = Rules.touched(c); }
             out.add(h); seen.add(Cerca.norm(p.name));
         }
         for (Rules.Conv c : conv.values()) {
@@ -798,163 +1018,106 @@ public class SearchActivity extends BaseActivity {
             int s = Cerca.rank(c.name, q, Rules.groupAlways(rule) || c.isOpen(now));
             if (s == 0) continue;
             Hit h = new Hit();
-            h.rank = s; h.name = Rules.groupName(c.name); h.code = c.code; h.group = c.group; h.badges = c.code;
-            h.sub = status(this, c, null, rule, now);
+            h.rank = s; h.name = Rules.groupName(c.name); h.code = c.code; h.group = c.group;
+            h.apps = Rules.appName(c.code);
+            h.until = c.isOpen(now) ? c.until : 0; h.last = Rules.touched(c);
             out.add(h); seen.add(k);
         }
-        if (Onboarding.hasContacts(this) && Cerca.norm(q).length() >= 2) {
-            Cursor cur = null;
-            try {
-                cur = getContentResolver().query(ContactsContract.Contacts.CONTENT_URI,
-                        new String[]{ContactsContract.Contacts._ID, ContactsContract.Contacts.DISPLAY_NAME},
-                        ContactsContract.Contacts.DISPLAY_NAME + " LIKE ?", new String[]{"%" + q + "%"}, ContactsContract.Contacts.DISPLAY_NAME + " ASC");
-                int n = 0;
-                while (cur != null && cur.moveToNext() && n < 12) {
-                    String name = cur.getString(1);
-                    if (name == null || seen.contains(Cerca.norm(name))) continue;
-                    n++;
-                    Hit h = new Hit();
-                    h.rank = Math.max(1, Cerca.rank(name, q, false));
-                    h.name = name; h.contactId = cur.getLong(0); h.sub = "in rubrica";
-                    out.add(h); seen.add(Cerca.norm(name));
-                }
-            } catch (Exception ignored) {
-            } finally {
-                if (cur != null) cur.close();
-            }
-        }
-        Collections.sort(out, new Comparator<Hit>() { public int compare(Hit a, Hit b) { return b.rank - a.rank; } });
         return out;
     }
 
-    private static String status(android.content.Context ctx, Rules.Conv c, Rules.Person p, String groupRule, long now) {
-        // 0.16: gli stessi quattro stati di Persone e gruppi
-        String st = Pass.state(ctx, c != null && c.group, groupRule, c == null ? null : c.code, p, c != null && c.isOpen(now) ? c.until : 0, now);
-        if (st != null) return st;
-        if (c != null && c.last >= U.startOfDay(0)) return "ti ha scritto alle " + U.hhmm(c.last);
-        return null;
+    private static String names(List<String> codes) {
+        StringBuilder b = new StringBuilder();
+        for (String c : codes) { if (b.length() > 0) b.append(" e "); b.append(Rules.appName(c)); }
+        return b.toString();
     }
 
-    private List<U.AppInfo> appHits(String q) {
-        if (apps == null) apps = U.sortedApps(this);
-        Set<String> pref = new java.util.HashSet<String>();
-        for (String[] a : portata(this)) pref.add(a[0]);
-        final java.util.Map<U.AppInfo, Integer> rank = new java.util.HashMap<U.AppInfo, Integer>();
-        List<U.AppInfo> out = new ArrayList<U.AppInfo>();
-        for (U.AppInfo a : apps) {
-            int s = Cerca.rank(a.label, q, pref.contains(a.pkg));
-            if (s > 0) { rank.put(a, s); out.add(a); }
+    /** La rubrica per nome (fino a 12). Si chiama fuori dal thread principale, tranne che da un recente. */
+    private List<Hit> rubrica(String q) {
+        List<Hit> out = new ArrayList<Hit>();
+        if (!Onboarding.hasContacts(this) || Cerca.norm(q).length() < 2) return out;
+        Cursor cur = null;
+        try {
+            cur = getContentResolver().query(ContactsContract.Contacts.CONTENT_URI,
+                    new String[]{ContactsContract.Contacts._ID, ContactsContract.Contacts.DISPLAY_NAME},
+                    ContactsContract.Contacts.DISPLAY_NAME + " LIKE ?", new String[]{"%" + q + "%"}, ContactsContract.Contacts.DISPLAY_NAME + " ASC");
+            Set<String> seen = new HashSet<String>();
+            while (cur != null && cur.moveToNext() && out.size() < 12) {
+                String name = cur.getString(1);
+                if (name == null || !seen.add(Cerca.norm(name))) continue;
+                Hit h = new Hit();
+                h.rank = Math.max(1, Cerca.rank(name, q, false));
+                h.name = name; h.contactId = cur.getLong(0);
+                out.add(h);
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (cur != null) cur.close();
         }
-        Collections.sort(out, new Comparator<U.AppInfo>() { public int compare(U.AppInfo a, U.AppInfo b) { return rank.get(b) - rank.get(a); } });
         return out;
     }
 
-    // ---------- Righe ----------
-
-    private TextView chip(String s, final Runnable r) {
-        TextView t = U.text(this, s, 14, U.INK, false);
-        t.setSingleLine(true);
-        t.setEllipsize(TextUtils.TruncateAt.END);
-        t.setMaxWidth(U.dp(this, 150));
-        t.setGravity(Gravity.CENTER);
-        t.setMinHeight(U.dp(this, 44));
-        t.setPadding(U.dp(this, 14), 0, U.dp(this, 14), 0);
-        Press.chip(t, U.SURFACE, U.BORDER, 20);
-        t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
-        return t;
-    }
-
-    private View row(String title, String sub, String right, String icon, final Runnable r) {
-        LinearLayout row = U.row(this);
-        row.setMinimumHeight(U.dp(this, 50));
-        int inset = insetRows ? U.dp(this, 10) : 0; // 0.20: sempre riservati, così il testo non si sposta quando il riquadro compare
-        row.setPadding(inset, U.dp(this, 4), inset, U.dp(this, 4));
-        Press.row(row);
-        if (icon != null) {
-            TextView ic = U.text(this, icon, 14, U.MUTED, false);
-            ic.setGravity(Gravity.CENTER);
-            ic.setBackground(U.box(this, U.BG, U.LINE, 8));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(U.dp(this, 34), U.dp(this, 34));
-            lp.rightMargin = U.dp(this, 12);
-            row.addView(ic, lp);
-        }
-        LinearLayout tx = U.col(this);
-        TextView t = U.text(this, title, 15, U.INK, false);
-        t.setSingleLine(true);
-        t.setEllipsize(TextUtils.TruncateAt.END);
-        tx.addView(t);
-        if (sub != null) tx.addView(U.text(this, sub, 12, U.MUTED, false));
-        row.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        if (right != null) row.addView(U.text(this, right, 15, U.MUTED, false));
-        row.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
-        LinearLayout wrap = U.col(this);
-        wrap.addView(row, U.full());
-        wrap.addView(U.divider(this));
-        return wrap;
-    }
-
-    /** Descrizione per TalkBack della riga (la vista dentro il contenitore che row() restituisce). */
-    private void describe(View wrapped, String d) {
-        if (wrapped instanceof ViewGroup && ((ViewGroup) wrapped).getChildCount() > 0) ((ViewGroup) wrapped).getChildAt(0).setContentDescription(d);
-    }
-
-    private View personRow(final Hit h) {
-        LinearLayout row = U.row(this);
-        row.setMinimumHeight(U.dp(this, 54));
-        if (insetRows) row.setPadding(U.dp(this, 10), 0, U.dp(this, 10), 0);
-        String n0 = h.name.replace("[", "").trim();
-        View ini = U.initial(this, h.name, h.group, 32);
-        Press.rowWithBadge(row, (TextView) ini); // 0.20: premuto, il cerchio con l'iniziale si riempie d'inchiostro
-        row.addView(ini, new LinearLayout.LayoutParams(U.dp(this, 32), U.dp(this, 32)));
-        LinearLayout tx = U.col(this);
-        tx.setPadding(U.dp(this, 12), 0, U.dp(this, 6), 0);
-        TextView t = U.text(this, h.name, 15, U.INK, h.strong);
-        t.setSingleLine(true);
-        t.setEllipsize(TextUtils.TruncateAt.END);
-        tx.addView(t);
-        // 0.17: come in «Persone e gruppi»: sotto il nome le icone delle app, a destra lo stato come link
-        boolean link = h.contactId < 0 && h.sub != null;
-        if (h.sub != null && !link) tx.addView(U.text(this, h.sub, 12, U.MUTED, false));
-        if (h.badges != null && h.badges.length() > 0) {
-            LinearLayout icons = U.row(this);
-            icons.setPadding(0, U.dp(this, 3), 0, 0);
-            for (String code : h.badges.split(" ")) if (code.length() > 0) {
-                View b = AppIcons.badge(this, AppIcons.pkgOfCode(this, code), Rules.appName(code), U.MUTED);
-                if (icons.getChildCount() == 0) b.setPadding(0, 0, b.getPaddingRight(), 0);
-                icons.addView(b);
+    /** I contatti il cui numero contiene le cifre scritte (fino a 12). */
+    private List<Hit> numberContacts(String digits) {
+        List<Hit> out = new ArrayList<Hit>();
+        Cursor cur = null;
+        try {
+            cur = getContentResolver().query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    new String[]{ContactsContract.CommonDataKinds.Phone.CONTACT_ID, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER},
+                    null, null, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC");
+            Set<Long> seen = new HashSet<Long>();
+            while (cur != null && cur.moveToNext() && out.size() < 12) {
+                long id = cur.getLong(0);
+                String name = cur.getString(1), num = cur.getString(2);
+                if (name == null || seen.contains(id) || !Cerca.numberMatches(num, digits)) continue;
+                seen.add(id);
+                Hit h = new Hit();
+                h.name = name; h.contactId = id; h.number = num;
+                out.add(h);
             }
-            tx.addView(icons);
+        } catch (Exception ignored) {
+        } finally {
+            if (cur != null) cur.close();
         }
-        row.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView statusLink = null;
-        if (link) {
-            statusLink = U.text(this, h.sub, 13, U.INK, false);
-            statusLink.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
-            statusLink.setPadding(U.dp(this, 8), 0, 0, 0);
-            row.addView(statusLink);
-            Pass.asLink(statusLink, h.sub); // 0.18: sottolineato tranne il pallino
-            statusLink.setMinHeight(U.dp(this, 48));
-            Press.link(statusLink, U.INK);
-            statusLink.setContentDescription(h.name + ": " + Pass.spoken(h.sub) + ". Cambia come passano i messaggi");
-            statusLink.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View v) { Pass.sheet(SearchActivity.this, pkgOf(h.code), h.name, new Runnable() { public void run() { render(); } }); }
-            });
-        }
-        row.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { openHit(h); } });
-        LinearLayout wrap = U.col(this);
-        wrap.addView(row, U.full());
-        wrap.addView(U.divider(this));
-        return wrap;
+        return out;
     }
 
-    private View convRow(Rules.Conv c) {
-        Hit h = new Hit();
-        h.name = Rules.groupName(c.name); h.code = c.code; h.group = c.group; h.badges = c.code;
-        Rules.Person p = null;
-        for (Rules.Person x : Rules.people(U.cfg(this, U.K_CONTACTS, U.DEF_CONTACTS))) if (Cerca.norm(x.name).equals(Cerca.norm(h.name))) p = x;
-        h.person = p;
-        h.sub = status(this, c, p, c.group ? U.groupRules(this).get(h.name.toLowerCase(Locale.ITALY)) : null, System.currentTimeMillis());
-        return personRow(h);
+    /** Per un recente: persone di −minus e rubrica, nello stesso ordine di prima (qui si può aspettare: è un tocco). */
+    private List<Hit> peopleHits(String q) {
+        List<Hit> out = peopleLocal(q);
+        Set<String> seen = new HashSet<String>();
+        for (Hit h : out) seen.add(Cerca.norm(h.name));
+        for (Hit r : rubrica(q)) if (seen.add(Cerca.norm(r.name))) out.add(r);
+        return out;
+    }
+
+    /** 0.15: chi passa sempre, con prima le conversazioni in corso e poi chi hai sentito più di recente. */
+    private List<String[]> byLastTouch(List<String[]> fixed) {
+        long now = System.currentTimeMillis();
+        List<Rules.Conv> convs = Convs.load(this);
+        java.util.Map<String, Rules.Person> persons = new java.util.HashMap<String, Rules.Person>();
+        for (Rules.Person p : Rules.people(U.cfg(this, U.K_CONTACTS, U.DEF_CONTACTS))) persons.put(Cerca.norm(p.name), p);
+        java.util.Map<String, Long> last = new java.util.HashMap<String, Long>();
+        Set<String> live = new java.util.HashSet<String>();
+        java.util.Map<String, String[]> byName = new java.util.LinkedHashMap<String, String[]>();
+        for (String[] f : fixed) {
+            byName.put(f[0], f);
+            String key = Cerca.norm(f[0]);
+            Rules.Person p = "g".equals(f[2]) ? null : persons.get(key);
+            Set<String> nums = p == null ? java.util.Collections.<String>emptySet() : Nums.forPerson(this, p);
+            long t = 0;
+            for (Rules.Conv c : convs) {
+                boolean same = Cerca.norm(Rules.groupName(c.name)).equals(key)
+                        || (!c.group && !nums.isEmpty() && !java.util.Collections.disjoint(nums, Nums.forConv(this, c.name)));
+                if (!same) continue;
+                t = Math.max(t, Rules.touched(c));
+                if (c.listed(now)) live.add(f[0]);
+            }
+            last.put(f[0], t);
+        }
+        List<String[]> out = new ArrayList<String[]>();
+        for (String n : Cerca.byLast(new ArrayList<String>(byName.keySet()), last, live)) out.add(byName.get(n));
+        return out;
     }
 
     static String pkgOf(String code) {
