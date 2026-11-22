@@ -321,24 +321,16 @@ public class ListActivity extends PageActivity {
         if (!always.isEmpty()) { section("Passano sempre"); for (Entry e : always) entryRow(e, rub, now); }
         if (!recent.isEmpty()) { section("Ti hanno scritto di recente"); for (Entry e : recent) entryRow(e, rub, now); }
         if (open.isEmpty() && always.isEmpty() && recent.isEmpty()) empty(groups);
-        if (!groups && filter.length() == 0) {
-            TextView add = U.text(this, "+   Aggiungi dalla rubrica", 15, U.INK, false);
-            add.setMinHeight(U.dp(this, 52));
-            add.setGravity(Gravity.CENTER_VERTICAL);
-            add.setContentDescription("Aggiungi dalla rubrica");
-            PressB.row(add);
-            add.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View v) { startActivity(new Intent(ListActivity.this, PeopleActivity.class).putExtra("back", "Contatti e gruppi")); }
-            });
-            list.addView(add, U.full());
-            list.addView(U.divider(this));
-        }
-        TextView all = U.text(this, (groups ? "Tutti i gruppi" : "Tutti i contatti") + ", dalla A alla Z  ›", 15, U.INK, false);
+        // 0.24 (Evolutiva 018): una sola voce, «Tutti i contatti ›» (A–Z con ricerca e lo stato di ogni riga); niente «+ Aggiungi dalla rubrica».
+        // Senza il permesso dei contatti diventa «Scegli dalla rubrica ›»: il selettore con il riquadro del permesso al suo posto.
+        final boolean noRubrica = !groups && !Onboarding.hasContacts(this);
+        TextView all = U.text(this, noRubrica ? "Scegli dalla rubrica  ›" : (groups ? "Tutti i gruppi" : "Tutti i contatti") + "  ›", 15, U.INK, false);
         all.setMinHeight(U.dp(this, 48));
         all.setGravity(Gravity.CENTER_VERTICAL);
         PressB.row(all);
         all.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
+                if (noRubrica) { startActivity(SelectorActivity.intent(ListActivity.this, Scegli.PEOPLE, "Contatti e gruppi")); return; }
                 startActivity(new Intent(ListActivity.this, ListActivity.class).putExtra(EXTRA_MODE, MODE_CONTACTS)
                         .putExtra("tab", tab).putExtra("az", true).putExtra("back", "Contatti e gruppi"));
             }

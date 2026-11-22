@@ -114,7 +114,7 @@ public class ServiziActivity extends PageActivity {
                 PressB.checkThen(v, cb, !on, new Runnable() {
                     public void run() {
                         Changes.track(ServiziActivity.this, (on ? "Servizi: tolta " : "Servizi: aggiunta ") + a.label, new String[]{U.K_SERVICES},
-                                new Runnable() { public void run() { set(a.pkg, !on); } },
+                                new Runnable() { public void run() { set(ServiziActivity.this, a.pkg, !on); } },
                                 new Runnable() { public void run() { render(); } });
                     }
                 });
@@ -124,9 +124,9 @@ public class ServiziActivity extends PageActivity {
         list.addView(U.divider(this));
     }
 
-    private void set(String pkg, boolean on) {
+    static void set(android.content.Context c, String pkg, boolean on) {
         List<String> out = new ArrayList<String>();
-        for (String line : U.cfg(this, U.K_SERVICES, U.DEF_SERVICES).split("\n")) {
+        for (String line : U.cfg(c, U.K_SERVICES, U.DEF_SERVICES).split("\n")) {
             String l = line.trim();
             if (l.equalsIgnoreCase("pkg:" + pkg) || l.equalsIgnoreCase("!pkg:" + pkg)) continue;
             out.add(line);
@@ -134,6 +134,6 @@ public class ServiziActivity extends PageActivity {
         StringBuilder b = new StringBuilder();
         for (String l : out) if (l.length() > 0) b.append(l).append('\n');
         b.append(on ? "pkg:" : "!pkg:").append(pkg).append('\n');
-        U.prefs(this).edit().putString(U.K_SERVICES, b.toString()).commit();
+        U.prefs(c).edit().putString(U.K_SERVICES, b.toString()).commit();
     }
 }

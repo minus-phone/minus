@@ -3,14 +3,10 @@ package it.essenziale.launcher;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.database.Cursor;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.ContactsContract;
-import android.text.Editable;
 import android.text.InputType;
-import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,10 +16,8 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -38,7 +32,9 @@ import java.util.Set;
 public class OnboardingActivity extends PageActivity {
 
     static final int GOALS = 0, HOME = 1, DAY = 2, PORTATA = 3, NOTIF = 4, UNLOCK = 5, DOOM_APPS = 6, DOOM_HOW = 7,
-            SLEEP = 8, TRIAL = 9, ALT = 10, READY = 11;
+            SLEEP = 8, TRIAL = 9, ALT = 10, READY = 11,
+            // 0.24 (Evolutiva 018): «Meno notifiche» guidato, una scelta per schermata, poi il riepilogo NOTIF
+            N_PEOPLE = 12, N_SERV = 13, N_GROUPS = 14;
 
     private static final int REQ_CAL = 4, REQ_CONTACTS = 3, REQ_PICK = 51;
 
@@ -46,27 +42,25 @@ public class OnboardingActivity extends PageActivity {
     private int idx = 0;
     private String onlyGoal;        // dalle Impostazioni: «Accendi»
     private boolean onlyStep;       // dalle Impostazioni: un solo passo
-    private boolean who = false;    // dentro «Chi conta» (185), sopra «Cosa ti avvisa» (186)
-    private boolean restricted = false;
+    private int sub = -1;           // 0.24: un selettore aperto dal riepilogo o dalla prova (tipo di Scegli), sopra il passo
+    private final GuidaPerm guide = new GuidaPerm(); // 0.24: la guida «Android blocca questo permesso»
+    private Scegli scegli;          // il selettore sullo schermo, per la rubrica di Android
     private boolean splash = false, hadSplash = false; // 0.15 · 179: logo e promessa, solo al primo avvio
     private LinearLayout root, body, foot;
     private final java.util.Set<String> chosenGoals = new java.util.LinkedHashSet<String>();
 
     // stato dei passi
     private boolean askedContacts = false, askedCal = false;
-    private final Map<String, String[]> chosen = new LinkedHashMap<String, String[]>();    // nome minuscolo -> {nome, numero}
-    private final Map<String, String[]> candidates = new LinkedHashMap<String, String[]>();
-    private boolean peopleLoaded = false;
-    private String search = "";
-    private LinearLayout searchResults;
     private List<String[]> portataCand;   // {pacchetto, nome, tipo}
     private List<String[]> portataSel;    // {pacchetto, nome}
-    private boolean doomPrepared = false, sleepPrepared = false;
+    private boolean sleepPrepared = false;
+    static final String K_CALLS = "onb_chiamate"; // 0.24: «Chiamate» nel passo Gruppi: squillano solo chi conta (acceso di default)
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         running = true;
+        Scegli.resetSession();
         onlyGoal = getIntent().getStringExtra("goal");
         int only = getIntent().getIntExtra("only", -1);
         if (onlyGoal != null) {
@@ -82,13 +76,17 @@ public class OnboardingActivity extends PageActivity {
         }
         root = U.col(this);
         root.setBackgroundColor(U.BG);
-        root.setPadding(U.dp(this, 20), U.dp(this, 16), U.dp(this, 20), U.dp(this, 12));
+        root.setPadding(0, U.dp(this, 16), 0, 0);
         ScrollView sv = new ScrollView(this);
         scroll = sv;
         body = U.col(this);
+        body.setPadding(U.dp(this, 20), 0, U.dp(this, 20), U.dp(this, 12));
         sv.addView(body);
         root.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         foot = U.col(this);
+        // 0.24: il piede ha il fondo della pagina e un filo in alto: ciò che scorre non si vede mai sotto i pulsanti
+        foot.setBackgroundColor(U.BG);
+        foot.setPadding(U.dp(this, 20), 0, U.dp(this, 20), U.dp(this, 12));
         foot.setClipChildren(false);
         foot.setClipToPadding(false);
         root.setClipChildren(false);
@@ -102,8 +100,32 @@ public class OnboardingActivity extends PageActivity {
     protected void onResume() {
         super.onResume();
         watching = null; // 0.13.5: sei tornata, non serve più riportarti qui
+        if (guide.visible()) {
+            // 0.24 (Evolutiva 018): la guida si accorge da sola del ritorno da Android; la catena NON riparte da qui
+            int ev = guide.resume(U.listenerEnabled(this));
+            if (ev == GuidaPerm.EV_OK) watcher.postDelayed(advanceGuide, GuidaPerm.ADVANCE_MS); // «Fatto, si continua» e dopo circa 1 s si va avanti
+            render();
+            return;
+        }
         if (chain != null) { runChain(); return; } // 0.14: il permesso successivo, o il passo dopo
         render(); // al ritorno dalle impostazioni di Android il passo mostra lo stato aggiornato
+    }
+
+    /** Passato circa un secondo dal via libera: la guida si chiude e la catena prosegue (Non disturbare), o si torna al passo. */
+    private final Runnable advanceGuide = new Runnable() {
+        public void run() {
+            if (!guide.finish()) return;
+            if (chain != null) runChain(); else render();
+        }
+    };
+
+    /** 0.24: «Salta» e «Indietro» chiudono davvero la guida: niente istruzioni sotto il passo dopo, niente catena rimasta viva. */
+    private void clearGuide() {
+        guide.clear();
+        chain = null;
+        chainDone = null;
+        watching = null;
+        watcher.removeCallbacksAndMessages(null);
     }
 
     /** 0.13.5: aperta e non finita. La home la riporta davanti invece di ricominciare da capo. */
@@ -131,7 +153,7 @@ public class OnboardingActivity extends PageActivity {
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
-        if (req == REQ_PICK && res == RESULT_OK && data != null && data.getData() != null) picked(data.getData());
+        if (req == REQ_PICK && res == RESULT_OK && data != null && data.getData() != null && scegli != null) scegli.picked(data.getData());
         if (req == Onboarding.REQ_HOME && Onboarding.isDefaultHome(this)) { askCalendar(); return; }
         render(); // 0.13.5: dalla finestra «app Home» si torna qui
     }
@@ -175,7 +197,6 @@ public class OnboardingActivity extends PageActivity {
     }
 
     private List<Perm> chain;
-    private boolean restrictedShown;
     private Runnable chainDone;
     private final Set<String> asked = new java.util.HashSet<String>();
 
@@ -191,16 +212,16 @@ public class OnboardingActivity extends PageActivity {
         for (final Perm p : chain) {
             boolean ok = false;
             try { ok = p.ok.ok(); } catch (Exception ignored) {}
-            if (!ok && asked.contains(p.key) && "notifiche".equals(p.key) && maybeRestricted() && !restrictedShown) {
-                // tornata senza permesso e con l'app da APK: l'interruttore era grigio, la guida prima di andare avanti
-                restrictedShown = true;
-                restricted = true;
+            // 0.24: tornata senza il permesso delle notifiche, con l'app da APK (interruttore grigio): resta la guida, e la catena
+            // NON passa a Non disturbare finché le notifiche non sono accese o la guida non è chiusa («Salta», «Indietro»)
+            int what = GuidaPerm.chain(ok, asked.contains(p.key), "notifiche".equals(p.key) && maybeRestricted(), false);
+            if (what == GuidaPerm.NEXT) continue;
+            if (what == GuidaPerm.GUIDE) {
+                if (!guide.visible()) guide.open();
                 showStep();
                 return;
             }
-            if (ok || asked.contains(p.key)) continue;
             asked.add(p.key);
-            restricted = false;
             openAndWatch(p.open, p.ok);
             return;
         }
@@ -241,7 +262,6 @@ public class OnboardingActivity extends PageActivity {
 
     @Override
     public void onRequestPermissionsResult(int code, String[] p, int[] r) {
-        peopleLoaded = false;
         if (code == REQ_CAL && step() == HOME) { next(); return; }
         render();
     }
@@ -274,17 +294,20 @@ public class OnboardingActivity extends PageActivity {
     }
 
     private void next() {
-        who = false;
+        sub = -1;
+        if (step() == N_PEOPLE) Stars.starAlways(this); // 0.24: chi conta prende la stella in rubrica, come prima con «Fatto»
         if (onlyStep) { finish(); return; }
         if (idx < path.length - 1) { idx++; prepare(); showStep(); }
         else finish();
     }
 
     private void back() {
-        if (restricted) { restricted = false; if (chain != null) { runChain(); return; } showStep(); return; }
-        if (who) { who = false; showStep(); return; }
+        // 0.24: la guida si chiude del tutto (niente catena che riparte e apre Non disturbare)
+        if (guide.visible()) { clearGuide(); showStep(); return; }
+        if (sub >= 0) { closeSub(); return; }
         if (idx == 0 && hadSplash && !splash) { splash = true; showStep(); return; } // da 180 si torna allo splash
         if (idx == 0) { finish(); return; }
+        if (step() == N_PEOPLE) Stars.starAlways(this);
         idx--;
         showStep();
     }
@@ -292,7 +315,7 @@ public class OnboardingActivity extends PageActivity {
     // ---------- Percorso ----------
 
     private int[] goalSteps(String g, boolean alone) {
-        if (Goals.NOTIF.equals(g)) return new int[]{NOTIF};
+        if (Goals.NOTIF.equals(g)) return new int[]{N_PEOPLE, N_SERV, N_GROUPS, NOTIF}; // 0.24: guidato, poi il riepilogo
         if (Goals.DOOM.equals(g)) return new int[]{DOOM_APPS, DOOM_HOW, UNLOCK}; // 0.18 (Evolutiva 010): 187 dopo 189
         if (Goals.SLEEP.equals(g)) return new int[]{SLEEP, TRIAL};
         return new int[0];
@@ -312,24 +335,34 @@ public class OnboardingActivity extends PageActivity {
     /** Il gruppo del passo: 0 configurazione, poi un numero per obiettivo. */
     private String groupOf(int s) {
         if (s == HOME || s == DAY || s == PORTATA) return "Configurazione";
-        if (s == NOTIF) return Goals.NAMES[0];
+        if (s == NOTIF || s == N_PEOPLE || s == N_SERV || s == N_GROUPS) return Goals.NAMES[0];
         if (s == DOOM_APPS || s == DOOM_HOW || s == UNLOCK) return Goals.NAMES[1];
         if (s == SLEEP || s == TRIAL) return Goals.NAMES[2];
         return null;
     }
 
-    /** Prima di mostrare un passo dell'obiettivo, le scelte proposte (mai accese in silenzio). */
+    /**
+     * Prima di mostrare un passo, ciò che serve. Le scelte proposte non sono più accese qui in silenzio: le propone il selettore
+     * ({@link Scegli}), con il motivo sotto ogni nome, già scelte e con un tocco per toglierle.
+     */
     private void prepare() {
         int s = step();
-        if (s == DOOM_APPS && !doomPrepared) {
-            doomPrepared = true;
-            if (!U.prefs(this).contains(Scope.K_LEVEL))
-                for (U.AppInfo a : U.sortedApps(this)) if (U.isSocial(a.pkg)) Scope.setLevel(this, a.pkg, Scopo.SCOPE);
-        }
+        if (s == N_PEOPLE) askContactsOnce(); // il permesso Contatti si chiede quando si apre «Chi conta»
         if (s == TRIAL && !sleepPrepared) {
             sleepPrepared = true;
-            if (Night.nightApps(this).isEmpty() && !U.prefs(this).contains(Night.K_APPS))
-                for (U.AppInfo a : U.sortedApps(this)) if (U.isSocial(a.pkg) || isVideo(a)) Night.setNightApp(this, a.pkg, true);
+            new Scegli(this, Scegli.NIGHT, true, null); // le proposte per la notte (social e video) si preparano qui, e si possono cambiare
+        }
+    }
+
+    /** Il permesso Contatti (lettura e modifica, per la stella), una volta, aprendo «Chi conta». */
+    private void askContactsOnce() {
+        if (askedContacts) return;
+        if (!Onboarding.hasContacts(this)) {
+            askedContacts = true;
+            requestPermissions(new String[]{android.Manifest.permission.READ_CONTACTS, android.Manifest.permission.WRITE_CONTACTS}, REQ_CONTACTS);
+        } else if (!Stars.canWrite(this)) {
+            askedContacts = true;
+            requestPermissions(new String[]{android.Manifest.permission.WRITE_CONTACTS}, REQ_CONTACTS);
         }
     }
 
@@ -344,16 +377,21 @@ public class OnboardingActivity extends PageActivity {
         stepTitle = null;
         body.removeAllViews();
         foot.removeAllViews();
+        scegli = null;
+        footDivider();
         int s = step();
         if (splash) { splash(); return; }
-        if (restricted) { header(); restrictedGuide(); return; }
+        if (guide.visible()) { header(); restrictedGuide(); return; }
         if (s != GOALS && s != READY && s != ALT) header();
-        if (who) { people(); return; } // 185 si apre da 186 e da 192
+        if (sub >= 0) { subPicker(); return; } // un selettore aperto dal riepilogo o dalla prova
         switch (s) {
             case GOALS: goals(); break;
             case HOME: home(); break;
             case DAY: day(); break;
             case PORTATA: portata(); break;
+            case N_PEOPLE: guided(Scegli.PEOPLE, 1, "Chi conta", "Passano sempre, anche col silenzio."); break;
+            case N_SERV: guided(Scegli.SERVICES, 2, "Servizi", "Banca, SPID, app IO: codici e accessi passano sempre."); break;
+            case N_GROUPS: guided(Scegli.GROUPS, 3, "Gruppi che passano sempre", "Quelli che hai visto scrivere."); break;
             case NOTIF: notif(); break;
             case UNLOCK: unlock(); break;
             case DOOM_APPS: doomApps(); break;
@@ -363,6 +401,19 @@ public class OnboardingActivity extends PageActivity {
             case ALT: alternative(); break;
             default: ready();
         }
+    }
+
+    /** «Salta»: sempre in alto a destra, su ogni schermata del primo avvio (0.24). */
+    private TextView skipLink() {
+        TextView skip = U.text(this, "Salta", 13, U.MUTED, false);
+        skip.setPaintFlags(skip.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        skip.setGravity(Gravity.CENTER);
+        skip.setMinHeight(U.dp(this, 48));
+        skip.setMinWidth(U.dp(this, 64));
+        skip.setPadding(U.dp(this, 12), U.dp(this, 8), U.dp(this, 12), U.dp(this, 8));
+        skip.setContentDescription("Salta");
+        PressB.link(skip); // 0.21: «Salta» è un link: anello di 6 dp
+        return skip;
     }
 
     private void header() {
@@ -379,14 +430,8 @@ public class OnboardingActivity extends PageActivity {
         t.setText(android.text.Html.fromHtml((onlyStep ? "" : "Passo " + pos + " di " + total + " · ") + "<b>" + (g == null ? "" : g) + "</b>"));
         h.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         if (!onlyStep) {
-            TextView skip = U.text(this, "Salta", 13, U.MUTED, false);
-            skip.setPaintFlags(skip.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
-            skip.setGravity(Gravity.CENTER);
-            skip.setMinHeight(U.dp(this, 48));
-            skip.setMinWidth(U.dp(this, 64));
-            skip.setPadding(U.dp(this, 12), U.dp(this, 8), U.dp(this, 12), U.dp(this, 8));
-            PressB.link(skip); // 0.21: «Salta» è un link: anello di 6 dp
-            // 0.13.6: «Salta» tiene quello che il passo ha già compilato; il passo va in «Da completare»
+            TextView skip = skipLink();
+            // 0.13.6: «Salta» tiene quello che il passo ha già compilato (ora si salva al tocco); il passo va in «Da completare»
             skip.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { skip(); } });
             h.addView(skip);
         }
@@ -404,9 +449,28 @@ public class OnboardingActivity extends PageActivity {
         body.addView(bar, blp);
     }
 
+    /** 0.24: i tre passi guidati di «Meno notifiche»: tre trattini e «2 di 3». */
+    private void dots(int k) {
+        LinearLayout r = U.row(this);
+        r.setPadding(0, 0, 0, U.dp(this, 8));
+        for (int i = 1; i <= 3; i++) {
+            View d = new View(this);
+            d.setBackground(U.box(this, i <= k ? U.INK : U.TRACK_OFF, 0, 2));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(U.dp(this, 14), U.dp(this, 3));
+            lp.rightMargin = U.dp(this, 4);
+            r.addView(d, lp);
+        }
+        TextView t = U.text(this, k + " di 3", 13, U.MUTED, false);
+        t.setPadding(U.dp(this, 8), 0, 0, 0);
+        r.addView(t);
+        r.setContentDescription(k + " di 3");
+        body.addView(r, U.full());
+    }
+
     private void skip() {
+        if (sub >= 0) { closeSub(); return; }
+        clearGuide(); // 0.24: «Salta» azzera la guida e la catena dei permessi, sempre
         int s = step();
-        if (s == NOTIF && who && peopleLoaded) savePeople();
         if (s == PORTATA) Onboarding.seen(this, "portata_saltata");
         next();
     }
@@ -434,32 +498,44 @@ public class OnboardingActivity extends PageActivity {
         foot.addView(t);
     }
 
-    private void primary(String s, final Runnable r) {
-        primary(s, r, step() != GOALS && step() != READY ? "‹ Indietro" : null, new Runnable() { public void run() { back(); } });
+    /** Il filo sottile in cima al piede (0.24). */
+    private void footDivider() {
+        View d = new View(this);
+        d.setBackgroundColor(U.LINE);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.max(1, U.dp(this, 1)));
+        lp.leftMargin = -U.dp(this, 20);
+        lp.rightMargin = -U.dp(this, 20);
+        lp.bottomMargin = U.dp(this, 10);
+        foot.addView(d, lp);
     }
 
-    private void primary(String s, final Runnable r, String second, final Runnable r2) {
+    private void primary(String s, final Runnable r) { primary(s, r, true); }
+
+    /**
+     * 0.24: il piede di tutte le schermate, una riga: «‹» (circa un quarto, «Indietro») a sinistra e il pulsante pieno
+     * (circa tre quarti) a destra. Altezze di 52 dp; il piede ha il fondo della pagina e un filo in alto.
+     */
+    private void primary(String s, final Runnable r, boolean withBack) {
+        LinearLayout row = U.row(this);
+        if (withBack) {
+            TextView b = U.text(this, "‹", 26, U.INK, false);
+            b.setGravity(Gravity.CENTER);
+            b.setMinHeight(U.dp(this, 52));
+            b.setIncludeFontPadding(false);
+            b.setContentDescription("Indietro");
+            Press.outlined(b, U.BG, U.BORDER, 26);
+            b.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { back(); } });
+            LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(0, U.dp(this, 52), 1f);
+            blp.rightMargin = U.dp(this, 10);
+            row.addView(b, blp);
+        }
         TextView t = U.text(this, s, 16, U.BG, true);
         t.setGravity(Gravity.CENTER);
         t.setMinHeight(U.dp(this, 52));
         Press.primary(t, U.INK, 26);
         t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r.run(); } });
-        foot.addView(t, U.full());
-        if (second != null) {
-            TextView b = U.text(this, second, 14, U.MUTED, false);
-            // 0.23: «‹ Indietro» non si taglia: tocco di 48 dp, testo centrato con aria sopra e sotto, larghezza minima
-            // più grande del testo (una lettera al bordo non viene ritagliata) e nessun ritaglio dal contenitore
-            b.setGravity(Gravity.CENTER);
-            b.setMinHeight(U.dp(this, 48));
-            b.setMinWidth(U.dp(this, 160));
-            b.setPadding(U.dp(this, 20), U.dp(this, 8), U.dp(this, 20), U.dp(this, 8));
-            b.setIncludeFontPadding(true);
-            PressB.link(b); // 0.21: «‹ Indietro» / «Salta» sono link: anello di 6 dp, solo attorno al testo
-            b.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { r2.run(); } });
-            LinearLayout.LayoutParams blp = U.wrap();
-            blp.gravity = Gravity.CENTER_HORIZONTAL;
-            foot.addView(b, blp);
-        }
+        row.addView(t, new LinearLayout.LayoutParams(0, U.dp(this, 52), withBack ? 3f : 4f));
+        foot.addView(row, U.full());
     }
 
     /** Scheda selezionabile: radio (tondo) o checkbox (quadrato). */
@@ -574,7 +650,10 @@ public class OnboardingActivity extends PageActivity {
         TextView name = U.text(this, U.NAME, 14, U.INK, true);
         name.setTypeface(U.SERIF_I);
         name.setPadding(U.dp(this, 8), 0, 0, 0);
-        brand.addView(name);
+        brand.addView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView skipGoals = skipLink(); // 0.24: «Salta» sempre in alto a destra: si parte con le scelte di adesso
+        skipGoals.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { start(); } });
+        brand.addView(skipGoals);
         body.addView(brand, U.full());
         title("Cosa vuoi cambiare?");
         sub("Scegli cosa vuoi in meno: vedrai solo i passi che servono.");
@@ -624,7 +703,7 @@ public class OnboardingActivity extends PageActivity {
         free.setGravity(Gravity.CENTER);
         free.setPadding(0, 0, 0, U.dp(this, 10));
         foot.addView(free, U.full());
-        primary("Inizia", new Runnable() { public void run() { splash = false; showStep(); } }, null, null);
+        primary("Inizia", new Runnable() { public void run() { splash = false; showStep(); } }, false);
     }
 
     private void start() {
@@ -653,6 +732,11 @@ public class OnboardingActivity extends PageActivity {
             }
         });
         card(new String[]{"Puoi tornare alla home di prima quando vuoi dalle Impostazioni."}, false);
+        // 0.24: la schermata di blocco è parte della home: qui, non in «La tua giornata»
+        final boolean lock = U.prefs(this).getBoolean(U.K_LOCK, true);
+        line("Schermata di blocco −minus", "Ora, prossimi impegni, sveglia. Niente notifiche", lock, null, new Runnable() {
+            public void run() { U.prefs(OnboardingActivity.this).edit().putBoolean(U.K_LOCK, !lock).apply(); render(); }
+        });
         if (Onboarding.isDefaultHome(this)) {
             body.addView(U.text(this, "✓ −minus è la tua home.", 15, U.INK, true));
             primary("Avanti", new Runnable() { public void run() { askCalendar(); } });
@@ -730,10 +814,6 @@ public class OnboardingActivity extends PageActivity {
             View gap = new View(this);
             body.addView(gap, new LinearLayout.LayoutParams(1, U.dp(this, 10)));
         }
-        final boolean lock = U.prefs(this).getBoolean(U.K_LOCK, true);
-        line("Schermata di blocco −minus", "Ora, prossimi impegni, sveglia. Niente notifiche", lock, null, new Runnable() {
-            public void run() { U.prefs(OnboardingActivity.this).edit().putBoolean(U.K_LOCK, !lock).apply(); render(); }
-        });
         primary("Avanti", new Runnable() { public void run() { next(); } });
     }
 
@@ -797,23 +877,68 @@ public class OnboardingActivity extends PageActivity {
         });
     }
 
-    // ---------- 186 · Cosa ti avvisa, cosa aspetta ----------
+    // ---------- 0.24 · «Meno notifiche» guidato: una scelta per schermata, poi il riepilogo ----------
+
+    private final Scegli.Host scegliHost = new Scegli.Host() {
+        public void grantContacts() { OnboardingActivity.this.grantContacts(); }
+        public void pickFromAndroid() {
+            try { startActivityForResult(new Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI), REQ_PICK); }
+            catch (Exception e) { U.toast(OnboardingActivity.this, "Non trovo la rubrica"); }
+        }
+    };
+
+    /** Un selettore ({@link Scegli}) a tutta schermata: Chi conta, Servizi, Gruppi, nei tre passi guidati; «Avanti» per continuare. */
+    private void guided(int kind, int k, String title, String subtitle) {
+        dots(k);
+        title(title);
+        sub(subtitle);
+        scegli = new Scegli(this, kind, true, scegliHost);
+        body.addView(scegli.root, U.full());
+        if (kind == Scegli.GROUPS) {
+            // 0.24: le chiamate si scelgono qui, in fondo ai gruppi
+            View gap = new View(this);
+            body.addView(gap, new LinearLayout.LayoutParams(1, U.dp(this, 14)));
+            body.addView(U.divider(this));
+            final boolean calls = U.prefs(this).getBoolean(K_CALLS, true);
+            line("Chiamate", "Squillano solo chi conta e le chiamate ripetute", calls, null, new Runnable() {
+                public void run() { U.prefs(OnboardingActivity.this).edit().putBoolean(K_CALLS, !calls).apply(); render(); }
+            });
+        }
+        primary("Avanti", new Runnable() { public void run() { next(); } });
+    }
+
+    /** Un selettore riaperto dal riepilogo (o dalla prova): sopra il passo, con «Avanti» per tornarci. */
+    private void openSub(int kind) {
+        sub = kind;
+        showStep();
+    }
+
+    private void closeSub() {
+        if (sub == Scegli.PEOPLE) Stars.starAlways(this);
+        sub = -1;
+        showStep();
+    }
+
+    private void subPicker() {
+        title(Scegli.title(sub));
+        scegli = new Scegli(this, sub, true, scegliHost);
+        body.addView(scegli.root, U.full());
+        primary("Avanti", new Runnable() { public void run() { closeSub(); } });
+    }
+
+    // ---------- 186 · Cosa ti avvisa (il riepilogo) ----------
 
     private void notif() {
-        title("Cosa ti avvisa, cosa aspetta");
-        sub("Ti avvisa solo ciò che conta, il resto aspetta te. Suoneria o vibrazione restano quelle del telefono.");
-        tag("Ti avvisano", "subito, e restano anche in Per te", true);
-        int n = Onboarding.alwaysCount(this);
-        String names = alwaysNames(3);
-        line("Chi conta", n == 0 ? "Da scegliere: persone e gruppi" : names, null, n == 0 ? "Scegli ›" : "✓ ›", new Runnable() {
-            public void run() { openWho(); }
+        title("Cosa ti avvisa");
+        sub("Scegli chi e cosa passa sempre. Il resto aspetta.");
+        int n = Scegli.count(this, Scegli.PEOPLE);
+        summaryRow("Chi conta", "Passano sempre, anche col silenzio", n == 0 ? "Scegli ›" : Scegli.countText(this, Scegli.PEOPLE) + " ›", Scegli.PEOPLE);
+        summaryRow("Servizi", "Banca, SPID, app IO: codici e accessi", Scegli.countText(this, Scegli.SERVICES) + " ›", Scegli.SERVICES);
+        summaryRow("Gruppi", "Quelli che passano sempre", Scegli.countText(this, Scegli.GROUPS) + " ›", Scegli.GROUPS);
+        final boolean calls = U.prefs(this).getBoolean(K_CALLS, true);
+        line("Chiamate", "Squillano solo chi conta e le chiamate ripetute", null, calls ? "acceso" : "spento", new Runnable() {
+            public void run() { U.prefs(OnboardingActivity.this).edit().putBoolean(K_CALLS, !calls).apply(); render(); }
         });
-        String sv = ServiziActivity.names(this, 3);
-        int svn = ServiziActivity.installed(this).size();
-        line("Servizi", (sv.length() > 0 ? sv + " · " : "Banca, SPID, app IO, codici · ") + svn + " riconosciuti", null, "›", new Runnable() {
-            public void run() { startActivity(new Intent(OnboardingActivity.this, ServiziActivity.class).putExtra("back", "Configurazione")); }
-        });
-        line("Chiamate", "Squillano solo chi conta e le chiamate ripetute", null, null, null);
         tag("Per te", "ti aspettano qui", true);
         body.addView(U.text(this, "Gruppi che aspettano, altre persone, app che segui", 14, U.INK, false));
         tag("Altro", "ti aspettano qui, fuori dal conteggio", false);
@@ -821,24 +946,29 @@ public class OnboardingActivity extends PageActivity {
         if (maybeRestricted() && !U.listenerEnabled(this)) {
             View gap = new View(this);
             body.addView(gap, new LinearLayout.LayoutParams(1, U.dp(this, 10)));
-            link("L'interruttore di Android è grigio e non si attiva?", new Runnable() { public void run() { restricted = true; showStep(); } });
+            link("L'interruttore di Android è grigio e non si attiva?", new Runnable() { public void run() { guide.open(); showStep(); } });
         }
         note("Poi due permessi di Android: accesso alle notifiche e a Non disturbare. Si torna qui da soli.");
         primary("Avanti", new Runnable() {
             public void run() {
-                if (Onboarding.alwaysCount(OnboardingActivity.this) == 0 && !asked.contains("chi")) { asked.add("chi"); openWho(); return; }
                 List<Perm> p = new ArrayList<Perm>();
                 p.add(listenerPerm());
                 p.add(policyPerm());
                 askThen(p, new Runnable() {
                     public void run() {
-                        if (Onboarding.policy(OnboardingActivity.this) && FilterService.applySilence(OnboardingActivity.this, true))
+                        boolean calls = U.prefs(OnboardingActivity.this).getBoolean(K_CALLS, true);
+                        if (calls && Onboarding.policy(OnboardingActivity.this) && FilterService.applySilence(OnboardingActivity.this, true))
                             U.prefs(OnboardingActivity.this).edit().putBoolean(U.K_SILENCE, true).apply();
                         goalDone(Goals.NOTIF);
                     }
                 });
             }
         });
+    }
+
+    /** Una riga del riepilogo: stesso «3 scelti ›» delle Impostazioni; si tocca per riaprire il selettore. */
+    private void summaryRow(String title, String subtitle, String right, final int kind) {
+        line(title, subtitle, null, right, new Runnable() { public void run() { openSub(kind); } });
     }
 
     private void tag(String name, String desc, boolean filled) {
@@ -866,95 +996,6 @@ public class OnboardingActivity extends PageActivity {
         return b.toString();
     }
 
-    /** 185a → 185: il permesso Contatti (lettura e modifica, per la stella) e poi Chi conta. */
-    private void openWho() {
-        who = true;
-        peopleLoaded = false;
-        if (!Onboarding.hasContacts(this) && !askedContacts) {
-            askedContacts = true;
-            requestPermissions(new String[]{android.Manifest.permission.READ_CONTACTS, android.Manifest.permission.WRITE_CONTACTS}, REQ_CONTACTS);
-        } else if (Onboarding.hasContacts(this) && !Stars.canWrite(this) && !askedContacts) {
-            askedContacts = true;
-            requestPermissions(new String[]{android.Manifest.permission.WRITE_CONTACTS}, REQ_CONTACTS);
-        }
-        showStep();
-    }
-
-    // ---------- 185 · Chi conta (185n senza rubrica) ----------
-
-    private void people() {
-        title("Chi conta");
-        boolean contacts = Onboarding.hasContacts(this);
-        sub(contacts ? "Queste persone ti raggiungono sempre, anche col silenzio: messaggi e chiamate."
-                : "Queste persone ti raggiungono sempre: scegline una alla volta.");
-        if (!peopleLoaded) loadPeople();
-        if (!contacts) {
-            card(new String[]{"La rubrica non è collegata", "Senza accesso ai contatti non si possono proporre i preferiti né mettere la stella. Puoi aggiungere le persone a mano."}, true);
-            // 0.23: il link per dare l'accesso sta qui, con la rubrica che sblocca, non in fondo alla pagina
-            link("Concedi l'accesso ai contatti", new Runnable() { public void run() { grantContacts(); } });
-            TextView pick = U.text(this, "Scegli dalla rubrica", 15, U.INK, true);
-            pick.setGravity(Gravity.CENTER);
-            pick.setMinHeight(U.dp(this, 48));
-            Press.outlined(pick, U.BG, U.INK, 24);
-            pick.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View v) {
-                    try { startActivityForResult(new Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI), REQ_PICK); }
-                    catch (Exception e) { U.toast(OnboardingActivity.this, "Non trovo la rubrica"); }
-                }
-            });
-            body.addView(pick, U.full());
-        } else {
-            final EditText q = new EditText(this);
-            q.setHint("Cerca in rubrica");
-            q.setHintTextColor(U.HINT);
-            q.setTextColor(U.INK);
-            q.setTextSize(15);
-            q.setSingleLine(true);
-            q.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PERSON_NAME);
-            q.setBackground(U.box(this, U.SURFACE, U.BORDER, 22));
-            q.setPadding(U.dp(this, 16), 0, U.dp(this, 16), 0);
-            q.setText(search);
-            body.addView(q, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, U.dp(this, 46)));
-            searchResults = U.col(this);
-            body.addView(searchResults, U.full());
-            q.addTextChangedListener(new TextWatcher() {
-                public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
-                public void onTextChanged(CharSequence s, int a, int b, int c) {}
-                public void afterTextChanged(Editable s) { search = s.toString(); renderSearch(); }
-            });
-            renderSearch();
-        }
-        caption(contacts ? "Persone · dai preferiti" : "Persone");
-        LinearLayout list = U.col(this);
-        body.addView(list, U.full());
-        if (candidates.isEmpty())
-            list.addView(U.text(this, contacts ? "Nessun preferito in rubrica: cerca qui sopra le persone da aggiungere." : "Ancora nessuno.", 14, U.MUTED, false));
-        for (final String[] p : candidates.values()) personRow(list, p);
-        if (contacts && !Stars.canWrite(this)) {
-            // 0.23: la modifica dei contatti manca: la proposta sta sotto l'elenco delle persone, non in fondo
-            card(new String[]{"Senza stella, col silenzio di Android queste persone non squillano. I loro messaggi passano comunque."}, false);
-            link("Concedi l'accesso ai contatti", new Runnable() { public void run() { grantContacts(); } });
-        } else if (contacts) {
-            TextView st = U.text(this, "★ Metteremo la stella in rubrica a chi scegli, così squilla anche col silenzio di sistema, anche nelle altre app.", 13, U.INK, false);
-            st.setPadding(0, U.dp(this, 8), 0, 0);
-            body.addView(st);
-        }
-        caption("Gruppi, app per app");
-        line("Gruppi che passano sempre", "Gli altri aspettano in Per te. Compaiono qui quando arrivano le prime notifiche dei gruppi", null, "›", new Runnable() {
-            public void run() { startActivity(new Intent(OnboardingActivity.this, GroupsActivity.class).putExtra("back", "Chi conta")); }
-        });
-        card(new String[]{"Conversazioni aperte", "Se rispondi a qualcuno che non è in elenco, ti avvisa per 12 ore. Gruppi 1 ora, mai di notte."}, true);
-        primary("Fatto", new Runnable() {
-            public void run() {
-                savePeople();
-                int n = Stars.starAlways(OnboardingActivity.this);
-                if (n > 0) U.toast(OnboardingActivity.this, "★ " + n + (n == 1 ? " persona" : " persone") + " con la stella in rubrica");
-                who = false;
-                render();
-            }
-        }, "‹ Cosa ti avvisa", new Runnable() { public void run() { who = false; render(); } });
-    }
-
     /** Il permesso Contatti: la finestra di Android se si può ancora chiedere, altrimenti Info app. */
     private void grantContacts() {
         if (!askedContacts && !Onboarding.hasContacts(this)) {
@@ -963,208 +1004,113 @@ public class OnboardingActivity extends PageActivity {
         } else Onboarding.openAppInfo(this);
     }
 
-    private void picked(Uri u) {
-        Cursor cur = null;
-        try {
-            cur = getContentResolver().query(u, new String[]{ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER}, null, null, null);
-            if (cur != null && cur.moveToFirst()) {
-                String name = cur.getString(0), num = cur.getString(1);
-                if (name == null) name = num;
-                if (name != null) {
-                    String[] p = {name, num == null ? "" : num};
-                    candidates.put(name.toLowerCase(Locale.ITALY), p);
-                    chosen.put(name.toLowerCase(Locale.ITALY), p);
-                }
-            }
-        } catch (Exception ignored) {
-        } finally {
-            if (cur != null) cur.close();
-        }
-    }
-
-    private void personRow(LinearLayout list, final String[] p) {
-        final String k = p[0].toLowerCase(Locale.ITALY);
-        final boolean on = chosen.containsKey(k);
-        LinearLayout r = U.row(this);
-        r.setMinimumHeight(U.dp(this, 56));
-        TextView ini = U.initial(this, p[0], false, 34);
-        final PressB.Face face = PressB.rowWithBadge(r, ini); // 0.21: riga premuta: fondo più scuro e il cerchio dell'iniziale si riempie
-        r.addView(ini, new LinearLayout.LayoutParams(U.dp(this, 34), U.dp(this, 34)));
-        LinearLayout tx = U.col(this);
-        tx.setPadding(U.dp(this, 12), 0, 0, 0);
-        tx.addView(U.text(this, p[0], 15, U.INK, false));
-        StringBuilder ap = new StringBuilder();
-        for (String a : U.chatAppsOf(this, p[0], null)) { if (ap.length() > 0) ap.append(", "); ap.append(Rules.appName(a)); }
-        if (p[1] != null && p[1].length() > 0) ap.append(ap.length() > 0 ? ", chiamata" : "chiamata");
-        tx.addView(U.text(this, ap.toString(), 12, U.MUTED, false));
-        r.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        final TaskBox cb = PressB.box(this, on); // 0.21: la casella dei task (riempimento, spunta, rimbalzo)
-        r.addView(cb, new LinearLayout.LayoutParams(U.dp(this, 20), U.dp(this, 20)));
-        PressB.boxHalo(face, cb); // e l'alone di 56 dp
-        r.setContentDescription(p[0] + (on ? ", scelta" : ", non scelta"));
-        r.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                PressB.checkThen(v, cb, !on, new Runnable() {
-                    public void run() {
-                        if (on) chosen.remove(k); else chosen.put(k, p);
-                        render();
-                    }
-                });
-            }
-        });
-        list.addView(r, U.full());
-        list.addView(U.divider(this));
-    }
-
-    private void renderSearch() {
-        if (searchResults == null) return;
-        searchResults.removeAllViews();
-        String s = search.trim();
-        if (s.length() < 2 || !Onboarding.hasContacts(this)) return;
-        Cursor cur = null;
-        try {
-            cur = getContentResolver().query(ContactsContract.Contacts.CONTENT_URI,
-                    new String[]{ContactsContract.Contacts._ID, ContactsContract.Contacts.DISPLAY_NAME},
-                    ContactsContract.Contacts.DISPLAY_NAME + " LIKE ?", new String[]{"%" + s + "%"},
-                    ContactsContract.Contacts.DISPLAY_NAME + " ASC");
-            int n = 0;
-            while (cur != null && cur.moveToNext() && n++ < 6) {
-                final String name = cur.getString(1);
-                if (name == null) continue;
-                final long id = cur.getLong(0);
-                TextView t = U.text(this, "+  " + name, 15, U.INK, false);
-                t.setMinHeight(U.dp(this, 44));
-                t.setGravity(Gravity.CENTER_VERTICAL);
-                PressB.row(t); // 0.21: riga senza bordo
-                t.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) {
-                        String[] p = {name, numberOf(id)};
-                        candidates.put(name.toLowerCase(Locale.ITALY), p);
-                        chosen.put(name.toLowerCase(Locale.ITALY), p);
-                        search = "";
-                        render();
-                    }
-                });
-                searchResults.addView(t, U.full());
-            }
-        } catch (Exception ignored) {
-        } finally {
-            if (cur != null) cur.close();
-        }
-    }
-
-    /** Le persone «Sempre» già scelte e i preferiti della rubrica, già selezionati. */
-    private void loadPeople() {
-        peopleLoaded = true;
-        for (Rules.Person p : Rules.people(U.cfg(this, U.K_CONTACTS, U.DEF_CONTACTS))) {
-            if (!p.section.equalsIgnoreCase("Sempre") || p.target.contains("...")) continue; // gli esempi non contano
-            String[] e = {p.name, p.target};
-            candidates.put(p.name.toLowerCase(Locale.ITALY), e);
-            chosen.put(p.name.toLowerCase(Locale.ITALY), e);
-        }
-        if (!Onboarding.hasContacts(this)) return;
-        Cursor cur = null;
-        try {
-            cur = getContentResolver().query(ContactsContract.Contacts.CONTENT_URI,
-                    new String[]{ContactsContract.Contacts._ID, ContactsContract.Contacts.DISPLAY_NAME},
-                    ContactsContract.Contacts.STARRED + " = 1", null, ContactsContract.Contacts.DISPLAY_NAME + " ASC");
-            while (cur != null && cur.moveToNext()) {
-                String name = cur.getString(1);
-                if (name == null) continue;
-                String k = name.toLowerCase(Locale.ITALY);
-                if (candidates.containsKey(k)) continue;
-                String[] e = {name, numberOf(cur.getLong(0))};
-                candidates.put(k, e);
-                chosen.put(k, e);
-            }
-        } catch (Exception ignored) {
-        } finally {
-            if (cur != null) cur.close();
-        }
-    }
-
-    private String numberOf(long contactId) {
-        Cursor cur = null;
-        try {
-            cur = getContentResolver().query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                    new String[]{ContactsContract.CommonDataKinds.Phone.NUMBER, ContactsContract.CommonDataKinds.Phone.TYPE},
-                    ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?", new String[]{String.valueOf(contactId)}, null);
-            String any = "";
-            while (cur != null && cur.moveToNext()) {
-                if (cur.getInt(1) == ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE) return cur.getString(0);
-                if (any.length() == 0) any = cur.getString(0);
-            }
-            return any;
-        } catch (Exception e) {
-            return "";
-        } finally {
-            if (cur != null) cur.close();
-        }
-    }
-
-    private void savePeople() {
-        List<Rules.Person> out = new ArrayList<Rules.Person>();
-        Set<String> names = chosen.keySet();
-        Map<String, Rules.Person> before = new java.util.HashMap<String, Rules.Person>();
-        for (Rules.Person p : Rules.people(U.cfg(this, U.K_CONTACTS, U.DEF_CONTACTS))) before.put(p.name.toLowerCase(Locale.ITALY), p);
-        for (String[] p : chosen.values()) {
-            Rules.Person x = new Rules.Person();
-            x.section = "Sempre";
-            x.name = p[0].replace("|", "/");
-            Rules.Person old = before.get(p[0].toLowerCase(Locale.ITALY));
-            if (old != null && !old.apps.isEmpty()) x.apps.addAll(old.apps); // 0.6.3: le app scelte restano
-            else {
-                x.apps.addAll(U.chatAppsOf(this, p[0], null));                // WhatsApp e Telegram dalla rubrica
-                if (p[1] != null && p[1].replaceAll("[^0-9]", "").length() >= 6 && !x.apps.contains("TEL")) x.apps.add("TEL");
-            }
-            x.target = old != null && old.target.length() > 0 ? old.target : p[1] == null ? "" : p[1];
-            out.add(x);
-        }
-        boolean sample = !U.prefs(this).contains(U.K_CONTACTS);
-        for (Rules.Person p : Rules.people(U.cfg(this, U.K_CONTACTS, U.DEF_CONTACTS))) {
-            if (names.contains(p.name.toLowerCase(Locale.ITALY))) continue;
-            if (p.section.equalsIgnoreCase("Sempre")) continue;          // tolta in questo passo
-            if (sample && p.target.contains("...") || sample && "Contatto".equals(p.name)) continue; // niente esempi
-            out.add(p);
-        }
-        Changes.record(this, "Chi conta: " + chosen.size() + (chosen.size() == 1 ? " persona" : " persone"), new String[]{U.K_CONTACTS});
-        U.prefs(this).edit().putString(U.K_CONTACTS, Rules.peopleText(out)).apply();
-    }
-
-    /** Android 13+, app installata fuori dal Play Store: i tre tocchi per sbloccare il permesso. */
+    /**
+     * 0.24 (Evolutiva 018): Android 13+, app installata fuori dal Play Store: i tre tocchi per sbloccare l'accesso alle notifiche,
+     * su una schermata sola. Al ritorno da Android si accorge da sola: acceso, «Fatto, si continua» e dopo circa 1 s si va avanti;
+     * ancora bloccato, «Non è ancora acceso» e «Riprova». «Salta» e ‹ chiudono la guida del tutto.
+     */
     private void restrictedGuide() {
-        title("Android blocca questo permesso");
-        sub("Succede alle app installate fuori dal Play Store. Si sblocca una volta sola, poi torni qui.");
-        // 0.16: tre passi, uno alla volta, un pulsante ciascuno. Il menu ⋮ compare solo dopo aver provato
-        // ad accendere l'interruttore grigio almeno una volta da questa installazione: per questo il passo 1
-        final String[][] steps = {
-                {"Tocca «Prova ad accenderlo». Nell'elenco tocca −minus anche se è grigio, poi «OK».", "Prova ad accenderlo"},
-                {"Torna qui e apri Info app. In alto a destra tocca ⋮, poi «Consenti impostazioni con restrizioni». Su alcuni telefoni la voce è in fondo alla pagina.", "Apri Info app"},
-                {"Conferma con PIN o impronta e torna qui. Ora l'interruttore si accende.", "Accendilo"}};
-        final int k = Math.max(0, Math.min(2, rstep));
-        TextView pos = U.label(this, "Passo " + (k + 1) + " di 3");
-        pos.setPadding(0, U.dp(this, 8), 0, U.dp(this, 4));
-        body.addView(pos);
-        body.addView(U.text(this, steps[k][0], 17, U.INK, false), U.full());
-        link("Non funziona?", new Runnable() {
-            public void run() {
-                U.show(U.dlg(OnboardingActivity.this).setTitle("Non funziona?")
-                        .setMessage("Il ⋮ non c'è? Ripeti il passo 1 e chiudi il messaggio con «OK», non con Indietro. Se ancora manca, riavvia il telefono e riprova. Con il Play Store questo passaggio non serve.")
-                        .setPositiveButton("Ricomincia dal passo 1", new android.content.DialogInterface.OnClickListener() {
-                            public void onClick(android.content.DialogInterface d, int w) { rstep = 0; render(); }
-                        }).setNegativeButton("Chiudi", null));
-            }
+        final int ph = guide.phase;
+        title(ph == GuidaPerm.OK ? "Android ha dato il via libera" : "Android blocca questo permesso");
+        sub(ph == GuidaPerm.OK ? "L'accesso alle notifiche è acceso."
+                : ph == GuidaPerm.STILL ? "Succede alle app installate fuori dal Play Store, e riguarda l'accesso alle notifiche."
+                : "Succede alle app installate fuori dal Play Store, e riguarda l'accesso alle notifiche. Si sblocca una volta sola, poi torni qui.");
+        if (ph == GuidaPerm.STILL) {
+            LinearLayout info = U.row(this);
+            info.setPadding(0, 0, 0, U.dp(this, 10));
+            info.addView(U.text(this, "ⓘ", 18, U.INK, false));
+            TextView m = U.text(this, "Non è ancora acceso. Manca il passo " + guide.missing() + ".", 15, U.INK, true);
+            m.setPadding(U.dp(this, 10), 0, 0, 0);
+            info.addView(m, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            info.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+            body.addView(info, U.full());
+        }
+        // 0.16: il menu ⋮ compare solo dopo aver provato ad accendere l'interruttore grigio almeno una volta da questa installazione
+        final String[] steps = {
+                "Tocca «Prova ad accenderlo». Nell'elenco tocca −minus anche se è grigio, poi «OK».",
+                "Apri «Info app». In alto a destra tocca ⋮, poi «Consenti impostazioni con restrizioni». Su alcuni telefoni la voce è in fondo alla pagina.",
+                "Conferma con PIN o impronta e torna qui: l'interruttore si accende."};
+        for (int i = 0; i < steps.length; i++) {
+            boolean done = ph == GuidaPerm.OK || i < guide.step;
+            boolean cur = ph != GuidaPerm.OK && i == guide.step;
+            LinearLayout r = U.row(this);
+            r.setGravity(Gravity.CENTER_VERTICAL);
+            r.setPadding(U.dp(this, 10), U.dp(this, 12), U.dp(this, 10), U.dp(this, 12));
+            if (cur) r.setBackground(U.box(this, U.BG, U.INK, 14));
+            TextView n = U.text(this, done ? "✓" : String.valueOf(i + 1), 14, done ? U.BG : U.INK, true);
+            n.setGravity(Gravity.CENTER);
+            n.setBackground(U.box(this, done || cur ? U.INK : U.BG, U.INK, 14));
+            if (cur) n.setTextColor(U.BG);
+            r.addView(n, new LinearLayout.LayoutParams(U.dp(this, 28), U.dp(this, 28)));
+            TextView t = U.text(this, steps[i], cur ? 16 : 15, cur ? U.INK : U.MUTED, false);
+            t.setPadding(U.dp(this, 14), 0, 0, 0);
+            r.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            r.setContentDescription("Passo " + (i + 1) + ": " + steps[i] + (done ? ". Fatto" : cur ? ". Tocca a te" : ""));
+            LinearLayout.LayoutParams lp = U.full();
+            lp.bottomMargin = U.dp(this, 6);
+            body.addView(r, lp);
+        }
+        if (ph == GuidaPerm.OK) {
+            // il via libera: il segno disegnato, «Fatto, si continua», e dopo circa 1 s si va avanti da soli
+            final View check = new View(this) {
+                @Override protected void onDraw(android.graphics.Canvas c) {
+                    float w = getWidth(), h = getHeight(), r = Math.min(w, h) / 2f - 2f;
+                    android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+                    p.setStyle(android.graphics.Paint.Style.STROKE);
+                    p.setStrokeWidth(U.dp(OnboardingActivity.this, 2));
+                    p.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+                    p.setStrokeJoin(android.graphics.Paint.Join.ROUND);
+                    p.setColor(U.INK);
+                    c.drawCircle(w / 2f, h / 2f, r, p);
+                    android.graphics.Path path = new android.graphics.Path();
+                    path.moveTo(w * 0.30f, h * 0.52f);
+                    path.lineTo(w * 0.45f, h * 0.66f);
+                    path.lineTo(w * 0.72f, h * 0.36f);
+                    c.drawPath(path, p);
+                }
+            };
+            check.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(U.dp(this, 68), U.dp(this, 68));
+            clp.gravity = Gravity.CENTER_HORIZONTAL;
+            clp.topMargin = U.dp(this, 28);
+            body.addView(check, clp);
+            TextView fatto = U.title(this, "Fatto, si continua", 20, U.INK);
+            fatto.setGravity(Gravity.CENTER);
+            fatto.setPadding(0, U.dp(this, 14), 0, 0);
+            fatto.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+            body.addView(fatto, U.full());
+            return; // niente piede: si prosegue da soli
+        }
+        final boolean[] open = {ph == GuidaPerm.STILL};
+        final LinearLayout help = U.col(this);
+        help.setPadding(U.dp(this, 14), U.dp(this, 12), U.dp(this, 14), U.dp(this, 12));
+        help.setBackground(U.box(this, U.SURFACE, U.LINE, 14));
+        help.addView(U.text(this, "Il ⋮ non c'è? Ripeti il passo 1 e chiudi il messaggio di Android toccando «OK», non con il gesto indietro del telefono. "
+                + "Se ancora manca, riavvia il telefono e riprova. Con il Play Store questo passaggio non serve.", 13, U.INK, false));
+        TextView gesto = U.text(this, "Per tornare in −minus da Android usa il gesto «indietro» del telefono. Il tasto ‹ qui sotto torna al passo prima.", 13, U.MUTED, false);
+        gesto.setPadding(0, U.dp(this, 8), 0, 0);
+        help.addView(gesto);
+        help.setVisibility(open[0] ? View.VISIBLE : View.GONE);
+        final TextView nf = U.text(this, "Non funziona?", 15, U.INK, false);
+        nf.setPaintFlags(nf.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        nf.setMinHeight(U.dp(this, 48));
+        nf.setGravity(Gravity.CENTER_VERTICAL);
+        PressB.link(nf);
+        nf.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { open[0] = !open[0]; help.setVisibility(open[0] ? View.VISIBLE : View.GONE); }
         });
-        primary(steps[k][1], new Runnable() {
+        body.addView(nf, U.wrap());
+        body.addView(help, U.full());
+        primary(guide.button(), new Runnable() {
             public void run() {
-                if (k == 1) { asked.remove("notifiche"); Onboarding.openAppInfo(OnboardingActivity.this); }
-                else Onboarding.openListenerSettings(OnboardingActivity.this);
-                if (k < 2) rstep = k + 1;
+                final int k = guide.step;
+                if (k == 1) { guide.leave(); Onboarding.openAppInfo(OnboardingActivity.this); return; }
+                guide.leave();
+                openAndWatch(new Runnable() { public void run() { Onboarding.openListenerSettings(OnboardingActivity.this); } },
+                        new Check() { public boolean ok() { return U.listenerEnabled(OnboardingActivity.this); } });
             }
         });
     }
-
-    private int rstep = 0; // 0.16: a che passo della guida «Android blocca questo permesso»
 
     // ---------- 187 · Quando lo sblocchi senza motivo ----------
 
@@ -1201,42 +1147,8 @@ public class OnboardingActivity extends PageActivity {
     private void doomApps() {
         title("App che rapiscono");
         sub("Si aprono dopo qualche secondo di pausa. E se scegli «scopo» ti chiedono anche per cosa e per quanto.");
-        caption("Trovate sul tuo telefono");
-        Set<String> paused = U.pausedPkgs(this);
-        int shown = 0;
-        for (final U.AppInfo a : U.sortedApps(this)) {
-            boolean social = U.isSocial(a.pkg), video = isVideo(a);
-            if (!social && !video && !paused.contains(a.pkg)) continue;
-            shown++;
-            final int lv = Scope.dayLevel(this, a.pkg);
-            LinearLayout r = U.row(this);
-            r.setMinimumHeight(U.dp(this, 56));
-            LinearLayout tx = U.col(this);
-            tx.addView(U.text(this, a.label, 15, U.INK, false));
-            tx.addView(U.text(this, social ? "social" : video ? "video" : "scelta da te", 12, U.MUTED, false));
-            r.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-            String[] opts = {"Pausa", "Scopo"};
-            for (int i = 0; i < 2; i++) {
-                final int level = i == 0 ? Scopo.PAUSE : Scopo.SCOPE;
-                boolean sel = lv == level;
-                TextView t = U.text(this, opts[i], 13, sel ? U.BG : U.INK, false);
-                t.setGravity(Gravity.CENTER);
-                t.setMinHeight(U.dp(this, 40));
-                t.setPadding(U.dp(this, 12), 0, U.dp(this, 12), 0);
-                if (sel) Press.chipOn(t, 18); else Press.chip(t, U.BG, U.BORDER, 18);
-                t.setContentDescription(a.label + ": " + opts[i] + (sel ? ", scelto. Tocca per toglierla" : ""));
-                t.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) { Scope.setLevel(OnboardingActivity.this, a.pkg, lv == level ? Scopo.NONE : level); render(); }
-                });
-                LinearLayout.LayoutParams lp = U.wrap();
-                lp.leftMargin = U.dp(this, 4);
-                r.addView(t, lp);
-            }
-            body.addView(r, U.full());
-            body.addView(U.divider(this));
-        }
-        if (shown == 0) body.addView(U.text(this, "Nessun social o app video installata.", 14, U.MUTED, false));
-        link("Aggiungi un'altra app", new Runnable() { public void run() { addDoomApp(); } });
+        scegli = new Scegli(this, Scegli.DOOM, true, scegliHost); // 0.24: lo stesso selettore, con cerca e proposte
+        body.addView(scegli.root, U.full());
         note("Se manca l'accesso ai dati di utilizzo, Avanti apre la pagina di Android e torni qui in automatico: serve per la pausa anche da notifiche e app recenti.");
         primary("Avanti", new Runnable() {
             public void run() {
@@ -1245,17 +1157,6 @@ public class OnboardingActivity extends PageActivity {
                 askThen(p, new Runnable() { public void run() { next(); } });
             }
         });
-    }
-
-    private void addDoomApp() {
-        final List<U.AppInfo> apps = new ArrayList<U.AppInfo>();
-        Set<String> paused = U.pausedPkgs(this);
-        for (U.AppInfo a : U.sortedApps(this)) if (!paused.contains(a.pkg) && !getPackageName().equals(a.pkg)) apps.add(a);
-        String[] names = new String[apps.size()];
-        for (int i = 0; i < names.length; i++) names[i] = apps.get(i).label;
-        U.dlg(this).setTitle("Aggiungi un'app").setItems(names, new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface d, int w) { Scope.setLevel(OnboardingActivity.this, apps.get(w).pkg, Scopo.PAUSE); render(); }
-        }).setNegativeButton("Annulla", null).show();
     }
 
     // ---------- 189 · Scegli come fermarle ----------
@@ -1370,16 +1271,18 @@ public class OnboardingActivity extends PageActivity {
         sub("Per sette notti −minus fa così. Poi ti mostra com'è andata e decidi tu.");
         String names = alwaysNames(2);
         line("Di notte, solo l'essenziale", (names.length() > 0 ? "Ti raggiungono solo " + names : "Ti raggiunge solo chi conta") + " · Uno sblocco mostra l'ora e quanto manca alla sveglia",
-                null, "Cambia", new Runnable() { public void run() { openWho(); } });
+                null, "Cambia", new Runnable() { public void run() { openSub(Scegli.PEOPLE); } });
         final boolean morning = Night.morning(this);
         line("Il mattino resta tranquillo", "Fino alle " + Notte.hhmm(Night.wakeMin(this) + Notte.MORNING_MIN) + " niente app frenate", morning, null, new Runnable() {
             public void run() { U.prefs(OnboardingActivity.this).edit().putBoolean(Night.K_MORNING, !morning).apply(); render(); }
         });
         StringBuilder na = new StringBuilder();
         Set<String> night = Night.nightApps(this);
-        for (U.AppInfo a : U.sortedApps(this)) if (night.contains(a.pkg)) { if (na.length() > 0) na.append(", "); na.append(a.label); }
-        line("App frenate di notte", na.length() > 0 ? "Proposte: " + na + " · trovate sul telefono" : "Nessuna", null, "Scegli", new Runnable() {
-            public void run() { pickNightApps(); }
+        int shown = 0;
+        for (U.AppInfo a : U.sortedApps(this)) if (night.contains(a.pkg) && shown++ < 3) { if (na.length() > 0) na.append(", "); na.append(a.label); }
+        if (night.size() > 3) na.append(" e altre ").append(night.size() - 3);
+        line("App frenate di notte", na.length() > 0 ? na.toString() : "Nessuna", null, night.isEmpty() ? "Scegli ›" : Scegli.countText(this, Scegli.NIGHT) + " ›", new Runnable() {
+            public void run() { openSub(Scegli.NIGHT); }
         });
         // 0.16 (192): il consiglio una tantum è tolto: i consigli arrivano la sera, uno a settimana
         primary("Avanti", new Runnable() {
@@ -1394,30 +1297,19 @@ public class OnboardingActivity extends PageActivity {
         });
     }
 
-    private void pickNightApps() {
-        final List<U.AppInfo> apps = new ArrayList<U.AppInfo>();
-        for (U.AppInfo a : U.sortedApps(this)) if (!getPackageName().equals(a.pkg)) apps.add(a);
-        Set<String> night = Night.nightApps(this);
-        String[] names = new String[apps.size()];
-        final boolean[] on = new boolean[apps.size()];
-        for (int i = 0; i < names.length; i++) { names[i] = apps.get(i).label; on[i] = night.contains(apps.get(i).pkg); }
-        U.dlg(this).setTitle("App frenate di notte").setMultiChoiceItems(names, on, new DialogInterface.OnMultiChoiceClickListener() {
-            public void onClick(DialogInterface d, int w, boolean c) { on[w] = c; }
-        }).setPositiveButton("Fatto", new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface d, int w) {
-                for (int i = 0; i < on.length; i++) Night.setNightApp(OnboardingActivity.this, apps.get(i).pkg, on[i]);
-                render();
-            }
-        }).setNegativeButton("Annulla", null).show();
-    }
-
     // ---------- 193 · La tua alternativa ----------
 
     private EditText altField;
 
     private void alternative() {
-        View top = new View(this);
-        body.addView(top, new LinearLayout.LayoutParams(1, U.dp(this, 12)));
+        LinearLayout topRow = U.row(this); // 0.24: «Salta» sempre in alto a destra
+        topRow.setMinimumHeight(U.dp(this, 40));
+        topRow.addView(smallLogo(), new LinearLayout.LayoutParams(U.dp(this, 18), U.dp(this, 18)));
+        topRow.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
+        TextView skipAlt = skipLink();
+        skipAlt.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { skip(); } });
+        topRow.addView(skipAlt);
+        body.addView(topRow, U.full());
         title("Cosa preferisci fare invece di scorrere?");
         sub("Viene proposta quando dici «Mi annoiavo», nella pausa con scopo e nello sblocco di notte.");
         altField = new EditText(this);
@@ -1452,7 +1344,7 @@ public class OnboardingActivity extends PageActivity {
                 if (s.length() > 0) U.prefs(OnboardingActivity.this).edit().putString(Night.K_ALT, s).apply();
                 next();
             }
-        }, "Salta", new Runnable() { public void run() { next(); } });
+        });
     }
 
     // ---------- 194 · Pronto ----------
