@@ -52,11 +52,13 @@ public class NrtTest {
     public static void main(String[] a) throws Exception {
         TimeZone.setDefault(TimeZone.getTimeZone("Europe/Rome"));
         notificationsDifferential();
+        evolutiva018();
         notificationsNew();
         notificationsV04();
         groupsV06();
         quando();
         cerca();
+        cerca020();
         tempo();
         scopoNotte();
         rowsCompat();
@@ -72,6 +74,7 @@ public class NrtTest {
         serale();
         telefono();
         movimento();
+        attivitaInCorso();
         System.out.println("\nTotale: " + pass + " superati, " + fail + " falliti");
         FileWriter w = new FileWriter(a.length > 0 ? a[0] : "nrt-report.md");
         w.write("# Essenziale 0.6 · NRT automatico\n\nSuperati: " + pass + " · Falliti: " + fail + "\n");
@@ -465,6 +468,160 @@ public class NrtTest {
         eq("Pillola: in chiamata o in navigazione non c'è", Tempo.state(true, true, true, 25, false, true, 0, 0), Tempo.HIDE);
         eq("Pillola: dopo il tocco un puntino per 10 minuti", Tempo.state(true, true, true, 25, false, false, 5 * m + Tempo.DOT_MS, 6 * m), Tempo.DOT);
         eq("Pillola: poi torna", Tempo.state(true, true, true, 25, false, false, 5 * m, 6 * m), Tempo.PILL);
+    }
+
+    // ---- Evolutiva 020 · La ricerca: ordine fisso, limiti, spareggio, Migliore ----
+    static Cerca.Cand cd(String key, int kind, String label, int score) { return new Cerca.Cand(key, kind, label, score); }
+    static List<String> keys(List<Cerca.Cand> l) { List<String> o = new ArrayList<String>(); for (Cerca.Cand c : l) o.add(c.key); return o; }
+
+    static void cerca020() {
+        sec("F2. Ricerca 0.24 (Evolutiva 020): una riga sola, un ordine fisso");
+        eq("Gruppi nell'ordine fisso", Arrays.toString(Cerca.TITOLI), "[Contatti e gruppi, App, Impegni, Azioni, Impostazioni, Chiedi]");
+        eq("Limiti 3/3/2/2/2/1 (Migliore 1 a parte)", Arrays.toString(Cerca.LIMITI), "[3, 3, 2, 2, 2, 1]");
+        eq("In tutto 8 righe", Cerca.MAX_RIGHE, 8);
+        // Migliore: il punteggio più alto vince, senza titolo e tolto dal suo gruppo
+        List<Cerca.Cand> a = new ArrayList<Cerca.Cand>();
+        a.add(cd("p:marco", Cerca.PERSONA, "Marco", 30));
+        a.add(cd("a:maps", Cerca.APP, "Maps", 35));
+        a.add(cd("x:chiedi", Cerca.CHIEDI, "Chiedi", 0));
+        Cerca.Plan p = Cerca.plan(a, -1);
+        eq("Migliore: l'app con il punteggio più alto", p.best.key, "a:maps");
+        eq("Migliore: tolto dal suo gruppo App", p.groups.get(Cerca.APP).size(), 0);
+        eq("Migliore: la persona resta nel suo gruppo", keys(p.groups.get(Cerca.PERSONA)).toString(), "[p:marco]");
+        // spareggio: a pari punteggio persone > app > impegni > impostazioni
+        a = new ArrayList<Cerca.Cand>();
+        a.add(cd("s:1", Cerca.IMPOSTAZIONE, "Mail impostazioni", 30));
+        a.add(cd("ev:1", Cerca.IMPEGNO, "Mario", 30));
+        a.add(cd("a:mail", Cerca.APP, "Mail", 30));
+        a.add(cd("p:mara", Cerca.PERSONA, "Mara", 30));
+        eq("Spareggio di tipo: persone prima", Cerca.plan(a, -1).best.key, "p:mara");
+        a.remove(3);
+        eq("Spareggio di tipo: poi le app", Cerca.plan(a, -1).best.key, "a:mail");
+        a.remove(2);
+        eq("Spareggio di tipo: poi gli impegni", Cerca.plan(a, -1).best.key, "ev:1");
+        a.remove(1);
+        eq("Spareggio di tipo: infine le impostazioni", Cerca.plan(a, -1).best.key, "s:1");
+        // stesso tipo: il più recente, poi l'alfabeto senza accenti
+        a = new ArrayList<Cerca.Cand>();
+        a.add(cd("a:b", Cerca.APP, "Banca", 30).recent(100));
+        a.add(cd("a:a", Cerca.APP, "Azienda", 30).recent(100));
+        a.add(cd("a:c", Cerca.APP, "Chat", 30).recent(500));
+        a.add(cd("a:e", Cerca.APP, "Èra", 30).recent(100));
+        p = Cerca.plan(a, -1);
+        eq("Stesso tipo: il più recente è Migliore", p.best.key, "a:c");
+        eq("Stesso tipo: poi alfabetico senza accenti (Azienda, Banca, Èra dopo Banca)", keys(p.groups.get(Cerca.APP)).toString(), "[a:a, a:b, a:e]");
+        eq("App: oltre le 3 righe «Vedi tutti» conta quelle nascoste (4 meno Migliore = 3 da mostrare)", p.more[Cerca.APP], 0);
+        a.add(cd("a:z", Cerca.APP, "Zeta", 30).recent(100));
+        p = Cerca.plan(a, -1);
+        eq("App: Migliore + 3 righe, una nascosta", p.groups.get(Cerca.APP).size() + "/" + p.more[Cerca.APP], "3/1");
+        eq("Vedi tutti apre il gruppo sul posto (fino a 8)", Cerca.plan(a, Cerca.APP).groups.get(Cerca.APP).size(), 4);
+        eq("Vedi tutti: poi niente nascosto", Cerca.plan(a, Cerca.APP).more[Cerca.APP], 0);
+        // il punteggio batte il tipo; il +5 conta
+        a = new ArrayList<Cerca.Cand>();
+        a.add(cd("p:x", Cerca.PERSONA, "Xavier", 10));
+        a.add(cd("a:x", Cerca.APP, "Xapp", 20));
+        eq("Il punteggio più alto vince anche contro una persona", Cerca.plan(a, -1).best.key, "a:x");
+        // Azioni e Chiedi non sono mai Migliore
+        a = new ArrayList<Cerca.Cand>();
+        a.add(cd("x:esegui", Cerca.AZIONE, "Esegui", 99));
+        a.add(cd("q:chiedi", Cerca.CHIEDI, "Chiedi", 99));
+        p = Cerca.plan(a, -1);
+        check("Azioni e Chiedi non sono mai Migliore", p.best == null, null);
+        // zero risultati: nessuna preselezione, Chiedi con tre righe, Aggiungi nascosto
+        a = new ArrayList<Cerca.Cand>();
+        a.add(cd("x:aggiungi", Cerca.AZIONE, "Aggiungi", 0).needsHit());
+        a.add(cd("q:chiedi", Cerca.CHIEDI, "Chiedi", 0).order(0));
+        a.add(cd("q:web", Cerca.CHIEDI, "Web", 0).order(1));
+        a.add(cd("q:store", Cerca.CHIEDI, "Store", 0).order(2));
+        p = Cerca.plan(a, -1);
+        check("Zero risultati: nessuna preselezione (Invio non fa niente)", p.best == null && !p.anything, null);
+        eq("Zero risultati: Chiedi ha tre righe", keys(p.groups.get(Cerca.CHIEDI)).toString(), "[q:chiedi, q:web, q:store]");
+        eq("Zero risultati: «Aggiungi come impegno» non compare", p.groups.get(Cerca.AZIONE).size(), 0);
+        eq("Annuncio senza risultati", Cerca.announcement(null, 0), "Nessun risultato");
+        // con un risultato Chiedi è una riga sola e Aggiungi compare
+        a.add(cd("a:maps", Cerca.APP, "Maps", 30));
+        p = Cerca.plan(a, -1);
+        eq("Un risultato: Chiedi torna a una riga", keys(p.groups.get(Cerca.CHIEDI)).toString(), "[q:chiedi]");
+        eq("Un risultato: Aggiungi compare", keys(p.groups.get(Cerca.AZIONE)).toString(), "[x:aggiungi]");
+        eq("Annuncio: Migliore e conto", Cerca.announcement("Maps", 2), "Migliore: Maps. 2 risultati");
+        eq("Annuncio: un risultato", Cerca.announcement(null, 1), "1 risultato");
+        // massimo 8 righe, Chiedi riservata: i gruppi in basso si accorciano
+        a = new ArrayList<Cerca.Cand>();
+        for (int i = 0; i < 6; i++) a.add(cd("p:" + i, Cerca.PERSONA, "P" + i, 30 - i));
+        for (int i = 0; i < 6; i++) a.add(cd("a:" + i, Cerca.APP, "A" + i, 20 - i));
+        for (int i = 0; i < 4; i++) a.add(cd("ev:" + i, Cerca.IMPEGNO, "E" + i, 15 - i));
+        for (int i = 0; i < 4; i++) a.add(cd("s:" + i, Cerca.IMPOSTAZIONE, "S" + i, 10 - i).order(i));
+        a.add(cd("x:esegui", Cerca.AZIONE, "Esegui", 0).order(0));
+        a.add(cd("x:aggiungi", Cerca.AZIONE, "Aggiungi", 0).order(1).needsHit());
+        a.add(cd("q:chiedi", Cerca.CHIEDI, "Chiedi", 0));
+        p = Cerca.plan(a, -1);
+        eq("Al massimo 8 righe in tutto", p.rows(), 8);
+        eq("Pieno: Migliore + 3 persone + 3 app", (p.best == null ? 0 : 1) + p.groups.get(Cerca.PERSONA).size() + p.groups.get(Cerca.APP).size(), 7);
+        eq("Pieno: gli impegni, le azioni e le impostazioni sono tagliati", p.groups.get(Cerca.IMPEGNO).size() + p.groups.get(Cerca.AZIONE).size() + p.groups.get(Cerca.IMPOSTAZIONE).size(), 0);
+        eq("Pieno: Chiedi tiene il suo posto", keys(p.groups.get(Cerca.CHIEDI)).toString(), "[q:chiedi]");
+        eq("Pieno: gli impegni nascosti si contano per «Vedi tutti»", p.more[Cerca.IMPEGNO], 4);
+        // limiti per gruppo quando c'è posto
+        a = new ArrayList<Cerca.Cand>();
+        for (int i = 0; i < 4; i++) a.add(cd("ev:" + i, Cerca.IMPEGNO, "E" + i, 15).recent(-i));
+        for (int i = 0; i < 4; i++) a.add(cd("s:" + i, Cerca.IMPOSTAZIONE, "S" + i, 10).order(i));
+        a.add(cd("q:chiedi", Cerca.CHIEDI, "Chiedi", 0));
+        p = Cerca.plan(a, -1);
+        eq("Impegni: Migliore il più vicino, poi 2 righe", p.best.key + " " + keys(p.groups.get(Cerca.IMPEGNO)), "ev:0 [ev:1, ev:2]");
+        eq("Impostazioni: 2 righe nell'ordine dell'elenco", keys(p.groups.get(Cerca.IMPOSTAZIONE)).toString(), "[s:0, s:1]");
+        eq("Impostazioni: 2 nascoste", p.more[Cerca.IMPOSTAZIONE], 2);
+        // numero (E014): Chiama è Migliore se non c'è un contatto unico
+        a = new ArrayList<Cerca.Cand>();
+        a.add(cd("c:1", Cerca.PERSONA, "Giulia", 50));
+        a.add(cd("c:2", Cerca.PERSONA, "Paolo", 50));
+        a.add(cd("x:chiama", Cerca.AZIONE, "Chiama 346", 100).canBest());
+        a.add(cd("x:wa", Cerca.AZIONE, "WhatsApp", 0).order(0));
+        a.add(cd("x:addc", Cerca.AZIONE, "Aggiungi ai contatti", 0).order(1));
+        p = Cerca.plan(a, -1);
+        eq("Numero: due contatti, Migliore è «Chiama»", p.best.key, "x:chiama");
+        eq("Numero: poi i contatti", keys(p.groups.get(Cerca.PERSONA)).toString(), "[c:1, c:2]");
+        eq("Numero: Azioni WhatsApp e Aggiungi ai contatti", keys(p.groups.get(Cerca.AZIONE)).toString(), "[x:wa, x:addc]");
+        eq("Numero: il suggerimento è «Chiama»", Cerca.hint(p.best), "Chiama");
+        a.remove(2);
+        a.remove(1);
+        a.set(0, cd("c:1", Cerca.PERSONA, "Giulia", 100));
+        p = Cerca.plan(a, -1);
+        eq("Numero: un contatto unico è Migliore", p.best.key, "c:1");
+        eq("Numero: il suggerimento del contatto è «Apri»", Cerca.hint(p.best), "Apri");
+        check("Senza Migliore niente suggerimento", Cerca.hint(null) == null, null);
+        // parte scritta in grassetto
+        eq("Grassetto: l'inizio", Arrays.toString(Cerca.match("Mamma", "ma")), "[0, 2]");
+        eq("Grassetto: senza accenti sul titolo con accenti", Arrays.toString(Cerca.match("Città del Messico", "citta")), "[0, 5]");
+        eq("Grassetto: una parola che inizia così", Arrays.toString(Cerca.match("Trade Republic", "rep")), "[6, 9]");
+        eq("Grassetto: contiene", Arrays.toString(Cerca.match("Calcetto mercoledì", "rcol")), "[11, 15]");
+        eq("Grassetto: accento nel titolo, scritto senza", Arrays.toString(Cerca.match("Mercoledì", "dì")), "[7, 9]");
+        check("Grassetto: niente in comune", Cerca.match("Maps", "zz") == null && Cerca.match("Maps", "") == null, null);
+        // scorrimento: si azzera solo con testo vuoto o prima lettera diversa
+        check("Scorrimento: una lettera in più resta", !Cerca.resetsScroll("ma", "mar"), null);
+        check("Scorrimento: una lettera in meno resta", !Cerca.resetsScroll("mar", "ma"), null);
+        check("Scorrimento: la prima lettera cambia, si azzera", Cerca.resetsScroll("ma", "pa"), null);
+        check("Scorrimento: testo vuoto, si azzera", Cerca.resetsScroll("ma", ""), null);
+        check("Scorrimento: da vuoto a scritto, si azzera", Cerca.resetsScroll("", "m"), null);
+        // campo vuoto: sezioni senza doppioni, A portata con persone prima
+        List<Cerca.Cand> open = new ArrayList<Cerca.Cand>(), rec = new ArrayList<Cerca.Cand>(), port = new ArrayList<Cerca.Cand>();
+        open.add(cd("p:ilde", Cerca.PERSONA, "Ilde", 0));
+        rec.add(cd("p:ilde", Cerca.PERSONA, "Ilde", 0));
+        rec.add(cd("a:claude", Cerca.APP, "Claude", 0));
+        rec.add(cd("p:marta", Cerca.PERSONA, "Marta", 0));
+        rec.add(cd("a:mail", Cerca.APP, "Mail", 0));
+        port.add(cd("a:maps", Cerca.APP, "Maps", 0));
+        port.add(cd("p:fam", Cerca.PERSONA, "Famiglia", 0));
+        port.add(cd("a:claude", Cerca.APP, "Claude", 0));
+        for (int i = 0; i < 6; i++) port.add(cd("a:x" + i, Cerca.APP, "X" + i, 0));
+        java.util.Set<String> used = new java.util.HashSet<String>();
+        Cerca.Piece po = Cerca.take(open, used, Cerca.VUOTA_APERTE), pr = Cerca.take(rec, used, Cerca.VUOTA_RECENTI), pp = Cerca.take(Cerca.peopleFirst(port), used, Cerca.VUOTA_PORTATA);
+        eq("Aperte ora: max 2", Cerca.VUOTA_APERTE, 2);
+        eq("Recenti: niente doppioni con Aperte ora, max 2", keys(pr.shown).toString(), "[a:claude, p:marta]");
+        check("Recenti: una voce in più, «more»", pr.more, null);
+        eq("A portata: max 5, persone prima, senza doppioni", keys(pp.shown).toString(), "[p:fam, a:maps, a:x0, a:x1, a:x2]");
+        check("A portata: «Vedi tutti» perché ce n'è altro", pp.more, null);
+        // impostazioni come risultati
+        eq("Impostazioni come risultati: «permessi»", Cerca.SETTINGS[Cerca.settingCands("permessi").get(0).order][2], "area:6");
+        check("Impostazioni come risultati: una lettera non basta", Cerca.settingCands("p").isEmpty(), null);
     }
 
     static void cerca() {
@@ -934,6 +1091,66 @@ public class NrtTest {
         eq("Settimana 27: il consiglio 2", Serale.tipIndex(2927, 2900), 1);
     }
 
+    // ---------- Evolutiva 019 · attività in corso sul blocco ----------
+
+    static LiveLogic.Note ln(String pkg, String cat, int flags, String title, String text) {
+        LiveLogic.Note n = new LiveLogic.Note();
+        n.pkg = pkg; n.ownPkg = "it.essenziale.launcher"; n.category = cat; n.flags = flags; n.title = title; n.text = text; n.when = 1000;
+        return n;
+    }
+
+    static void attivitaInCorso() {
+        sec("Attività in corso sul blocco (E019)");
+        final int ON = LiveLogic.FLAG_ONGOING_EVENT, FG = 0x40;
+        long now = 10000000L;
+        LiveLogic.Note n = ln("com.maps", "navigation", ON, "Arrivo 10:08", "Esci dalla navigazione");
+        check("Navigazione in corso: sì", LiveLogic.isLive(n, now), null);
+        n = ln("com.x", null, ON | FG, "Servizio", "Sincronizzazione"); check("Servizio in primo piano senza categoria: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "service", ON, "Titolo", "Testo"); check("Categoria servizio: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "promo", ON, "Offerta", "-50%"); check("Promozione: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "recommendation", ON, "Per te", "Un film"); check("Raccomandazione: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "status", ON, "Stato", "ok"); check("Categoria stato: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "sys", ON, "Sistema", "ok"); check("Categoria sistema: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "progress", ON, "Scarico file", "40%"); n.hasProgress = true; check("Avanzamento con barra: sì", LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "progress", ON, "Scarico file", "40%"); check("Avanzamento senza barra: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "call", ON, "Mamma", "Chiamata in corso"); check("Chiamata in corso: sì", LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "call", 0, "Mamma", "Chiamata in arrivo"); check("Chiamata non in corso (in arrivo): no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.clock", "stopwatch", ON, "Cronometro", "00:12"); check("Cronometro: sì", LiveLogic.isLive(n, now), null);
+        n = ln("com.clock", "workout", ON, "Corsa", "5 km"); check("Allenamento: sì", LiveLogic.isLive(n, now), null);
+        n = ln("com.clock", "alarm", ON, "Timer", "04:10"); n.chrono = true; n.countdown = true; check("Timer (sveglia con conto alla rovescia): sì", LiveLogic.isLive(n, now), null);
+        n = ln("com.clock", "alarm", ON, "Sveglia", "07:00"); check("Sveglia: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.clock", "alarm", ON, "Sveglia", "07:00"); n.chrono = true; check("Sveglia con cronometro che sale: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.rider", null, ON, "Il rider è a 8 minuti", "Ordine 4821"); n.promoted = true; check("Live Update promosso (A16): sì, anche senza categoria", LiveLogic.isLive(n, now), null);
+        n = ln("com.rider", null, ON, "Il rider è a 8 minuti", "Ordine 4821"); n.progressStyle = true; check("ProgressStyle in corso: sì", LiveLogic.isLive(n, now), null);
+        n = ln("com.rider", null, 0, "Titolo", "Testo"); n.progressStyle = true; check("ProgressStyle non in corso: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.rider", "promo", ON, "Titolo", "Testo"); n.promoted = true; check("Promosso ma categoria promo: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "navigation", ON | LiveLogic.FLAG_GROUP_SUMMARY, "Riepilogo", "3 notifiche"); check("Riepilogo di gruppo: no", !LiveLogic.isLive(n, now), null);
+        n = ln("it.essenziale.launcher", "navigation", ON, "Nostra", "Nostra"); check("La nostra: no", !LiveLogic.isLive(n, now), null);
+        n = ln("android", "progress", ON, "Sistema", "40%"); n.hasProgress = true; check("Pacchetto di sistema: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.vpn", "progress", ON, "VPN attiva", "Connesso"); n.hasProgress = true; check("VPN: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "progress", ON, "App in esecuzione", "Tocca per i dettagli"); n.hasProgress = true; check("«In esecuzione»: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "progress", ON, "Uso della batteria", "Alto"); n.hasProgress = true; check("Batteria: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "navigation", ON, "", ""); check("Senza titolo né testo: no", !LiveLogic.isLive(n, now), null);
+        n = ln("com.x", "transport", 0, "Brano", "Artista"); n.media = true; n.playing = true; n.since = now - 1000;
+        check("Musica in riproduzione: sì (anche non «in corso»)", LiveLogic.isLive(n, now), null);
+        n.playing = false; n.since = now - 4 * 60000L; check("Musica in pausa da 4 minuti: sì", LiveLogic.isLive(n, now), null);
+        n.since = now - 5 * 60000L - 1; check("Musica in pausa da più di 5 minuti: no", !LiveLogic.isLive(n, now), null);
+        n.since = 0; check("Musica in pausa, da quando non si sa: no", !LiveLogic.isLive(n, now), null);
+        n.playing = true; check("Musica che riparte: torna", LiveLogic.isLive(n, now), null);
+
+        List<LiveLogic.Note> all = new ArrayList<LiveLogic.Note>();
+        for (int i = 0; i < 4; i++) { LiveLogic.Note x = ln("com.x" + i, "navigation", ON, "Attività " + i, "t"); x.when = 100 + i; x.key = "k" + i; all.add(x); }
+        LiveLogic.Note bad = ln("com.bad", "service", ON, "Servizio", "t"); bad.when = 999; all.add(bad);
+        List<LiveLogic.Note> pk = LiveLogic.pick(all, now, LiveLogic.MAX);
+        eq("Al massimo 2", pk.size(), 2);
+        eq("La più recente per prima", pk.get(0).key, "k3");
+        eq("Poi la seguente", pk.get(1).key, "k2");
+        check("Il servizio, anche se più recente, non entra", !pk.contains(bad), null);
+        eq("Nessuna attività: lista vuota", LiveLogic.pick(new ArrayList<LiveLogic.Note>(), now, 2).size(), 0);
+        eq("TalkBack: app, titolo, testo", LiveLogic.describe("Consegne", "Il rider è a 8 minuti", "Ordine 4821"), "Consegne. Il rider è a 8 minuti. Ordine 4821");
+        eq("TalkBack: senza testo", LiveLogic.describe("Musica", "Brano", null), "Musica. Brano");
+    }
+
     static void movimento() {
         sec("E016 · Movimento e feedback (parte pura di Motion)");
         eq("Rapido 180 ms", MotionLogic.RAPIDO, 180);
@@ -1010,6 +1227,12 @@ public class NrtTest {
         eq("Tick: a 290 ms il check è a metà", MotionLogic.tickCheck(290, false), 0.5f);
         eq("Tick: a 490 ms il check è finito", MotionLogic.tickCheck(490, false), 1f);
         eq("Tick, ridotto: il check c'è subito", MotionLogic.tickCheck(0, true), 1f);
+        eq("Tick 0.24: il disegno finisce a 490 ms", MotionLogic.tickDisegnoFine(), 490);
+        check("Tick 0.24: l'azione non parte prima della fine del disegno", !MotionLogic.tickAzionePuoPartire(489, false) && MotionLogic.tickAzionePuoPartire(490, false), null);
+        check("Tick 0.24: l'attesa dell'azione è dopo la fine del disegno", MotionLogic.tickAttesa(false) >= MotionLogic.tickDisegnoFine() && MotionLogic.tickAzionePuoPartire(MotionLogic.tickAttesa(false), false), null);
+        eq("Tick 0.24: all'attesa il check è intero", MotionLogic.tickCheck(MotionLogic.tickAttesa(false), false), 1f);
+        { boolean mn = true; float pv = 0f; for (int t = 0; t <= MotionLogic.tickAttesa(false); t += 16) { float k = MotionLogic.tickCheck(t, false); if (k < pv) mn = false; pv = k; } check("Tick 0.24: il check cresce sempre, a ogni fotogramma", mn && pv == 1f, null); }
+        check("Tick 0.24, ridotto: l'azione può partire subito, il check è intero", MotionLogic.tickAzionePuoPartire(0, true) && MotionLogic.tickCheck(0, true) == 1f, null);
         eq("Alone: 8 dp attorno a pillole e icone tonde", MotionLogic.ALONE_DP, 8f);
         eq("Alone: 6 dp attorno a chip e link", MotionLogic.ALONE_PICCOLO_DP, 6f);
         eq("Alone: sulla casella e le icone senza bordo, 56 dp", MotionLogic.ALONE_ICONA_DP, 56);
@@ -1054,5 +1277,73 @@ public class NrtTest {
         check("Due rapporti: il primo non conta (nessuna settimana scorsa)", !MotionLogic.countDown(prev1, week1), null);
         int prev2 = MotionLogic.prevWeek(true, true, week1);
         check("Due rapporti: il secondo conta alla rovescia da 14 a 9", MotionLogic.countDown(prev2, week2), null);
+    }
+
+    // ---- Evolutiva 018: proposte con il motivo e guida al permesso bloccato ----
+    static void evolutiva018() {
+        sec("Evolutiva 018 · proposte con il motivo");
+        long now = 100L * Proposte.DAY, d = Proposte.DAY;
+        eq("Motivo: contatto con la stella", Proposte.reasonPerson(true, 0, 0, now), "Hai la stella in rubrica");
+        eq("Motivo: la stella vale più delle notifiche", Proposte.reasonPerson(true, now - d, now - d, now), "Hai la stella in rubrica");
+        eq("Motivo: scrive spesso (ultimi 7 giorni, hai risposto)", Proposte.reasonPerson(false, now - 2 * d, now - 3 * d, now), "Ti scrive spesso");
+        eq("Motivo: scritto di recente, mai risposto", Proposte.reasonPerson(false, now - 5 * d, 0, now), "Ti ha scritto di recente");
+        eq("Motivo: scritto 10 giorni fa, anche con risposta: di recente", Proposte.reasonPerson(false, now - 10 * d, now - 10 * d, now), "Ti ha scritto di recente");
+        check("Motivo: 20 giorni fa nessun motivo, nessuna proposta", Proposte.reasonPerson(false, now - 20 * d, now - 20 * d, now) == null && Proposte.scorePerson(false, now - 20 * d, 1, now) == 0, null);
+        check("Punteggio: stella > spesso > recente", Proposte.scorePerson(true, 0, 0, now) > Proposte.scorePerson(false, now - d, now - d, now)
+                && Proposte.scorePerson(false, now - d, now - d, now) > Proposte.scorePerson(false, now - d, 0, now), null);
+        eq("Gruppo: questa settimana", Proposte.reasonGroup(now - 3 * d, now), "Ti ha scritto nel gruppo questa settimana");
+        eq("Gruppo: di recente", Proposte.reasonGroup(now - 20 * d, now), "Ti ha scritto nel gruppo di recente");
+        check("Gruppo: oltre 30 giorni o mai, niente motivo", Proposte.reasonGroup(now - 40 * d, now) == null && Proposte.reasonGroup(0, now) == null, null);
+        eq("Servizio: banca", Proposte.reasonService(Proposte.serviceCategory("Intesa Sanpaolo", "com.isp")), "Riconosciuta: banca");
+        eq("Servizio: SPID", Proposte.reasonService(Proposte.serviceCategory("PosteID", "it.poste.id")), "Riconosciuta: accesso SPID");
+        eq("Servizio: app IO, servizi pubblici", Proposte.reasonService(Proposte.serviceCategory("IO", "it.pagopa.io.app")), "Riconosciuta: servizi pubblici");
+        eq("Servizio: pagamenti", Proposte.reasonService(Proposte.serviceCategory("Satispay", "com.satispay")), "Riconosciuta: pagamenti");
+        eq("Servizio: categoria sconosciuta, motivo generico", Proposte.reasonService(""), "Riconosciuta come servizio");
+        eq("App: social", Proposte.reasonApp(true, false), "App social");
+        eq("App: video", Proposte.reasonApp(false, true), "App video");
+        check("App: né social né video, nessun motivo", Proposte.reasonApp(false, false) == null, null);
+        List<Proposte.Cand> cs = new ArrayList<Proposte.Cand>();
+        for (int i = 0; i < 9; i++) cs.add(new Proposte.Cand("k" + i, "Nome" + i, "motivo", 10 + i));
+        cs.add(new Proposte.Cand("senza", "Senza motivo", null, 999));
+        cs.add(new Proposte.Cand("zero", "Zero", "motivo", 0));
+        List<Proposte.Cand> top = Proposte.top(cs, 10);
+        eq("Proposte: al massimo 4", top.size(), 4);
+        eq("Proposte: la migliore per prima", top.get(0).key, "k8");
+        check("Proposte: senza motivo o senza punteggio non entrano", !Proposte.top(cs, 4).get(0).key.equals("senza") && Proposte.top(cs, 100).size() == 4, null);
+        eq("Etichetta: 3 scelti", Proposte.count(3, false), "3 scelti");
+        eq("Etichetta: 1 scelta", Proposte.count(1, true), "1 scelta");
+        eq("Etichetta: nessuno", Proposte.count(0, false), "Nessuno");
+        eq("Snackbar: aggiunta", Proposte.added("Instagram", true), "Aggiunta: Instagram");
+        eq("Snackbar: tolta", Proposte.added("Instagram", false), "Tolta: Instagram");
+
+        sec("Evolutiva 018 · guida al permesso bloccato");
+        GuidaPerm g = new GuidaPerm();
+        check("Guida: all'inizio non si vede", !g.visible() && g.resume(true) == GuidaPerm.EV_NONE, null);
+        g.open();
+        check("Guida: aperta, passo 1, «Prova ad accenderlo»", g.visible() && g.step == 0 && g.button().equals("Prova ad accenderlo"), null);
+        eq("Guida: tornata senza essere uscita, niente cambia", g.resume(false), GuidaPerm.EV_NONE);
+        g.leave();
+        eq("Guida: uscita dal passo 1, tocca il passo 2", g.step, 1);
+        eq("Guida: ritorno senza permesso, «ancora»", g.resume(false), GuidaPerm.EV_STILL);
+        check("Guida: «ancora» dice quale passo manca (2) e il pulsante è Info app", g.phase == GuidaPerm.STILL && g.missing() == 2 && g.button().equals("Apri Info app"), null);
+        eq("Guida: un secondo ritorno senza uscire non cambia", g.resume(false), GuidaPerm.EV_NONE);
+        g.leave(); g.resume(false); g.leave(); g.resume(false);
+        check("Guida: al passo 3 il pulsante dopo il ritorno è «Riprova»", g.step == 2 && g.button().equals("Riprova"), null);
+        eq("Guida: permesso acceso al ritorno, via libera", g.resume(true), GuidaPerm.EV_OK);
+        check("Guida: dopo il via libera la fase è OK e si prosegue", g.phase == GuidaPerm.OK && g.finish() && !g.visible(), null);
+        g.open(); g.leave();
+        eq("Guida: acceso già al primo ritorno, via libera", g.resume(true), GuidaPerm.EV_OK);
+        g.clear();
+        check("Guida: «Salta» azzera tutto, niente resta", !g.visible() && g.step == 0 && !g.away && g.resume(true) == GuidaPerm.EV_NONE, null);
+        g.open(); g.leave(); g.leave(); g.clear();
+        g.open();
+        check("Guida: azzerata a metà, riaprendola riparte dal passo 1", g.step == 0 && !g.away && g.phase == GuidaPerm.STEPS, null);
+        check("Guida: finish senza via libera non prosegue", !new GuidaPerm().finish(), null);
+        eq("Catena: permesso dato, si passa oltre", GuidaPerm.chain(true, true, true, false), GuidaPerm.NEXT);
+        eq("Catena: mai chiesto, si chiede", GuidaPerm.chain(false, false, true, false), GuidaPerm.ASK);
+        eq("Catena: chiesto e mancante su telefono bloccato, guida (non Non disturbare)", GuidaPerm.chain(false, true, true, false), GuidaPerm.GUIDE);
+        eq("Catena: guida più volte di fila, sempre guida finché non si salta", GuidaPerm.chain(false, true, true, false), GuidaPerm.GUIDE);
+        eq("Catena: guida saltata, si passa oltre", GuidaPerm.chain(false, true, true, true), GuidaPerm.NEXT);
+        eq("Catena: permesso non bloccabile (Non disturbare), si passa oltre", GuidaPerm.chain(false, true, false, false), GuidaPerm.NEXT);
     }
 }

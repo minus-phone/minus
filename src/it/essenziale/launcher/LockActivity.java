@@ -37,7 +37,8 @@ public class LockActivity extends Activity {
     private android.graphics.drawable.GradientDrawable torchBg;
     private LinearLayout dateChips; // 0.18 (Evolutiva 008): «tutto il giorno» accanto alla data
     private LinearLayout notifRow;
-    private LinearLayout next, todo;
+    private LinearLayout next, todo, live;
+    private String liveSig = "";
     private final Handler handler = new Handler();
     private boolean torchOn = false;
     private String torchId;
@@ -108,6 +109,9 @@ public class LockActivity extends Activity {
         llp.topMargin = U.dp(this, 18);
         root.addView(line, llp);
 
+        // E019 (0.24): «In corso» sopra «Prossimi», le attività avviate da te, com'è la scheda dell'app
+        live = U.col(this);
+        root.addView(live, U.full());
         next = U.col(this);
         root.addView(next, U.full());
         todo = U.col(this);
@@ -130,7 +134,7 @@ public class LockActivity extends Activity {
         unlock.setGravity(Gravity.CENTER);
         unlock.setMinHeight(U.dp(this, 64));
         Press.rowOnDark(unlock); // 0.21: borderless, solo il fondo si schiarisce
-        unlock.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { unlockThen(null); } });
+        unlock.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { unlockThen((Intent) null); } });
         actions.addView(unlock, new LinearLayout.LayoutParams(0, U.dp(this, 64), 1f));
         android.widget.ImageView cam = iconButton("ic_fotocamera", "Fotocamera", U.box(this, 0xFF2A2A28, 0, 24));
         cam.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { camera(); } });
@@ -178,10 +182,12 @@ public class LockActivity extends Activity {
         if (km != null && !km.isKeyguardLocked()) { finish(); return; }
         handler.removeCallbacks(tick);
         handler.post(tick);
+        Live.listen(new Runnable() { public void run() { refreshLive(); } });
     }
 
     @Override
     protected void onPause() {
+        Live.listen(null);
         handler.removeCallbacks(tick);
         super.onPause();
         Pill.pausedActivity(this);
@@ -197,7 +203,27 @@ public class LockActivity extends Activity {
     @Override
     public void onBackPressed() { /* resta qui finché non sblocchi */ }
 
+    /** E019: le attività in corso (al massimo 2). Si ridisegna solo se sono cambiate; sparisce con la notifica. */
+    private void refreshLive() {
+        List<android.service.notification.StatusBarNotification> l = new java.util.ArrayList<android.service.notification.StatusBarNotification>();
+        if (Live.on(this) && U.listenerEnabled(this)) {
+            try { l = Live.pick(this); } catch (Throwable ignored) {}
+        }
+        String sig = Live.signature(l);
+        if (sig.equals(liveSig) && (live.getChildCount() > 0) == !l.isEmpty()) return;
+        liveSig = sig;
+        live.removeAllViews();
+        if (l.isEmpty()) return;
+        live.addView(darkLabel("In corso"));
+        for (final android.service.notification.StatusBarNotification s : l) {
+            live.addView(Live.card(this, s, new View.OnClickListener() {
+                public void onClick(View v) { unlockThen(s.getNotification().contentIntent); }
+            }));
+        }
+    }
+
     private void refresh() {
+        refreshLive();
         clock.setText(U.hhmm(System.currentTimeMillis()));
         String d = new java.text.SimpleDateFormat("EEEE d MMMM", Locale.ITALY).format(new java.util.Date());
         date.setText(d.substring(0, 1).toUpperCase(Locale.ITALY) + d.substring(1));
@@ -338,14 +364,26 @@ public class LockActivity extends Activity {
 
     // ---------- Azioni ----------
 
+    /** E019: come sopra, ma apre ciò che l'app ha previsto per un tocco sulla notifica (se c'è). */
+    private void unlockThen(android.app.PendingIntent pi) {
+        if (pi != null) {
+            try { pi.send(); } catch (Exception ignored) {} // come una schermata normale: compare dopo lo sblocco
+        }
+        dismissKeyguard();
+    }
+
     /** Chiede lo sblocco di sistema; poi, se indicato, apre una schermata. */
     private void unlockThen(final Intent after) {
-        KeyguardManager km = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
         if (after != null) {
             // Una schermata normale aperta da qui compare subito dopo lo sblocco
             after.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             U.start(this, after);
         }
+        dismissKeyguard();
+    }
+
+    private void dismissKeyguard() {
+        KeyguardManager km = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
         boolean asked = false;
         try {
             // Android 8+: KeyguardManager.requestDismissKeyguard(activity, null)
