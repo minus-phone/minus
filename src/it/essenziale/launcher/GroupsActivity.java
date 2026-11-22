@@ -39,15 +39,15 @@ public class GroupsActivity extends PageActivity {
         render();
     }
 
-    private static class G {
+    static class G {
         String name, code;
         long last;
     }
 
     /** Gruppi visti nelle notifiche negli ultimi 30 giorni, più quelli con una scelta salvata. */
-    private Map<String, G> groups() {
+    static Map<String, G> groups(android.content.Context ctx) {
         Map<String, G> out = new LinkedHashMap<String, G>();
-        for (String[] r : U.rows(U.prefs(this).getString(U.K_SEEN_GROUPS, ""))) {
+        for (String[] r : U.rows(U.prefs(ctx).getString(U.K_SEEN_GROUPS, ""))) {
             if (r.length < 3) continue;
             G g = new G();
             g.name = Rules.groupName(r[0]);
@@ -57,7 +57,7 @@ public class GroupsActivity extends PageActivity {
             G old = out.get(k);
             if (old == null || g.last > old.last) out.put(k, g);
         }
-        for (String[] r : U.rows(U.prefs(this).getString(U.K_GROUPS, ""))) {
+        for (String[] r : U.rows(U.prefs(ctx).getString(U.K_GROUPS, ""))) {
             String name = Rules.groupName(r[0]), k = name.toLowerCase(Locale.ITALY);
             if (out.containsKey(k)) continue;
             G g = new G();
@@ -96,7 +96,7 @@ public class GroupsActivity extends PageActivity {
         list.removeAllViews();
         Map<String, String> rules = U.groupRules(this);
         List<G> always = new ArrayList<G>(), silent = new ArrayList<G>();
-        for (G g : groups().values()) {
+        for (G g : groups(this).values()) {
             if (g.code != null && !g.code.equals(code)) continue;
             if (g.code == null && !"WA".equals(code)) continue; // gruppi senza app nota: sotto WhatsApp
             (Rules.groupAlways(rules.get(g.name.toLowerCase(Locale.ITALY))) ? always : silent).add(g);

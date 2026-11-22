@@ -1217,17 +1217,17 @@ public class SearchActivity extends BaseActivity {
             i.putExtra("back", "Ricerca");
         } else if ("people".equals(dest)) i = SettingsActivity.peopleIntent(this, "Ricerca");
         else if ("groups".equals(dest)) i = SettingsActivity.peopleIntent(this, "Ricerca").putExtra("tab", 1);
-        else if ("servizi".equals(dest)) i = new Intent(this, ServiziActivity.class);
+        else if ("servizi".equals(dest)) i = SelectorActivity.intent(this, Scegli.SERVICES, null);
         else if ("waiting".equals(dest)) { i = new Intent(this, ContainerActivity.class); i.putExtra("tab", ContainerActivity.TAB_WAITING); }
         else if ("portata".equals(dest)) i = new Intent(this, PortataActivity.class);
-        else if ("pause".equals(dest)) i = new Intent(this, PauseActivity.class);
+        else if ("pause".equals(dest)) i = SelectorActivity.intent(this, Scegli.DOOM, null);
         else if ("session".equals(dest)) i = new Intent(this, SessionActivity.class);
         else if ("calendars".equals(dest)) i = new Intent(this, CalendarsActivity.class);
         else if ("voice".equals(dest)) i = new Intent(this, VoiceHelpActivity.class);
         else if ("changes".equals(dest)) i = new Intent(this, ChangesActivity.class);
         else if ("sticky".equals(dest)) i = new Intent(this, StickyActivity.class);
         else if ("bug".equals(dest)) i = new Intent(this, BugActivity.class);
-        else if ("night".equals(dest)) i = new Intent(this, NightSettingsActivity.class);
+        else if ("night".equals(dest)) i = SelectorActivity.intent(this, Scegli.NIGHT, null);
         else if ("aspetto".equals(dest)) i = new Intent(this, AspettoActivity.class);
         else if ("wellbeing".equals(dest)) { Session.openWellbeing(this); return; }
         else if ("alarms".equals(dest)) { U.openAlarms(this); return; }

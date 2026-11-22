@@ -52,6 +52,7 @@ public class NrtTest {
     public static void main(String[] a) throws Exception {
         TimeZone.setDefault(TimeZone.getTimeZone("Europe/Rome"));
         notificationsDifferential();
+        evolutiva018();
         notificationsNew();
         notificationsV04();
         groupsV06();
@@ -1276,5 +1277,73 @@ public class NrtTest {
         check("Due rapporti: il primo non conta (nessuna settimana scorsa)", !MotionLogic.countDown(prev1, week1), null);
         int prev2 = MotionLogic.prevWeek(true, true, week1);
         check("Due rapporti: il secondo conta alla rovescia da 14 a 9", MotionLogic.countDown(prev2, week2), null);
+    }
+
+    // ---- Evolutiva 018: proposte con il motivo e guida al permesso bloccato ----
+    static void evolutiva018() {
+        sec("Evolutiva 018 · proposte con il motivo");
+        long now = 100L * Proposte.DAY, d = Proposte.DAY;
+        eq("Motivo: contatto con la stella", Proposte.reasonPerson(true, 0, 0, now), "Hai la stella in rubrica");
+        eq("Motivo: la stella vale più delle notifiche", Proposte.reasonPerson(true, now - d, now - d, now), "Hai la stella in rubrica");
+        eq("Motivo: scrive spesso (ultimi 7 giorni, hai risposto)", Proposte.reasonPerson(false, now - 2 * d, now - 3 * d, now), "Ti scrive spesso");
+        eq("Motivo: scritto di recente, mai risposto", Proposte.reasonPerson(false, now - 5 * d, 0, now), "Ti ha scritto di recente");
+        eq("Motivo: scritto 10 giorni fa, anche con risposta: di recente", Proposte.reasonPerson(false, now - 10 * d, now - 10 * d, now), "Ti ha scritto di recente");
+        check("Motivo: 20 giorni fa nessun motivo, nessuna proposta", Proposte.reasonPerson(false, now - 20 * d, now - 20 * d, now) == null && Proposte.scorePerson(false, now - 20 * d, 1, now) == 0, null);
+        check("Punteggio: stella > spesso > recente", Proposte.scorePerson(true, 0, 0, now) > Proposte.scorePerson(false, now - d, now - d, now)
+                && Proposte.scorePerson(false, now - d, now - d, now) > Proposte.scorePerson(false, now - d, 0, now), null);
+        eq("Gruppo: questa settimana", Proposte.reasonGroup(now - 3 * d, now), "Ti ha scritto nel gruppo questa settimana");
+        eq("Gruppo: di recente", Proposte.reasonGroup(now - 20 * d, now), "Ti ha scritto nel gruppo di recente");
+        check("Gruppo: oltre 30 giorni o mai, niente motivo", Proposte.reasonGroup(now - 40 * d, now) == null && Proposte.reasonGroup(0, now) == null, null);
+        eq("Servizio: banca", Proposte.reasonService(Proposte.serviceCategory("Intesa Sanpaolo", "com.isp")), "Riconosciuta: banca");
+        eq("Servizio: SPID", Proposte.reasonService(Proposte.serviceCategory("PosteID", "it.poste.id")), "Riconosciuta: accesso SPID");
+        eq("Servizio: app IO, servizi pubblici", Proposte.reasonService(Proposte.serviceCategory("IO", "it.pagopa.io.app")), "Riconosciuta: servizi pubblici");
+        eq("Servizio: pagamenti", Proposte.reasonService(Proposte.serviceCategory("Satispay", "com.satispay")), "Riconosciuta: pagamenti");
+        eq("Servizio: categoria sconosciuta, motivo generico", Proposte.reasonService(""), "Riconosciuta come servizio");
+        eq("App: social", Proposte.reasonApp(true, false), "App social");
+        eq("App: video", Proposte.reasonApp(false, true), "App video");
+        check("App: né social né video, nessun motivo", Proposte.reasonApp(false, false) == null, null);
+        List<Proposte.Cand> cs = new ArrayList<Proposte.Cand>();
+        for (int i = 0; i < 9; i++) cs.add(new Proposte.Cand("k" + i, "Nome" + i, "motivo", 10 + i));
+        cs.add(new Proposte.Cand("senza", "Senza motivo", null, 999));
+        cs.add(new Proposte.Cand("zero", "Zero", "motivo", 0));
+        List<Proposte.Cand> top = Proposte.top(cs, 10);
+        eq("Proposte: al massimo 4", top.size(), 4);
+        eq("Proposte: la migliore per prima", top.get(0).key, "k8");
+        check("Proposte: senza motivo o senza punteggio non entrano", !Proposte.top(cs, 4).get(0).key.equals("senza") && Proposte.top(cs, 100).size() == 4, null);
+        eq("Etichetta: 3 scelti", Proposte.count(3, false), "3 scelti");
+        eq("Etichetta: 1 scelta", Proposte.count(1, true), "1 scelta");
+        eq("Etichetta: nessuno", Proposte.count(0, false), "Nessuno");
+        eq("Snackbar: aggiunta", Proposte.added("Instagram", true), "Aggiunta: Instagram");
+        eq("Snackbar: tolta", Proposte.added("Instagram", false), "Tolta: Instagram");
+
+        sec("Evolutiva 018 · guida al permesso bloccato");
+        GuidaPerm g = new GuidaPerm();
+        check("Guida: all'inizio non si vede", !g.visible() && g.resume(true) == GuidaPerm.EV_NONE, null);
+        g.open();
+        check("Guida: aperta, passo 1, «Prova ad accenderlo»", g.visible() && g.step == 0 && g.button().equals("Prova ad accenderlo"), null);
+        eq("Guida: tornata senza essere uscita, niente cambia", g.resume(false), GuidaPerm.EV_NONE);
+        g.leave();
+        eq("Guida: uscita dal passo 1, tocca il passo 2", g.step, 1);
+        eq("Guida: ritorno senza permesso, «ancora»", g.resume(false), GuidaPerm.EV_STILL);
+        check("Guida: «ancora» dice quale passo manca (2) e il pulsante è Info app", g.phase == GuidaPerm.STILL && g.missing() == 2 && g.button().equals("Apri Info app"), null);
+        eq("Guida: un secondo ritorno senza uscire non cambia", g.resume(false), GuidaPerm.EV_NONE);
+        g.leave(); g.resume(false); g.leave(); g.resume(false);
+        check("Guida: al passo 3 il pulsante dopo il ritorno è «Riprova»", g.step == 2 && g.button().equals("Riprova"), null);
+        eq("Guida: permesso acceso al ritorno, via libera", g.resume(true), GuidaPerm.EV_OK);
+        check("Guida: dopo il via libera la fase è OK e si prosegue", g.phase == GuidaPerm.OK && g.finish() && !g.visible(), null);
+        g.open(); g.leave();
+        eq("Guida: acceso già al primo ritorno, via libera", g.resume(true), GuidaPerm.EV_OK);
+        g.clear();
+        check("Guida: «Salta» azzera tutto, niente resta", !g.visible() && g.step == 0 && !g.away && g.resume(true) == GuidaPerm.EV_NONE, null);
+        g.open(); g.leave(); g.leave(); g.clear();
+        g.open();
+        check("Guida: azzerata a metà, riaprendola riparte dal passo 1", g.step == 0 && !g.away && g.phase == GuidaPerm.STEPS, null);
+        check("Guida: finish senza via libera non prosegue", !new GuidaPerm().finish(), null);
+        eq("Catena: permesso dato, si passa oltre", GuidaPerm.chain(true, true, true, false), GuidaPerm.NEXT);
+        eq("Catena: mai chiesto, si chiede", GuidaPerm.chain(false, false, true, false), GuidaPerm.ASK);
+        eq("Catena: chiesto e mancante su telefono bloccato, guida (non Non disturbare)", GuidaPerm.chain(false, true, true, false), GuidaPerm.GUIDE);
+        eq("Catena: guida più volte di fila, sempre guida finché non si salta", GuidaPerm.chain(false, true, true, false), GuidaPerm.GUIDE);
+        eq("Catena: guida saltata, si passa oltre", GuidaPerm.chain(false, true, true, true), GuidaPerm.NEXT);
+        eq("Catena: permesso non bloccabile (Non disturbare), si passa oltre", GuidaPerm.chain(false, true, false, false), GuidaPerm.NEXT);
     }
 }

@@ -275,14 +275,14 @@ public class SettingsActivity extends PageActivity {
                 render();
             }
         });
+        // 0.24 (Evolutiva 018): le stesse righe del primo avvio, con lo stesso «3 scelti ›», aprono lo stesso selettore
+        body.addView(U.label(this, "Persone"));
+        nav("Chi conta", "Passano sempre, anche col silenzio", selector(Scegli.PEOPLE), Scegli.countText(this, Scegli.PEOPLE) + " ›");
+        nav("Gruppi", "Quelli che passano sempre", selector(Scegli.GROUPS), Scegli.countText(this, Scegli.GROUPS) + " ›");
         nav("Contatti e gruppi", contactsSummary(), peopleIntent(this, TITLES[NOTIF]), "›");
         body.addView(U.label(this, "App"));
-        int sv = ServiziActivity.installed(this).size();
-        nav("Servizi", sv + " riconosciuti · banca, SPID, IO, salute, scuola: codici e accessi passano sempre", to(ServiziActivity.class), "›");
-        int ac = U.appChoices(this).size();
-        row("Notifiche delle app", "Per ogni app: passa sempre, in Per te o in Altro" + (ac > 0 ? " · " + ac + " scelte" : ""), "›", new Runnable() {
-            public void run() { AppChoice.list(SettingsActivity.this, new Runnable() { public void run() { render(); } }); }
-        });
+        nav("Servizi", "Banca, SPID, app IO: codici e accessi", selector(Scegli.SERVICES), Scegli.countText(this, Scegli.SERVICES) + " ›");
+        nav("Notifiche delle app", "Per ogni app: passa sempre, in Per te o in Altro", selector(Scegli.APPNOTIF), Scegli.countText(this, Scegli.APPNOTIF) + " ›");
         body.addView(U.label(this, "Barra di stato"));
         int sticky = Sticky.recent(this).size();
         nav("Icone fisse nella barra", sticky == 0 ? "Nessuna negli ultimi 7 giorni" : sticky + " app negli ultimi 7 giorni · rendile silenziose", to(StickyActivity.class), "›");
@@ -303,7 +303,7 @@ public class SettingsActivity extends PageActivity {
         goalHeader(Goals.DOOM, "Spegnendolo, le app si aprono senza pausa e non ti chiede più niente allo sblocco; le scelte restano");
         // 0.18 (Evolutiva 010): PRIMA DI APRIRE e QUANDO LO SBLOCCHI
         body.addView(U.label(this, "Prima di aprire"));
-        nav("App che rapiscono", U.pausedPkgs(this).size() + " app · " + Scope.scopePkgs(this).size() + " con pausa e scopo", to(PauseActivity.class), "›");
+        nav("App che rapiscono", U.pausedPkgs(this).size() + " app · " + Scope.scopePkgs(this).size() + " con pausa e scopo", selector(Scegli.DOOM), "›");
         pauseLength();
         body.addView(U.label(this, "Quando lo sblocchi"));
         // 0.18 (Evolutiva 012): conta solo il tempo nelle app frenate; senza accesso ai dati di utilizzo non conta
@@ -354,7 +354,7 @@ public class SettingsActivity extends PageActivity {
         nav("Chi ti raggiunge di notte", Onboarding.alwaysCount(this) + " persone che contano", to(PeopleActivity.class), "›");
         StringBuilder na = new StringBuilder();
         for (String pk : Night.nightApps(this)) { if (na.length() > 0) na.append(", "); na.append(U.appLabel(this, pk)); }
-        nav("App frenate di notte", na.length() == 0 ? "Nessuna" : na.toString(), to(NightSettingsActivity.class), "›");
+        nav("App frenate di notte", na.length() == 0 ? "Nessuna" : na.toString(), selector(Scegli.NIGHT), "›");
         prefToggle("Mattino tranquillo", "Fino a " + Notte.MORNING_MIN + " minuti dopo la sveglia", Night.K_MORNING, true, "Mattino tranquillo acceso", "Mattino tranquillo spento");
         row("Scala di grigi di Android", "Apri Modalità Riposo · orari " + Notte.hhmm(Night.offMin(this)) + " – " + Notte.hhmm(Night.wakeMin(this)), "↗", new Runnable() {
             public void run() { Session.openWellbeing(SettingsActivity.this); }
@@ -447,6 +447,10 @@ public class SettingsActivity extends PageActivity {
     }
 
     // ---------- Pezzi ----------
+
+    private Intent selector(int kind) {
+        return SelectorActivity.intent(this, kind, area >= 0 ? TITLES[area] : null);
+    }
 
     private Intent to(Class<?> c) {
         Intent i = new Intent(this, c);
