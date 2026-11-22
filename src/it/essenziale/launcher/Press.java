@@ -217,6 +217,8 @@ final class Press {
         private boolean ringDark;
         private Halo ring;
         private boolean held;
+        private Drawable pressedBest;   // 0.24: la faccia premuta quando il riquadro del primo risultato è acceso
+        private boolean bestOn;
 
         /** Tiene la faccia premuta (il pulsante che ha appena fatto il suo lavoro, mentre il check si disegna). */
         void hold() {
@@ -252,7 +254,10 @@ final class Press {
             placePressed(1f);
         }
 
+        private Drawable pressedNow() { return bestOn && pressedBest != null ? pressedBest : pressed; }
+
         private void placePressed(float scale) {
+            Drawable pressed = pressedNow();
             if (pressed == null) return;
             Rect b = getBounds();
             if (haloPx > 0) {
@@ -263,11 +268,32 @@ final class Press {
 
         @Override public void draw(Canvas cv) {
             if (normal != null) { normal.setAlpha(nAlpha); normal.draw(cv); }
+            Drawable pressed = pressedNow();
             if (pressed != null && p > 0.001f) {
                 placePressed(grow ? 0.8f + 0.2f * p : 1f);
                 pressed.setAlpha(Math.round(255 * p));
                 pressed.draw(cv);
             }
+        }
+
+        /**
+         * 0.24: il riquadro del primo risultato si accende o si spegne in dissolvenza sul posto (RAPIDO), senza spostarsi.
+         * Acceso, premuto scurisce (#DCD8CD); spento, premuto è il fondo delle righe normali.
+         */
+        Fade setBest(boolean on, boolean animate) {
+            int to = on ? 255 : 0;
+            if (on == bestOn && (nAlpha == to || (appear != null && appear.isRunning()))) return this;
+            bestOn = on;
+            if (appear != null) appear.cancel();
+            if (!animate) { nAlpha = to; invalidateSelf(); return this; }
+            appear = ValueAnimator.ofInt(nAlpha, to);
+            appear.setDuration(Motion.dur(ctx, Motion.RAPIDO));
+            appear.setInterpolator(Motion.DECELERA);
+            appear.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                public void onAnimationUpdate(ValueAnimator a) { nAlpha = (Integer) a.getAnimatedValue(); invalidateSelf(); }
+            });
+            appear.start();
+            return this;
         }
 
         /** La faccia normale compare in dissolvenza (RAPIDO) invece di comparire di colpo: il riquadro del primo risultato. */
@@ -382,6 +408,19 @@ final class Press {
      * riempie d'inchiostro e la lettera diventa chiara (RAPIDO, almeno 240 ms). {@code tile} è il TextView con l'iniziale.
      */
     static Fade tile(View v, TextView tile) { return rowWithBadge(v, tile); }
+
+    /**
+     * 0.24: riga della ricerca che può diventare il primo risultato: il riquadro (CHIP) parte spento, si accende con
+     * {@link Fade#setBest}; {@code badge} è il cerchio con l'iniziale (null per le app e le azioni).
+     */
+    static Fade rowSwitch(View v, TextView badge) {
+        Context c = v.getContext();
+        Fade f = on(v, shape(c, U.CHIP, 0, 12), shape(c, alpha(U.CHIP, 0.6f), 0, 12)).minHold();
+        f.pressedBest = shape(c, U.dark ? MotionLogic.mix(U.CHIP, U.INK, 0.06f) : 0xFFDCD8CD, 0, 12);
+        f.nAlpha = 0;
+        if (badge != null) f.listener = new BadgeFx(badge);
+        return f;
+    }
 
     /** Riga già evidenziata (primo risultato): premuta, il riquadro scurisce (#DCD8CD sul chiaro). */
     static Fade rowBest(View v) {

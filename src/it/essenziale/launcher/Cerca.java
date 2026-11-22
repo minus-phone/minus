@@ -135,6 +135,21 @@ public final class Cerca {
         return out.size() > max ? out.subList(0, max) : out;
     }
 
+    /** Le voci di Impostazioni che corrispondono, come risultati: chiave «s:indice», punteggio del titolo (×10) o della parola chiave (5), ordine dell'elenco. */
+    public static List<Cand> settingCands(String q) {
+        List<Cand> out = new ArrayList<Cand>();
+        String s = norm(q);
+        if (s.length() < 2) return out;
+        for (int i = 0; i < SETTINGS.length; i++) {
+            String[] e = SETTINGS[i];
+            int v = score(e[0], q) * 10;
+            if (v == 0) for (String k : e[1].split(" ")) if (norm(k).startsWith(s)) { v = 5; break; }
+            if (v == 0) continue;
+            out.add(new Cand("s:" + i, IMPOSTAZIONE, e[0], v).order(i));
+        }
+        return out;
+    }
+
     /** Recenti: la voce più nuova in cima, niente doppioni, al massimo 3. */
     /** 0.15: i cercati di recente sono al massimo 9, e si mostrano solo quelli delle ultime 2 ore. */
     public static final int MAX_RECENT = 9;
@@ -192,5 +207,189 @@ public final class Cerca {
         List<String> out = new ArrayList<String>(names);
         if (k > 0 && k < out.size()) out.add(k - 1, out.remove(k));
         return out;
+    }
+
+    // ---------- 0.24 (Evolutiva 020): una riga sola per ogni risultato, un ordine fisso ----------
+
+    /** I gruppi, nell'ordine fisso in cui compaiono dall'alto (Migliore sta prima, senza titolo). */
+    public static final int PERSONA = 0, APP = 1, IMPEGNO = 2, AZIONE = 3, IMPOSTAZIONE = 4, CHIEDI = 5;
+    public static final String[] TITOLI = {"Contatti e gruppi", "App", "Impegni", "Azioni", "Impostazioni", "Chiedi"};
+    /** Righe al massimo per gruppo (Migliore 1 a parte): Contatti 3, App 3, Impegni 2, Azioni 2, Impostazioni 2, Chiedi 1. */
+    public static final int[] LIMITI = {3, 3, 2, 2, 2, 1};
+    /** Con zero risultati «Chiedi» ha tre righe: assistente, web, Play Store. */
+    public static final int LIMITE_CHIEDI_VUOTO = 3;
+    /** In tutto, Migliore e «Chiedi» compresi. */
+    public static final int MAX_RIGHE = 8;
+    /** Campo vuoto: Aperte ora 2, Recenti 2, A portata 5. */
+    public static final int VUOTA_APERTE = 2, VUOTA_RECENTI = 2, VUOTA_PORTATA = 5;
+
+    /** Un risultato possibile: chiave stabile (tipo + identificativo), tipo, titolo e quanto corrisponde. */
+    public static final class Cand {
+        public final String key, label;
+        public final int kind, score;
+        /** Ultima interazione o ultima apertura (più grande = più recente); per gli impegni, meno inizio. */
+        public long recency;
+        /** Ordine di partenza (elenco di Impostazioni, ordine delle azioni): più piccolo prima. */
+        public int order;
+        /** Si mostra solo se c'è almeno un altro risultato (Aggiungi come impegno). */
+        public boolean needsHit;
+        /** Un'azione che può essere Migliore (solo «Chiama» con un numero scritto). */
+        public boolean canBest;
+
+        public Cand(String key, int kind, String label, int score) { this.key = key; this.kind = kind; this.label = label; this.score = score; }
+        public Cand recent(long r) { this.recency = r; return this; }
+        public Cand order(int o) { this.order = o; return this; }
+        public Cand needsHit() { this.needsHit = true; return this; }
+        public Cand canBest() { this.canBest = true; return this; }
+    }
+
+    /** Chi viene prima: punteggio più alto; a pari punteggio persone, app, impegni, impostazioni; poi il più recente, l'ordine di partenza, l'alfabeto senza accenti. */
+    public static int compare(Cand a, Cand b) {
+        if (a.score != b.score) return a.score > b.score ? -1 : 1;
+        if (a.kind != b.kind) return a.kind < b.kind ? -1 : 1;
+        if (a.recency != b.recency) return a.recency > b.recency ? -1 : 1;
+        if (a.order != b.order) return a.order < b.order ? -1 : 1;
+        int c = norm(a.label).compareTo(norm(b.label));
+        return c != 0 ? c : a.key.compareTo(b.key);
+    }
+
+    /** Può essere Migliore: persone, app, impegni, impostazioni; le azioni solo se lo dicono («Chiama»); mai «Chiedi». */
+    static boolean bestKind(Cand c) {
+        return c.kind == PERSONA || c.kind == APP || c.kind == IMPEGNO || c.kind == IMPOSTAZIONE || (c.kind == AZIONE && c.canBest);
+    }
+
+    /** Il risultato è davvero qualcosa trovato (non «Chiedi» e non un'azione che dipende dagli altri). */
+    static boolean substantive(Cand c) {
+        return c.kind == PERSONA || c.kind == APP || c.kind == IMPEGNO || c.kind == IMPOSTAZIONE || (c.kind == AZIONE && !c.needsHit);
+    }
+
+    /** Il risultato della scelta: Migliore (preselezionato, tolto dal suo gruppo) e i sei gruppi, già limitati. */
+    public static final class Plan {
+        public Cand best;
+        public final List<List<Cand>> groups = new ArrayList<List<Cand>>();
+        /** Quanti risultati di ogni gruppo non si vedono: se > 0 il titolo ha «Vedi tutti ›». */
+        public final int[] more = new int[6];
+        /** C'è almeno un risultato vero (altrimenti «Chiedi» ha tre righe e niente è preselezionato). */
+        public boolean anything;
+
+        public int rows() {
+            int n = best == null ? 0 : 1;
+            for (List<Cand> g : groups) n += g.size();
+            return n;
+        }
+
+        /** Le righe che sono risultati (tutte tranne «Chiedi»). */
+        public int hits() {
+            int n = best == null ? 0 : 1;
+            for (int k = 0; k < 5; k++) n += groups.get(k).size();
+            return n;
+        }
+    }
+
+    /**
+     * Sceglie e ordina. Migliore: il primo per {@link #compare} fra i tipi che possono esserlo; senza risultati niente.
+     * Poi i gruppi nell'ordine fisso, ciascuno con il suo limite; in tutto al massimo 8 righe, «Chiedi» riservata:
+     * se i gruppi in alto sono pieni, quelli in basso si accorciano. {@code expanded} (-1 = nessuno) è il gruppo aperto
+     * da «Vedi tutti»: mostra fino a 8 righe sue, senza toccare il conto degli altri.
+     */
+    public static Plan plan(List<Cand> cands, int expanded) {
+        Plan p = new Plan();
+        boolean any = false;
+        for (Cand c : cands) if (substantive(c)) { any = true; break; }
+        p.anything = any;
+        List<Cand> pool = new ArrayList<Cand>();
+        for (Cand c : cands) if (!c.needsHit || any) pool.add(c);
+        java.util.Collections.sort(pool, new java.util.Comparator<Cand>() { public int compare(Cand a, Cand b) { return Cerca.compare(a, b); } });
+        for (Cand c : pool) if (bestKind(c)) { p.best = c; break; }
+        List<List<Cand>> by = new ArrayList<List<Cand>>();
+        for (int k = 0; k < 6; k++) by.add(new ArrayList<Cand>());
+        for (Cand c : pool) if (c != p.best && c.kind >= 0 && c.kind < 6) by.get(c.kind).add(c);
+        // «Chiedi» tiene sempre il suo posto: prima si toglie dal conto
+        int askLimit = any ? LIMITI[CHIEDI] : LIMITE_CHIEDI_VUOTO;
+        int ask = Math.min(askLimit, by.get(CHIEDI).size());
+        int left = MAX_RIGHE - (p.best == null ? 0 : 1) - ask;
+        for (int k = 0; k < 5; k++) {
+            List<Cand> all = by.get(k);
+            int take;
+            if (k == expanded) take = Math.min(all.size(), MAX_RIGHE);
+            else {
+                take = Math.max(0, Math.min(Math.min(LIMITI[k], all.size()), left));
+                left -= take;
+            }
+            p.groups.add(new ArrayList<Cand>(all.subList(0, take)));
+            p.more[k] = all.size() - take;
+        }
+        p.groups.add(new ArrayList<Cand>(by.get(CHIEDI).subList(0, ask)));
+        return p;
+    }
+
+    /** La scritta a destra della riga preselezionata: «Chiama» per un numero, «Apri» per il resto. */
+    public static String hint(Cand best) {
+        if (best == null) return null;
+        return best.kind == AZIONE ? "Chiama" : "Apri";
+    }
+
+    /** L'annuncio per TalkBack, uno solo dopo l'ultima lettera: «Migliore: Mamma. 7 risultati». */
+    public static String announcement(String bestLabel, int hits) {
+        if (hits <= 0) return "Nessun risultato";
+        String n = hits == 1 ? "1 risultato" : hits + " risultati";
+        return bestLabel == null ? n : "Migliore: " + bestLabel + ". " + n;
+    }
+
+    /** La parte scritta nel titolo, da mettere in grassetto: {inizio, fine} sul titolo com'è (con accenti); null se non c'è. */
+    public static int[] match(String label, String q) {
+        if (label == null) return null;
+        String s = norm(q);
+        if (s.length() == 0) return null;
+        StringBuilder n = new StringBuilder();
+        List<Integer> map = new ArrayList<Integer>();
+        for (int i = 0; i < label.length(); i++) {
+            String f = Normalizer.normalize(String.valueOf(label.charAt(i)), Normalizer.Form.NFD).replaceAll("\\p{M}", "").toLowerCase(Locale.ITALY);
+            for (int k = 0; k < f.length(); k++) { n.append(f.charAt(k)); map.add(i); }
+        }
+        String l = n.toString();
+        int at = -1;
+        if (l.startsWith(s)) at = 0;
+        else {
+            for (int i = l.indexOf(s); i >= 0; i = l.indexOf(s, i + 1)) {
+                if (i > 0 && " -_.·".indexOf(l.charAt(i - 1)) >= 0) { at = i; break; }
+            }
+            if (at < 0) at = l.indexOf(s);
+        }
+        if (at < 0) return null;
+        int end = at + s.length() - 1;
+        return new int[]{map.get(at), map.get(end) + 1};
+    }
+
+    /** Campo vuoto: le prime {@code max} voci non ancora viste in un'altra sezione; {@code more} dice se ce n'erano altre. */
+    public static final class Piece {
+        public final List<Cand> shown = new ArrayList<Cand>();
+        public boolean more;
+    }
+
+    public static Piece take(List<Cand> in, java.util.Set<String> used, int max) {
+        Piece p = new Piece();
+        for (Cand c : in) {
+            if (used.contains(c.key)) continue;
+            if (p.shown.size() >= max) { p.more = true; break; }
+            p.shown.add(c);
+        }
+        for (Cand c : p.shown) used.add(c.key);
+        return p;
+    }
+
+    /** A portata: persone e gruppi prima, poi le app (ognuno nel suo ordine). */
+    public static List<Cand> peopleFirst(List<Cand> in) {
+        List<Cand> out = new ArrayList<Cand>();
+        for (Cand c : in) if (c.kind == PERSONA) out.add(c);
+        for (Cand c : in) if (c.kind != PERSONA) out.add(c);
+        return out;
+    }
+
+    /** Il testo è cambiato abbastanza da azzerare lo scorrimento e chiudere i «Vedi tutti»: vuoto, o prima lettera diversa. */
+    public static boolean resetsScroll(String before, String now) {
+        String a = norm(before), b = norm(now);
+        if (b.length() == 0) return true;
+        return a.length() == 0 || a.charAt(0) != b.charAt(0);
     }
 }
