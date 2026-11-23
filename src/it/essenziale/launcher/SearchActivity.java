@@ -431,16 +431,18 @@ public class SearchActivity extends BaseActivity {
                 rec.add(new Cerca.Cand(key, "app".equals(r[0]) ? Cerca.APP : Cerca.PERSONA, r[2], 0));
             }
         }
-        // A portata: persone e gruppi, poi le app (l'ordine scelto in A portata)
-        List<Cerca.Cand> port = new ArrayList<Cerca.Cand>();
+        // Passano sempre: persone E gruppi che passano sempre (nell'ordine scelto), con l'iniziale
+        List<Cerca.Cand> always = new ArrayList<Cerca.Cand>();
         for (final String[] f : fixed) {
             String key = "p:" + Cerca.norm(f[0]);
             if (!ent.containsKey(key)) {
                 boolean g = "g".equals(f[2]);
                 ent.put(key, personItem(key, f[0], g ? "Gruppo" : null, new Runnable() { public void run() { openFixed(f); } }));
             }
-            port.add(new Cerca.Cand(key, Cerca.PERSONA, f[0], 0));
+            always.add(new Cerca.Cand(key, Cerca.PERSONA, f[0], 0));
         }
+        // A portata: solo le app (l'ordine scelto in A portata)
+        List<Cerca.Cand> port = new ArrayList<Cerca.Cand>();
         for (String[] a : portata(this)) {
             U.AppInfo ai = byPkg.get(a[0]);
             if (ai == null) continue;
@@ -450,10 +452,16 @@ public class SearchActivity extends BaseActivity {
         }
         Cerca.Piece pOpen = Cerca.take(open, used, Cerca.VUOTA_APERTE);
         Cerca.Piece pRec = Cerca.take(rec, used, Cerca.VUOTA_RECENTI);
-        Cerca.Piece pPort = Cerca.take(Cerca.peopleFirst(port), used, portataAll ? MAX_PORTATA : Cerca.VUOTA_PORTATA);
-        addEmpty(out, "h:aperte", "Aperte ora", pOpen, ent, false);
-        addEmpty(out, "h:recenti", "Recenti", pRec, ent, false);
-        addEmpty(out, "h:portata", "A portata", pPort, ent, true);
+        Cerca.Piece pAlw = Cerca.take(always, used, Cerca.VUOTA_SEMPRE);
+        Cerca.Piece pPort = Cerca.take(port, used, Cerca.portataMax(portataAll));
+        Runnable allPeople = new Runnable() { public void run() {
+            startActivity(new Intent(SearchActivity.this, ListActivity.class).putExtra(ListActivity.EXTRA_MODE, ListActivity.MODE_CONTACTS));
+        } };
+        Runnable allApps = new Runnable() { public void run() { portataAll = true; render(); } };
+        addEmpty(out, "h:aperte", "Aperte ora", pOpen, ent, null);
+        addEmpty(out, "h:recenti", "Recenti", pRec, ent, null);
+        addEmpty(out, "h:sempre", "Passano sempre", pAlw, ent, allPeople);
+        addEmpty(out, "h:portata", "A portata", pPort, ent, allApps);
         if (out.isEmpty()) {
             Item n = new Item();
             n.type = T_NOTE; n.key = "note"; n.title = "Scrivi il nome di una persona, di un'app o di un impegno. Puoi anche chiedere o dire un comando.";
@@ -461,14 +469,11 @@ public class SearchActivity extends BaseActivity {
         }
     }
 
-    private void addEmpty(List<Item> out, String key, String title, Cerca.Piece p, Map<String, Item> ent, boolean allowMore) {
+    private void addEmpty(List<Item> out, String key, String title, Cerca.Piece p, Map<String, Item> ent, Runnable more) {
         if (p.shown.isEmpty()) return;
         Item h = new Item();
         h.type = T_HEAD; h.key = key; h.title = title;
-        if (allowMore && p.more && !portataAll) {
-            h.more = true;
-            h.run = new Runnable() { public void run() { portataAll = true; render(); } };
-        }
+        if (more != null && p.more) { h.more = true; h.run = more; }
         out.add(h);
         for (Cerca.Cand c : p.shown) out.add(ent.get(c.key));
     }

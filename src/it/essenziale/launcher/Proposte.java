@@ -115,6 +115,34 @@ final class Proposte {
 
     // ---------- App che rapiscono, frenate di notte ----------
 
+    /** 0.25: ApplicationInfo.CATEGORY_AUDIO e CATEGORY_VIDEO (API 26; il jar di compilazione è l'API 23, quindi i valori). */
+    static final int CAT_AUDIO = 1, CAT_VIDEO = 2;
+
+    private static final String[] AUDIO_WORDS = {"sound", "radio", "podcast", "spotify", "antennapod", "music", "musica", "deezer",
+            "audible", "audio", "soundcloud", "shazam", "pocket casts", "castbox", "overcast", "tidal"};
+    private static final String[] VIDEO_WORDS = {"youtube", "netflix", "prime video", "primevideo", "disney", "twitch", "raiplay",
+            "mediaset", "infinity", "dazn", "now tv", "paramount", "apple tv", "vimeo", "tiktok lite"};
+
+    private static boolean has(String hay, String[] words) {
+        for (String w : words) if (hay.contains(w)) return true;
+        return false;
+    }
+
+    /** 0.25: radio, podcast, musica (categoria audio, o nome e pacchetto): non sono «video» anche se il nome ha «RaiPlay». */
+    static boolean isAudio(String label, String pkg, int category) {
+        if (category == CAT_AUDIO) return true;
+        String h = ((label == null ? "" : label) + " " + (pkg == null ? "" : pkg)).toLowerCase(java.util.Locale.ITALY);
+        return has(h, AUDIO_WORDS);
+    }
+
+    /** 0.25: solo le app video vere (categoria video o pacchetti e nomi noti); l'audio non lo è mai. */
+    static boolean isVideo(String label, String pkg, int category) {
+        if (isAudio(label, pkg, category)) return false;
+        if (category == CAT_VIDEO) return true;
+        String h = ((label == null ? "" : label) + " " + (pkg == null ? "" : pkg)).toLowerCase(java.util.Locale.ITALY);
+        return has(h, VIDEO_WORDS);
+    }
+
     static String reasonApp(boolean social, boolean video) {
         if (social) return "App social";
         if (video) return "App video";

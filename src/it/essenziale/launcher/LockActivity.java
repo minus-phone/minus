@@ -35,7 +35,7 @@ public class LockActivity extends Activity {
     private TextView clock, date, notif, notifN, alarm;
     private android.widget.ImageView torchBtn;
     private android.graphics.drawable.GradientDrawable torchBg;
-    private LinearLayout dateChips; // 0.18 (Evolutiva 008): «tutto il giorno» accanto alla data
+    private LinearLayout dateChips; // 0.25: «tutto il giorno», a tutta larghezza sotto la data (una riga per evento)
     private LinearLayout notifRow;
     private LinearLayout next, todo, live;
     private String liveSig = "";
@@ -72,13 +72,7 @@ public class LockActivity extends Activity {
         clock.setTypeface(U.SERIF);
         tl.addView(clock);
         date = U.text(this, "", 16, U.ON_DARK_MUTED, false);
-        LinearLayout dr = U.row(this);
-        dr.setGravity(Gravity.TOP);
-        dr.addView(date);
-        dateChips = new LinearLayout(this);
-        dateChips.setPadding(U.dp(this, 10), 0, 0, 0);
-        dr.addView(dateChips, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        tl.addView(dr, U.full());
+        tl.addView(date, U.full());
         top.addView(tl, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         notifRow = U.row(this);
         notifRow.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
@@ -96,6 +90,11 @@ public class LockActivity extends Activity {
         });
         top.addView(notifRow);
         root.addView(top, U.full());
+        // 0.25: gli eventi di tutto il giorno stanno sotto la data, uno per riga, larghi quanto lo schermo (prima, accanto alla data, si tagliavano)
+        dateChips = U.col(this);
+        dateChips.setPadding(0, U.dp(this, 8), 0, 0);
+        dateChips.setVisibility(View.GONE);
+        root.addView(dateChips, U.full());
         // 0.5.1: prossima sveglia entro 24 ore, sotto la data
         alarm = U.text(this, "", 15, U.ON_DARK_MUTED, false);
         alarm.setPadding(0, U.dp(this, 6), 0, 0);
@@ -249,6 +248,7 @@ public class LockActivity extends Activity {
         dateChips.removeAllViews();
         View chips = U.allDayChips(this, all, U.ON_DARK, 0xFF2A2A28, false);
         if (chips != null) dateChips.addView(chips, U.full());
+        dateChips.setVisibility(chips != null ? View.VISIBLE : View.GONE);
         List<Tasks.Task> tasks = Tasks.forToday(this, false, false);
         boolean todayEmpty = ev.isEmpty() && tasks.isEmpty();
         if (!ev.isEmpty()) next.addView(darkLabel("Prossimi"));

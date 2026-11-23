@@ -367,8 +367,7 @@ public class OnboardingActivity extends PageActivity {
     }
 
     static boolean isVideo(U.AppInfo a) {
-        String l = a.label.toLowerCase(Locale.ITALY);
-        return l.contains("youtube") || l.contains("netflix") || l.contains("prime video") || l.contains("disney") || l.contains("twitch") || l.contains("raiplay");
+        return Proposte.isVideo(a.label, a.pkg, a.category);
     }
 
     // ---------------------------------------------------------------------
