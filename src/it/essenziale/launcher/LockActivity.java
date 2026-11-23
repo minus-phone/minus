@@ -270,8 +270,12 @@ public class LockActivity extends Activity {
             List<U.Event> tomAll = U.events(this, U.startOfDay(1), U.startOfDay(2)), tom = new java.util.ArrayList<U.Event>();
             for (U.Event e : tomAll) if (!e.allDay) tom.add(e);
             int room = Math.max(2, MAX_ROWS - shown);
+            if (next.getChildCount() > 0) next.addView(sep(), sepLp()); // 0.25: un separatore prima di Domani
             next.addView(MainActivity.dayRow(this, "Domani · " + U.dayLabel(U.startOfDay(1)), alTomorrow, U.ON_DARK_MUTED, U.ON_DARK,
-                    U.allDayChips(this, tomAll, U.ON_DARK, 0xFF2A2A28, false)), U.full());
+                    null), U.full());
+            // 0.25: come oggi, gli eventi di tutto il giorno vanno sotto la riga di Domani, sopra quelli con l'ora
+            View tomChips = U.allDayChips(this, tomAll, U.ON_DARK, 0xFF2A2A28, false);
+            if (tomChips != null) next.addView(tomChips, U.full());
             if (tomAll.isEmpty()) next.addView(U.text(this, "Niente in programma", 16, U.ON_DARK_MUTED, false));
             for (int i = 0; i < tom.size() && i < room; i++) next.addView(eventRow(tom.get(i), false));
             if (tom.size() > room) next.addView(more(tom.size() - room));
@@ -282,6 +286,7 @@ public class LockActivity extends Activity {
         todo.removeAllViews();
         int[] k = Tasks.counts(this);
         if (k[0] > 0 || k[1] > 0) {
+            if (next.getChildCount() > 0) todo.addView(sep(), sepLp()); // 0.25: un separatore prima di «Task»
             LinearLayout tr = U.row(this);
             tr.setMinimumHeight(U.dp(this, 44));
             tr.setPadding(0, U.dp(this, 10), 0, 0);
@@ -442,5 +447,20 @@ public class LockActivity extends Activity {
         Intent i = new Intent(c, LockActivity.class);
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
         U.start(c, i);
+    }
+
+    /** 0.25: separatore sottile sul fondo scuro (prima di Domani e di Task). */
+    private View sep() {
+        View v = new View(this);
+        v.setBackgroundColor(0xFF33322F);
+        v.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        return v;
+    }
+
+    private LinearLayout.LayoutParams sepLp() {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, U.dp(this, 1));
+        lp.topMargin = U.dp(this, 14);
+        lp.bottomMargin = U.dp(this, 6);
+        return lp;
     }
 }

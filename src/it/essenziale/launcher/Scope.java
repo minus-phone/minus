@@ -52,6 +52,21 @@ final class Scope {
         return Scopo.level(day, Night.nightApps(c).contains(pkg), Night.active(c), Night.scopeOn(c));
     }
 
+    /**
+     * 0.25: nella 0.24 le app proposte nel primo avvio partivano da «pausa e scopo». Una volta sola, chi aggiorna
+     * le ritrova in «pausa»; le app che hai portato tu a «scopo» dopo restano come sono (non stanno in quell'elenco).
+     */
+    static void migrate025(Context c) {
+        android.content.SharedPreferences p = U.prefs(c);
+        if (p.getBoolean("mig_025_scopo", false)) return;
+        for (String[] r : U.rows(p.getString("scegli_gia_doom", ""))) {
+            if (r.length == 0) continue;
+            String pkg = r[0].trim();
+            if (scopePkgs(c).contains(pkg)) setLevel(c, pkg, Scopo.PAUSE);
+        }
+        p.edit().putBoolean("mig_025_scopo", true).apply();
+    }
+
     static void setLevel(Context c, String pkg, int level) {
         U.setPaused(c, pkg, level != Scopo.NONE);
         Set<String> s = scopePkgs(c);
