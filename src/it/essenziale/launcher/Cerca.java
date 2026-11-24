@@ -221,8 +221,11 @@ public final class Cerca {
     public static final int LIMITE_CHIEDI_VUOTO = 3;
     /** In tutto, Migliore e «Chiedi» compresi. */
     public static final int MAX_RIGHE = 8;
-    /** Campo vuoto: Aperte ora 2, Recenti 2, A portata 5. */
-    public static final int VUOTA_APERTE = 2, VUOTA_RECENTI = 2, VUOTA_PORTATA = 5;
+    /** Campo vuoto: Aperte ora 2, Recenti 2, Passano sempre 4, A portata (solo app) 5, e 8 dopo «Vedi tutti». */
+    public static final int VUOTA_APERTE = 2, VUOTA_RECENTI = 2, VUOTA_SEMPRE = 4, VUOTA_PORTATA = 5, VUOTA_PORTATA_TUTTE = 8;
+
+    /** 0.25: quante app mostra A portata a campo vuoto: 5, o fino a 8 dopo «Vedi tutti ›». */
+    public static int portataMax(boolean expanded) { return expanded ? VUOTA_PORTATA_TUTTE : VUOTA_PORTATA; }
 
     /** Un risultato possibile: chiave stabile (tipo + identificativo), tipo, titolo e quanto corrisponde. */
     public static final class Cand {
@@ -379,7 +382,7 @@ public final class Cerca {
         return p;
     }
 
-    /** A portata: persone e gruppi prima, poi le app (ognuno nel suo ordine). */
+    /** Persone e gruppi prima, poi le app (ognuno nel suo ordine). */
     public static List<Cand> peopleFirst(List<Cand> in) {
         List<Cand> out = new ArrayList<Cand>();
         for (Cand c : in) if (c.kind == PERSONA) out.add(c);
@@ -387,10 +390,17 @@ public final class Cerca {
         return out;
     }
 
+    /** 0.25: solo i candidati di un tipo (A portata a campo vuoto: solo le app; Passano sempre: solo persone e gruppi). */
+    public static List<Cand> only(List<Cand> in, int kind) {
+        List<Cand> out = new ArrayList<Cand>();
+        for (Cand c : in) if (c.kind == kind) out.add(c);
+        return out;
+    }
+
     /** Il testo è cambiato abbastanza da azzerare lo scorrimento e chiudere i «Vedi tutti»: vuoto, o prima lettera diversa. */
     public static boolean resetsScroll(String before, String now) {
         String a = norm(before), b = norm(now);
-        if (b.length() == 0) return true;
+        if (b.length() == 0) return a.length() != 0; // 0.25: da vuoto a vuoto non si azzera nulla (rompeva «Vedi tutti ›» a campo vuoto)
         return a.length() == 0 || a.charAt(0) != b.charAt(0);
     }
 }

@@ -45,6 +45,9 @@ public final class Scopo {
         return dayLevel;
     }
 
+    /** 0.25: il livello delle proposte accettate in automatico (primo avvio): la sola pausa. Lo scopo è una scelta (chip). */
+    public static int proposalLevel() { return PAUSE; }
+
     /** Minuti di preavviso prima della fine: 5 → 1, 10–15 → 2, 30 → 5; nessuno sotto i 3 minuti. */
     public static int warnLead(int minutes) {
         if (minutes < 3) return 0;

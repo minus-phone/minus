@@ -31,6 +31,28 @@ public final class Notte {
         return alarmMin >= 4 * 60 && alarmMin <= 11 * 60 ? alarmMin : -1;
     }
 
+    public static final int DEFAULT_WAKE_MIN = 7 * 60, NOON_MIN = 12 * 60;
+
+    /**
+     * 0.25: la notte ha una sola fine. La chiave è la data del mattino in cui finisce: prima di mezzogiorno è oggi,
+     * dopo è domani. (Le sveglie plausibili sono tra le 4 e le 11, quindi mezzogiorno separa bene le notti.)
+     */
+    public static String wakeKey(String today, String tomorrow, int nowMin) {
+        return nowMin < NOON_MIN ? today : tomorrow;
+    }
+
+    /**
+     * 0.25: l'ora del risveglio di questa notte. Finché la sveglia non è passata segue la prossima sveglia del telefono
+     * (se la cambi di sera o di notte la notte la segue); dal momento in cui è passata si ferma lì: una sveglia
+     * dopo, il «Posticipa» o una seconda sveglia, non allungano più la notte.
+     * cachedKey/cachedWake: l'ultimo valore tenuto (cachedWake &lt; 0 = nessuno); alarmMin: la prossima sveglia, -1 se non c'è.
+     */
+    public static int wakeFor(String cachedKey, int cachedWake, String key, int nowMin, int alarmMin) {
+        if (key != null && key.equals(cachedKey) && cachedWake >= 0 && nowMin < NOON_MIN && nowMin >= cachedWake) return cachedWake;
+        int a = plausibleWake(alarmMin);
+        return a >= 0 ? a : DEFAULT_WAKE_MIN;
+    }
+
     public static boolean inWindow(int nowMin, int startMin, int endMin) {
         if (startMin == endMin) return false;
         if (startMin < endMin) return nowMin >= startMin && nowMin < endMin;

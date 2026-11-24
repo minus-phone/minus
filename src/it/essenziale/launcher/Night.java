@@ -52,11 +52,27 @@ final class Night {
 
     // ---------- 0.14: quando dormi (wireframe 190) ----------
 
-    /** La sveglia in minuti dalla mezzanotte: quella scelta, o la prossima del telefono, o le 7. */
+    static final String K_WAKE_KEY = "night_wake_key", K_WAKE_CACHE = "night_wake_cache";
+
+    private static String day(Calendar k) {
+        return k.get(Calendar.YEAR) + "-" + (k.get(Calendar.MONTH) + 1) + "-" + k.get(Calendar.DAY_OF_MONTH);
+    }
+
+    /**
+     * La sveglia in minuti dalla mezzanotte: quella scelta, o la prima sveglia plausibile della notte (0.25: tenuta,
+     * dopo che è suonata una sveglia più tarda non allunga la notte), o le 7.
+     */
     static int wakeMin(Context c) {
         if (p(c).contains(K_WAKE)) return p(c).getInt(K_WAKE, 420);
-        int a = Notte.plausibleWake(alarmMin(c)); // 0.21: un allarme di giorno non è la sveglia
-        return a >= 0 ? a : 420;
+        Calendar k = Calendar.getInstance();
+        int now = k.get(Calendar.HOUR_OF_DAY) * 60 + k.get(Calendar.MINUTE);
+        Calendar t = (Calendar) k.clone();
+        t.add(Calendar.DAY_OF_YEAR, 1);
+        String key = Notte.wakeKey(day(k), day(t), now);
+        int w = Notte.wakeFor(p(c).getString(K_WAKE_KEY, ""), p(c).getInt(K_WAKE_CACHE, -1), key, now, alarmMin(c));
+        if (!key.equals(p(c).getString(K_WAKE_KEY, "")) || w != p(c).getInt(K_WAKE_CACHE, -1))
+            p(c).edit().putString(K_WAKE_KEY, key).putInt(K_WAKE_CACHE, w).apply();
+        return w;
     }
 
     static int alarmMin(Context c) {

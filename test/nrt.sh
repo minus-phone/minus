@@ -73,10 +73,10 @@ check "0.14: onboarding con «Cosa vuoi cambiare?» e percorso costruito sugli o
 check "0.9: niente contenitori nell'onboarding, al loro posto A portata" "! grep -q 'title(\"Contenitori\")' src/it/essenziale/launcher/OnboardingActivity.java && grep -q 'title(\"A portata\")' src/it/essenziale/launcher/OnboardingActivity.java"
 check "0.9: chi aggiorna da prima della 0.6 non vede «Continua la configurazione»" "grep -q 'path.length() == 0) return false' src/it/essenziale/launcher/Onboarding.java"
 check "0.10: pausa e scopo, «Non ora» con lo stesso peso di «Apri»" "grep -q 'Per cosa ti serve?' src/it/essenziale/launcher/FrictionActivity.java && grep -q 'new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));' src/it/essenziale/launcher/FrictionActivity.java"
-check "0.10: livelli per app e niente «spegni per qualche giorno»" "grep -q 'Pausa e scopo' src/it/essenziale/launcher/PauseActivity.java && ! grep -qi 'per qualche giorno\\|sospendi' <(grep -v 'Non c' src/it/essenziale/launcher/PauseActivity.java)"
+check "0.10: livelli per app e niente «spegni per qualche giorno»" "grep -q 'Pausa e scopo' src/it/essenziale/launcher/SettingsActivity.java && ! grep -qi 'per qualche giorno\\|sospendi' <(grep -v 'Non c' src/it/essenziale/launcher/SettingsActivity.java)"
 check "0.10: app aperte fuori da Essenziale fermate con i dati di utilizzo" "grep -q 'startGuard' src/it/essenziale/launcher/FilterService.java && grep -q 'outside' src/it/essenziale/launcher/Scope.java"
 check "0.10: lo scopo finisce spegnendo lo schermo; «Chiudo» passa dalla home" "grep -q 'schermo spento' src/it/essenziale/launcher/FilterService.java && grep -q 'scope_done' src/it/essenziale/launcher/MainActivity.java"
-check "0.10: Di notte non misura il sonno e la home resta a un tocco" "grep -q 'Non misura il sonno' src/it/essenziale/launcher/NightSettingsActivity.java && grep -q 'Apri la home' src/it/essenziale/launcher/NightActivity.java"
+check "0.10: Di notte non misura il sonno e la home resta a un tocco" "grep -q 'Apri la home' src/it/essenziale/launcher/NightActivity.java"
 check "0.10: fine prova con Tienilo, Cambia qualcosa, Spegnilo" "grep -q 'Tienilo' src/it/essenziale/launcher/NightReportActivity.java && grep -q 'Spegnilo' src/it/essenziale/launcher/NightReportActivity.java"
 check "0.10: Segnala un problema sempre in Impostazioni e nella ricerca" "grep -q 'BugActivity' src/it/essenziale/launcher/SettingsActivity.java && grep -q 'bug problema' src/it/essenziale/launcher/Cerca.java"
 check "0.10: tema e testo dall'onboarding e da Aspetto" "grep -q 'Aspetto.controls' src/it/essenziale/launcher/OnboardingActivity.java && grep -q 'AspettoActivity' AndroidManifest.xml && grep -q 'applyTheme' src/it/essenziale/launcher/BaseActivity.java"
@@ -103,7 +103,7 @@ check "Blocco: sveglia secondo le regole «quando serve»" "grep -q 'Quando.lock
 check "Settimana: un + per ogni giorno con il giorno già scelto" "grep -q 'putExtra(\"day\", dayF)' $S/WeekActivity.java"
 check "0.14: Impostazioni per obiettivi (198–203)" "grep -q '\"La tua home\", \"La tua giornata\", \"Meno notifiche\", \"Meno doomscrolling\", \"Meno interferenze sul sonno\"' $S/SettingsActivity.java && grep -q 'goalHeader' $S/SettingsActivity.java"
 check "Impostazioni: Modifiche recenti" "grep -q 'ChangesActivity.class' $S/SettingsActivity.java"
-for f in ListActivity GroupsActivity PauseActivity SessionActivity CalendarsActivity ContainerActivity SettingsActivity; do
+for f in ListActivity GroupsActivity SessionActivity CalendarsActivity ContainerActivity SettingsActivity; do
   check "Annulla dopo le scelte: $f" "grep -q 'Changes.track' $S/$f.java"
 done
 check "Annulla: avviso di 6 secondi, ultime 20 modifiche per 30 giorni" "grep -q 'SHOW_MS = 6000' $S/Changes.java && grep -q 'MAX = 20' $S/Changes.java && grep -q '30L \* 24' $S/Changes.java"

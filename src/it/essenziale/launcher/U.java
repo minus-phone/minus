@@ -525,6 +525,17 @@ public final class U {
     // ---------- App ----------
     public static class AppInfo {
         public String label, pkg, cls;
+        /** 0.25: ApplicationInfo.category (API 26+), -1 se non c'è. */
+        public int category = -1;
+    }
+
+    /** La categoria dichiarata dall'app, letta per riflessione (il jar di compilazione è l'API 23). */
+    static int appCategory(android.content.pm.ApplicationInfo ai) {
+        try {
+            return ai.getClass().getField("category").getInt(ai);
+        } catch (Throwable t) {
+            return -1;
+        }
     }
 
     public static List<AppInfo> launchableApps(Context c) {
@@ -538,6 +549,7 @@ public final class U {
             a.label = String.valueOf(ri.loadLabel(pm));
             a.pkg = ri.activityInfo.packageName;
             a.cls = ri.activityInfo.name;
+            a.category = appCategory(ri.activityInfo.applicationInfo);
             out.add(a);
         }
         return out;

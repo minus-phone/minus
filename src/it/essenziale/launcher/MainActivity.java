@@ -55,6 +55,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         super.onCreate(b);
         scrollToTasks = getIntent().getBooleanExtra("tasks", false);
         if (getIntent() != null && getIntent().getBooleanExtra("scope_done", false)) Scope.end(this, "chiusa");
+        Scope.migrate025(this); // 0.25: le proposte della 0.24 tornano a «pausa»
         Goals.migrate(this); // 0.14: chi aggiorna trova gli obiettivi ricavati da cosa usava già
         evening = Night.evening(this);
 
@@ -414,6 +415,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         java.util.List<String> starred = Stars.adoptNewStars(this);
         if (!starred.isEmpty()) U.toast(this, android.text.TextUtils.join(", ", starred) + ": stella in rubrica, ora passa sempre");
         root.requestFocus();
+        AppCache.warm(this); // 0.25: la Ricerca trova le app già pronte
         refresh();
         maybeScrollToTasks();
     }

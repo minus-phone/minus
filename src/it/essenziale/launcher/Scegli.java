@@ -43,6 +43,7 @@ final class Scegli {
         String key, label, sub, pkg, code, number;
         long id = -1, last;
         boolean group, starred;
+        int category = -1;
     }
 
     /** Chi ospita il selettore (primo avvio o pagina). */
@@ -406,7 +407,7 @@ final class Scegli {
             if (a.getPackageName().equals(x.pkg)) continue;
             if (noChat && Rules.chatCode(x.pkg) != null) continue;
             Item i = new Item();
-            i.key = x.pkg; i.label = x.label; i.pkg = x.pkg;
+            i.key = x.pkg; i.label = x.label; i.pkg = x.pkg; i.category = x.category;
             String k = OnboardingActivity.kind(x);
             i.sub = U.isSocial(x.pkg) ? "social" : OnboardingActivity.isVideo(x) ? "video" : k != null && k.length() > 0 ? k : null;
             out.add(i);
@@ -643,7 +644,7 @@ final class Scegli {
 
         private static U.AppInfo app(Item i) {
             U.AppInfo x = new U.AppInfo();
-            x.label = i.label; x.pkg = i.pkg;
+            x.label = i.label; x.pkg = i.pkg; x.category = i.category;
             return x;
         }
 
@@ -652,8 +653,8 @@ final class Scegli {
             Scope.setLevel(a, it.pkg, !onNow ? Scopo.NONE : lv == Scopo.NONE ? Scopo.PAUSE : lv);
         }
 
-        /** Le proposte del primo avvio partono con «pausa e scopo», come nel primo avvio di prima: il chip le cambia in «Pausa». */
-        void applyProposal(Activity a, Item it) { Scope.setLevel(a, it.pkg, Scopo.SCOPE); }
+        /** 0.25: le proposte del primo avvio partono con la sola «Pausa»; «Scopo» solo se lo scegli col chip (di notte sale da sé). */
+        void applyProposal(Activity a, Item it) { Scope.setLevel(a, it.pkg, Scopo.proposalLevel()); }
 
         View extra(final Activity a, final Item it, final Runnable refresh) {
             final int lv = Scope.dayLevel(a, it.pkg);
@@ -689,7 +690,7 @@ final class Scegli {
             for (Item i : all) {
                 if (explicit && on.contains(i.key)) continue;
                 U.AppInfo x = new U.AppInfo();
-                x.label = i.label; x.pkg = i.pkg;
+                x.label = i.label; x.pkg = i.pkg; x.category = i.category;
                 boolean social = U.isSocial(i.pkg), video = OnboardingActivity.isVideo(x);
                 String r = Proposte.reasonApp(social, video);
                 if (r != null) out.add(new Proposte.Cand(i.key, i.label, r, Proposte.scoreApp(social, video)));

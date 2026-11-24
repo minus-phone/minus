@@ -59,6 +59,7 @@ public class NrtTest {
         quando();
         cerca();
         cerca020();
+        correzioni025();
         tempo();
         scopoNotte();
         rowsCompat();
@@ -601,27 +602,83 @@ public class NrtTest {
         check("Scorrimento: la prima lettera cambia, si azzera", Cerca.resetsScroll("ma", "pa"), null);
         check("Scorrimento: testo vuoto, si azzera", Cerca.resetsScroll("ma", ""), null);
         check("Scorrimento: da vuoto a scritto, si azzera", Cerca.resetsScroll("", "m"), null);
-        // campo vuoto: sezioni senza doppioni, A portata con persone prima
-        List<Cerca.Cand> open = new ArrayList<Cerca.Cand>(), rec = new ArrayList<Cerca.Cand>(), port = new ArrayList<Cerca.Cand>();
+        // campo vuoto (0.25): Aperte ora, Recenti, Passano sempre (persone e gruppi), A portata (solo app), senza doppioni
+        List<Cerca.Cand> open = new ArrayList<Cerca.Cand>(), rec = new ArrayList<Cerca.Cand>(), alw = new ArrayList<Cerca.Cand>(), port = new ArrayList<Cerca.Cand>();
         open.add(cd("p:ilde", Cerca.PERSONA, "Ilde", 0));
         rec.add(cd("p:ilde", Cerca.PERSONA, "Ilde", 0));
         rec.add(cd("a:claude", Cerca.APP, "Claude", 0));
         rec.add(cd("p:marta", Cerca.PERSONA, "Marta", 0));
         rec.add(cd("a:mail", Cerca.APP, "Mail", 0));
+        alw.add(cd("p:ilde", Cerca.PERSONA, "Ilde", 0));
+        alw.add(cd("p:fam", Cerca.PERSONA, "Famiglia", 0));
+        alw.add(cd("p:condo", Cerca.PERSONA, "Condominio", 0));
+        alw.add(cd("p:mamma", Cerca.PERSONA, "Mamma", 0));
+        alw.add(cd("p:papa", Cerca.PERSONA, "Papà", 0));
+        alw.add(cd("p:zia", Cerca.PERSONA, "Zia", 0));
         port.add(cd("a:maps", Cerca.APP, "Maps", 0));
         port.add(cd("p:fam", Cerca.PERSONA, "Famiglia", 0));
         port.add(cd("a:claude", Cerca.APP, "Claude", 0));
         for (int i = 0; i < 6; i++) port.add(cd("a:x" + i, Cerca.APP, "X" + i, 0));
         java.util.Set<String> used = new java.util.HashSet<String>();
-        Cerca.Piece po = Cerca.take(open, used, Cerca.VUOTA_APERTE), pr = Cerca.take(rec, used, Cerca.VUOTA_RECENTI), pp = Cerca.take(Cerca.peopleFirst(port), used, Cerca.VUOTA_PORTATA);
+        Cerca.Piece po = Cerca.take(open, used, Cerca.VUOTA_APERTE), pr = Cerca.take(rec, used, Cerca.VUOTA_RECENTI);
+        Cerca.Piece pa = Cerca.take(Cerca.only(alw, Cerca.PERSONA), used, Cerca.VUOTA_SEMPRE);
+        List<Cerca.Cand> apps = Cerca.only(port, Cerca.APP);
+        Cerca.Piece pp = Cerca.take(apps, used, Cerca.portataMax(false));
         eq("Aperte ora: max 2", Cerca.VUOTA_APERTE, 2);
         eq("Recenti: niente doppioni con Aperte ora, max 2", keys(pr.shown).toString(), "[a:claude, p:marta]");
         check("Recenti: una voce in più, «more»", pr.more, null);
-        eq("A portata: max 5, persone prima, senza doppioni", keys(pp.shown).toString(), "[p:fam, a:maps, a:x0, a:x1, a:x2]");
-        check("A portata: «Vedi tutti» perché ce n'è altro", pp.more, null);
+        eq("Passano sempre: max 4, senza chi è già in Aperte ora", keys(pa.shown).toString(), "[p:fam, p:condo, p:mamma, p:papa]");
+        check("Passano sempre: «Vedi tutti ›» perché ce n'è altro", pa.more, null);
+        eq("A portata: solo app, max 5, senza doppioni con Recenti", keys(pp.shown).toString(), "[a:maps, a:x0, a:x1, a:x2, a:x3]");
+        check("A portata: «Vedi tutti ›» perché ce n'è altro", pp.more, null);
+        eq("A portata: «Vedi tutti ›» apre fino a 8 (qui 7 app rimaste)", Cerca.take(apps, new java.util.HashSet<String>(java.util.Arrays.asList("a:claude")), Cerca.portataMax(true)).shown.size(), 7);
+        eq("A portata: 5 poi 8", Cerca.portataMax(false) + "/" + Cerca.portataMax(true), "5/8");
+        check("A portata: nessuna persona né gruppo", Cerca.only(port, Cerca.APP).size() == 8, null);
+        // il bug della 0.24: a campo vuoto ogni ridisegno azzerava «Vedi tutti ›»
+        check("Vedi tutti a campo vuoto: vuoto→vuoto non azzera", !Cerca.resetsScroll("", ""), null);
         // impostazioni come risultati
         eq("Impostazioni come risultati: «permessi»", Cerca.SETTINGS[Cerca.settingCands("permessi").get(0).order][2], "area:6");
         check("Impostazioni come risultati: una lettera non basta", Cerca.settingCands("p").isEmpty(), null);
+    }
+
+    static void correzioni025() {
+        sec("0.25. Correzioni dalla prova della 0.24");
+        // 1. le proposte accettate da sole partono dalla Pausa, mai dallo Scopo
+        eq("Proposte automatiche: livello Pausa", Scopo.proposalLevel(), Scopo.PAUSE);
+        check("Proposte automatiche: non è «pausa e scopo»", Scopo.proposalLevel() != Scopo.SCOPE, null);
+        eq("Proposta di giorno: resta Pausa", Scopo.level(Scopo.proposalLevel(), false, false, true), Scopo.PAUSE);
+        eq("Proposta di notte: sale a Scopo (regola esistente)", Scopo.level(Scopo.proposalLevel(), false, true, true), Scopo.SCOPE);
+        eq("Proposta di notte con Scopo di notte spento: resta Pausa", Scopo.level(Scopo.proposalLevel(), false, true, false), Scopo.PAUSE);
+        // 1b. audio non è video
+        check("RaiPlay Sound non è video", !Proposte.isVideo("RaiPlay Sound", "it.rainet.raiplaysound", -1), null);
+        check("RaiPlay Sound è audio", Proposte.isAudio("RaiPlay Sound", "it.rainet.raiplaysound", -1), null);
+        check("Spotify non è video", !Proposte.isVideo("Spotify", "com.spotify.music", -1), null);
+        check("AntennaPod non è video", !Proposte.isVideo("AntennaPod", "de.danoeh.antennapod", -1), null);
+        check("Un lettore di podcast non è video", !Proposte.isVideo("Pocket Casts", "au.com.shiftyjelly.pocketcasts", -1), null);
+        check("Una radio non è video", !Proposte.isVideo("Radio Deejay", "it.deejay.radio", -1), null);
+        check("Categoria audio: mai video, anche con un nome da video", !Proposte.isVideo("RaiPlay", "it.rai.x", Proposte.CAT_AUDIO), null);
+        check("RaiPlay (video) resta video", Proposte.isVideo("RaiPlay", "it.rai.raiplay", -1), null);
+        check("YouTube, Netflix, Twitch sono video", Proposte.isVideo("YouTube", "com.google.android.youtube", -1) && Proposte.isVideo("Netflix", "com.netflix.mediaclient", -1)
+                && Proposte.isVideo("Twitch", "tv.twitch.android.app", -1), null);
+        check("Categoria video: video", Proposte.isVideo("Qualcosa", "x.y", Proposte.CAT_VIDEO), null);
+        check("Categoria sconosciuta e nome qualunque: né video né audio", !Proposte.isVideo("Calcolatrice", "x.calc", -1) && !Proposte.isAudio("Calcolatrice", "x.calc", -1), null);
+        check("Audio non propone «App video»", Proposte.reasonApp(false, Proposte.isVideo("Spotify", "com.spotify.music", -1)) == null, null);
+        // 2. la fine della notte si fissa una volta
+        String hoy = "2026-11-23", man = "2026-11-24";
+        eq("Chiave: di sera la notte finisce domani", Notte.wakeKey(hoy, man, 22 * 60), man);
+        eq("Chiave: la mattina finisce oggi", Notte.wakeKey(hoy, man, 6 * 60), hoy);
+        eq("Sera: segue la sveglia del telefono (7:00)", Notte.wakeFor("", -1, man, 22 * 60, 7 * 60), 7 * 60);
+        eq("Sera, senza sveglia: le 7", Notte.wakeFor("", -1, man, 22 * 60, -1), 7 * 60);
+        eq("Notte, sveglia cambiata prima che suoni: la segue", Notte.wakeFor(hoy, 7 * 60, hoy, 3 * 60, 6 * 60 + 30), 6 * 60 + 30);
+        eq("Dopo la sveglia, la seconda (7:20) non allunga la notte", Notte.wakeFor(hoy, 7 * 60, hoy, 7 * 60 + 5, 7 * 60 + 20), 7 * 60);
+        eq("Dopo la sveglia, anche col posticipo alle 9", Notte.wakeFor(hoy, 7 * 60, hoy, 7 * 60 + 40, 9 * 60), 7 * 60);
+        eq("Dopo la sveglia, senza altre sveglie: resta", Notte.wakeFor(hoy, 7 * 60, hoy, 8 * 60, -1), 7 * 60);
+        eq("Sveglia delle 7 passata, la mattina dopo altra chiave: si ricalcola", Notte.wakeFor(hoy, 7 * 60, man, 22 * 60, 6 * 60 + 45), 6 * 60 + 45);
+        eq("Un allarme di giorno (14:00) non è la sveglia", Notte.wakeFor("", -1, man, 22 * 60, 14 * 60), 7 * 60);
+        eq("Un allarme delle 11:30 non è la sveglia", Notte.wakeFor("", -1, hoy, 3 * 60, 11 * 60 + 30), 7 * 60);
+        eq("Sveglia delle 5:50 ancora da suonare alle 5:00: valida", Notte.wakeFor(hoy, 5 * 60 + 50, hoy, 5 * 60, 5 * 60 + 50), 5 * 60 + 50);
+        eq("Mezzanotte e oltre: non è ancora passata", Notte.wakeFor(man, 7 * 60, man, 30, 7 * 60), 7 * 60);
+        eq("Nessuna cache al mattino: prende la sveglia plausibile", Notte.wakeFor("", -1, hoy, 7 * 60 + 10, 7 * 60 + 20), 7 * 60 + 20);
     }
 
     static void cerca() {
