@@ -70,7 +70,7 @@ public class LogoView extends View {
         if (start < 0) start = now + 400; // un attimo fermo, poi si chiude
         long t = frozen ? 0 : still ? CYCLE : now - start;
         // senza quadrato i tratti occupano quasi tutto il lato, come nel logo del sito
-        float cx = ox + s / 2f, cy = oy + s / 2f, hw = s * (bare ? 0.42f : 0.225f), hh = s * (bare ? 0.04f : 0.025f);
+        float cx = ox + s / 2f, cy = oy + s / 2f, hw = s * (bare ? 0.42f : 0.225f), hh = s * (bare ? (frozen ? 0.04f : 10f / 96f / 2f) : 0.025f); // 0.26: nello splash tratti da 10 su 96 (erano 7)
         RectF r = new RectF(cx - hw, cy - hh, cx + hw, cy + hh);
         int alpha = bar.getAlpha();
         for (int base : new int[]{0, 135, 90, 45}) {
