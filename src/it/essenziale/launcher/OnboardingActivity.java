@@ -692,17 +692,72 @@ public class OnboardingActivity extends PageActivity {
         TextView name = U.title(this, U.NAME, 44, U.INK);
         name.setTypeface(U.SERIF_I);
         name.setGravity(Gravity.CENTER);
+        lineHeight(name, 48); // 0.26: interlinea 48 (era 52)
         body.addView(name, U.full());
-        TextView promise = U.text(this, "", 22, U.INK, true);
+        TextView promise = U.text(this, "", 20, U.INK, true); // 0.26: 20 px (era 22), interlinea 24, 4 px sopra
         promise.setText(android.text.Html.fromHtml("Il tuo smartphone. Ma <i>" + U.NAME + "</i>."));
         promise.setGravity(Gravity.CENTER);
-        promise.setPadding(0, U.dp(this, 10), 0, 0);
+        lineHeight(promise, 24);
+        promise.setPadding(0, U.dp(this, 4), 0, 0);
         body.addView(promise, U.full());
+        LinearLayout.LayoutParams mlp = U.full();
+        mlp.topMargin = U.dp(this, 12);
+        body.addView(menoLoop(), mlp);
         TextView free = U.text(this, "Gratis e open source · nessun dato esce dal telefono", 12, U.MUTED, false);
         free.setGravity(Gravity.CENTER);
         free.setPadding(0, 0, 0, U.dp(this, 10));
         foot.addView(free, U.full());
         primary("Inizia", new Runnable() { public void run() { splash = false; showStep(); } }, false);
+    }
+
+    /** 0.26: interlinea esatta in dp (il jar di compilazione è l'API 23, niente setLineHeight). */
+    private void lineHeight(TextView t, int dp) {
+        t.setIncludeFontPadding(false);
+        int natural = t.getPaint().getFontMetricsInt(null);
+        t.setLineSpacing(U.dp(this, dp) - natural, 1f);
+    }
+
+    private static final String[] MENO = {"Meno interruzioni", "Meno doomscrolling", "Meno interferenze col tuo sonno"};
+    private static final int MENO_HOLD = 3000, MENO_FADE = 540;
+
+    /**
+     * 0.26 (C46): sotto la promessa i tre «Meno…», uno per volta, in loop. Literata corsivo 500 a 20, #5f5f5a.
+     * Ogni frase resta 3 s; il cambio è una dissolvenza incrociata di 540 ms (ease in-out) con 8 dp di spostamento,
+     * così lo spazio non resta mai vuoto. Con «Rimuovi animazioni» resta ferma la prima frase.
+     */
+    private View menoLoop() {
+        final android.widget.FrameLayout box = new android.widget.FrameLayout(this);
+        final TextView[] tv = new TextView[2];
+        for (int i = 0; i < 2; i++) {
+            TextView t = U.text(this, MENO[0], 20, 0xFF5F5F5A, false);
+            t.setTypeface(U.SERIF_I);
+            t.setGravity(Gravity.CENTER);
+            t.setIncludeFontPadding(false);
+            t.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            if (i == 1) t.setAlpha(0f);
+            tv[i] = t;
+            box.addView(t, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+        box.setContentDescription(MENO[0] + ", " + MENO[1] + ", " + MENO[2]);
+        if (Motion.reduced(this)) return box;
+        final float dy = U.dp(this, 8);
+        final int[] at = {0};
+        final Runnable[] next = new Runnable[1];
+        next[0] = new Runnable() {
+            public void run() {
+                if (!box.isAttachedToWindow() || isFinishing()) return;
+                TextView out = tv[at[0] % 2], in = tv[(at[0] + 1) % 2];
+                at[0]++;
+                in.setText(MENO[at[0] % MENO.length]);
+                in.setTranslationY(dy);
+                in.setAlpha(0f);
+                out.animate().alpha(0f).translationY(-dy).setDuration(MENO_FADE).setInterpolator(Motion.DECELERA).start();
+                in.animate().alpha(1f).translationY(0f).setDuration(MENO_FADE).setInterpolator(Motion.DECELERA).start();
+                box.postDelayed(next[0], MENO_HOLD + MENO_FADE);
+            }
+        };
+        box.postDelayed(next[0], MENO_HOLD);
+        return box;
     }
 
     private void start() {
