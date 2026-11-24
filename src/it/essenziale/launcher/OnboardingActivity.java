@@ -315,7 +315,8 @@ public class OnboardingActivity extends PageActivity {
     // ---------- Percorso ----------
 
     private int[] goalSteps(String g, boolean alone) {
-        if (Goals.NOTIF.equals(g)) return new int[]{N_PEOPLE, N_SERV, N_GROUPS, NOTIF}; // 0.24: guidato, poi il riepilogo
+        if (Goals.NOTIF.equals(g)) return new int[]{N_PEOPLE, N_SERV, NOTIF}; // 0.26 (Evolutiva 021): due passi, Preferiti e Servizi; i gruppi si imparano dalle notifiche, dopo il permesso, e al primo avvio sono sempre vuoti
+
         if (Goals.DOOM.equals(g)) return new int[]{DOOM_APPS, DOOM_HOW, UNLOCK}; // 0.18 (Evolutiva 010): 187 dopo 189
         if (Goals.SLEEP.equals(g)) return new int[]{SLEEP, TRIAL};
         return new int[0];
@@ -347,7 +348,7 @@ public class OnboardingActivity extends PageActivity {
      */
     private void prepare() {
         int s = step();
-        if (s == N_PEOPLE) askContactsOnce(); // il permesso Contatti si chiede quando si apre «Chi conta»
+        if (s == N_PEOPLE) askContactsOnce(); // il permesso Contatti si chiede quando si apre «Preferiti»
         if (s == TRIAL && !sleepPrepared) {
             sleepPrepared = true;
             new Scegli(this, Scegli.NIGHT, true, null); // le proposte per la notte (social e video) si preparano qui, e si possono cambiare
@@ -388,9 +389,9 @@ public class OnboardingActivity extends PageActivity {
             case HOME: home(); break;
             case DAY: day(); break;
             case PORTATA: portata(); break;
-            case N_PEOPLE: guided(Scegli.PEOPLE, 1, "Chi conta", "Passano sempre, anche col silenzio."); break;
+            case N_PEOPLE: guided(Scegli.PEOPLE, 1, "Preferiti", "Le loro chiamate e i messaggi passano sempre, anche col silenzio. I gruppi si aggiungono dopo, quando scrivono."); break;
             case N_SERV: guided(Scegli.SERVICES, 2, "Servizi", "Banca, SPID, app IO: codici e accessi passano sempre."); break;
-            case N_GROUPS: guided(Scegli.GROUPS, 3, "Gruppi che passano sempre", "Quelli che hai visto scrivere."); break;
+            case N_GROUPS: guided(Scegli.GROUPS, 2, "Preferiti · Gruppi", "I loro messaggi passano sempre. Qui compaiono quelli che hai visto scrivere."); break; // 0.26: non più nel percorso
             case NOTIF: notif(); break;
             case UNLOCK: unlock(); break;
             case DOOM_APPS: doomApps(); break;
@@ -452,17 +453,17 @@ public class OnboardingActivity extends PageActivity {
     private void dots(int k) {
         LinearLayout r = U.row(this);
         r.setPadding(0, 0, 0, U.dp(this, 8));
-        for (int i = 1; i <= 3; i++) {
+        for (int i = 1; i <= 2; i++) { // 0.26 (Evolutiva 021): due passi guidati
             View d = new View(this);
             d.setBackground(U.box(this, i <= k ? U.INK : U.TRACK_OFF, 0, 2));
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(U.dp(this, 14), U.dp(this, 3));
             lp.rightMargin = U.dp(this, 4);
             r.addView(d, lp);
         }
-        TextView t = U.text(this, k + " di 3", 13, U.MUTED, false);
+        TextView t = U.text(this, k + " di 2", 13, U.MUTED, false);
         t.setPadding(U.dp(this, 8), 0, 0, 0);
         r.addView(t);
-        r.setContentDescription(k + " di 3");
+        r.setContentDescription(k + " di 2");
         body.addView(r, U.full());
     }
 
@@ -954,7 +955,7 @@ public class OnboardingActivity extends PageActivity {
             body.addView(gap, new LinearLayout.LayoutParams(1, U.dp(this, 14)));
             body.addView(U.divider(this));
             final boolean calls = U.prefs(this).getBoolean(K_CALLS, true);
-            line("Chiamate", "Squillano solo chi conta e le chiamate ripetute", calls, null, new Runnable() {
+            line("Chiamate", "Squillano solo i preferiti e le chiamate ripetute", calls, null, new Runnable() {
                 public void run() { U.prefs(OnboardingActivity.this).edit().putBoolean(K_CALLS, !calls).apply(); render(); }
             });
         }
@@ -985,12 +986,12 @@ public class OnboardingActivity extends PageActivity {
     private void notif() {
         title("Cosa ti avvisa");
         sub("Scegli chi e cosa passa sempre. Il resto aspetta.");
-        int n = Scegli.count(this, Scegli.PEOPLE);
-        summaryRow("Chi conta", "Passano sempre, anche col silenzio", n == 0 ? "Scegli ›" : Scegli.countText(this, Scegli.PEOPLE) + " ›", Scegli.PEOPLE);
+        // 0.26 (Evolutiva 021): una riga sola, «Preferiti», con contatti e gruppi insieme
+        int n = Scegli.count(this, Scegli.PEOPLE) + Scegli.count(this, Scegli.GROUPS);
+        summaryRow("Preferiti", "Contatti e gruppi: chiamate e messaggi passano sempre", n == 0 ? "Scegli ›" : Proposte.count(n, false) + " ›", Scegli.PEOPLE);
         summaryRow("Servizi", "Banca, SPID, app IO: codici e accessi", Scegli.countText(this, Scegli.SERVICES) + " ›", Scegli.SERVICES);
-        summaryRow("Gruppi", "Quelli che passano sempre", Scegli.countText(this, Scegli.GROUPS) + " ›", Scegli.GROUPS);
         final boolean calls = U.prefs(this).getBoolean(K_CALLS, true);
-        line("Chiamate", "Squillano solo chi conta e le chiamate ripetute", null, calls ? "acceso" : "spento", new Runnable() {
+        line("Chiamate", "Squillano solo i preferiti e le chiamate ripetute", null, calls ? "acceso" : "spento", new Runnable() {
             public void run() { U.prefs(OnboardingActivity.this).edit().putBoolean(K_CALLS, !calls).apply(); render(); }
         });
         tag("Per te", "ti aspettano qui", true);
@@ -1324,7 +1325,7 @@ public class OnboardingActivity extends PageActivity {
         title("Una settimana di prova");
         sub("Per sette notti −minus fa così. Poi ti mostra com'è andata e decidi tu.");
         String names = alwaysNames(2);
-        line("Di notte, solo l'essenziale", (names.length() > 0 ? "Ti raggiungono solo " + names : "Ti raggiunge solo chi conta") + " · Uno sblocco mostra l'ora e quanto manca alla sveglia",
+        line("Di notte, solo l'essenziale", (names.length() > 0 ? "Ti raggiungono solo " + names : "Ti raggiungono solo i preferiti") + " · Uno sblocco mostra l'ora e quanto manca alla sveglia",
                 null, "Cambia", new Runnable() { public void run() { openSub(Scegli.PEOPLE); } });
         final boolean morning = Night.morning(this);
         line("Il mattino resta tranquillo", "Fino alle " + Notte.hhmm(Night.wakeMin(this) + Notte.MORNING_MIN) + " niente app frenate", morning, null, new Runnable() {
@@ -1418,7 +1419,7 @@ public class OnboardingActivity extends PageActivity {
             caption(Goals.NAMES[i]);
             if (Goals.NOTIF.equals(Goals.ALL[i])) {
                 int n = Onboarding.alwaysCount(this);
-                done("Chi conta", n + (n == 1 ? " persona" : " persone") + (Stars.mineCount(this) > 0 || Stars.canWrite(this) ? " · ★ in rubrica" : ""), n > 0);
+                done("Preferiti", n + (n == 1 ? " persona" : " persone") + (Stars.mineCount(this) > 0 || Stars.canWrite(this) ? " · ★ in rubrica" : ""), n > 0);
             }
             if (Goals.DOOM.equals(Goals.ALL[i])) done("Pausa", U.pausedPkgs(this).size() + " app · " + U.pauseSeconds(this) + " secondi", true);
             if (Goals.DOOM.equals(Goals.ALL[i]) && U.prefs(this).getBoolean(Sblocco.K_ON, false))

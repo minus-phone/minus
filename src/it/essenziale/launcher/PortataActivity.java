@@ -44,7 +44,7 @@ public class PortataActivity extends PageActivity {
         final List<String[]> fixed = SearchActivity.fixedPeople(this);
         final List<String> names = new ArrayList<String>();
         for (String[] f : fixed) names.add(f[0]);
-        list.addView(U.label(this, "Persone e gruppi · passano sempre"));
+        list.addView(U.label(this, "Preferiti · contatti e gruppi"));
         // 0.15: in Ricerca l'ordine segue le conversazioni; quello scelto qui vale per chi non senti da un po'
         TextView how = U.text(this, "In Ricerca vengono prima le conversazioni in corso, poi chi hai sentito di recente. Quest'ordine vale per gli altri.", 12, U.MUTED, false);
         how.setPadding(0, 0, 0, U.dp(this, 8));
@@ -68,7 +68,7 @@ public class PortataActivity extends PageActivity {
             list.addView(r, U.full());
             list.addView(U.divider(this));
         }
-        TextView link = U.text(this, fixed.isEmpty() ? "Nessuno passa sempre. Si sceglie in Notifiche › Contatti e gruppi ›" : "Si cambiano in Notifiche › Contatti e gruppi ›", 14, U.MUTED, false);
+        TextView link = U.text(this, fixed.isEmpty() ? "Nessun preferito. Si sceglie in Notifiche › Preferiti ›" : "Si cambiano in Notifiche › Preferiti ›", 14, U.MUTED, false);
         link.setMinHeight(U.dp(this, 44));
         link.setGravity(Gravity.CENTER_VERTICAL);
         PressB.row(link); // 0.21: riga di testo che apre un'altra pagina: si scurisce il fondo

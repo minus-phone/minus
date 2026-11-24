@@ -26,14 +26,14 @@ public final class Pass {
         final String rule = group ? U.groupRules(a).get(name.toLowerCase(Locale.ITALY)) : null;
         final boolean always = group ? Rules.groupAlways(rule) : isAlways(a, name);
         if (group) { groupSheet(a, code, name, rule, refresh); return; }
-        String[] items = new String[]{always ? "Passa sempre ✓" : "Passa sempre", always ? "In Per te" : "In Per te ✓"};
+        String[] items = new String[]{always ? "Preferito ✓" : "Preferito", always ? "In Per te" : "In Per te ✓"};
         U.dlg(a)
                 .setTitle(name)
                 .setItems(items, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface d, int w) {
                         final boolean on = w == 0;
                         if (on == always) return;
-                        Changes.track(a, name + (on ? ": passa sempre" : ": in Per te"),
+                        Changes.track(a, name + (on ? ": preferito" : ": in Per te"),
                                 new String[]{group ? U.K_GROUPS : U.K_CONTACTS}, new Runnable() {
                                     public void run() {
                                         if (group) U.setGroupRule(a, name, on ? "sempre" : "silenzio");
@@ -52,13 +52,13 @@ public final class Pass {
      */
     static void groupSheet(final Activity a, final String code, final String name, String rule, final Runnable refresh) {
         final String[] codes = {"sempre", "notifiche", "altro"};
-        String[] labels = {"Passa sempre", "In Per te", "In Altro"};
+        String[] labels = {"Preferito", "In Per te", "In Altro"};
         for (int i = 0; i < codes.length; i++) if (codes[i].equals(rule)) labels[i] += " ✓";
         U.dlg(a)
                 .setTitle(name + " · gruppo")
                 .setItems(labels, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface d, final int w) {
-                        String[] what = {": passa sempre", ": in Per te", ": in Altro"};
+                        String[] what = {": preferito", ": in Per te", ": in Altro"};
                         Changes.track(a, name + what[w], new String[]{U.K_GROUPS, Convs.KEY}, new Runnable() {
                             public void run() {
                                 U.setGroupRule(a, name, codes[w]);
@@ -94,7 +94,7 @@ public final class Pass {
     }
 
     /**
-     * 0.16: i quattro stati, scritti uguali ovunque: «passa sempre», «in Per te», «in Altro»,
+     * 0.16: i quattro stati, scritti uguali ovunque: «preferito», «in Per te», «in Altro»,
      * «○ fino alle 21:01» (0.18, Evolutiva 008: pallino vuoto, senza «aperta» e senza «a domani»). null per chi non è in lista e non ha una conversazione aperta.
      */
     /** 0.18: il pallino vuoto davanti allo stato di una conversazione aperta. */
@@ -115,7 +115,7 @@ public final class Pass {
 
     static String state(android.content.Context c, boolean group, String groupRule, String code, Rules.Person p, long until, long now) {
         if (group) {
-            if (Rules.groupAlways(groupRule)) return "passa sempre";
+            if (Rules.groupAlways(groupRule)) return "preferito";
             if (until > now) return OPEN + "fino alle " + U.hhmm(until);
             if ("altro".equals(groupRule)) return "in Altro";
             if ("notifiche".equals(groupRule)) return "in Per te";
@@ -124,7 +124,7 @@ public final class Pass {
             if (Rules.DEST_OTHER.equals(dest)) return "in Altro";
             return "attesa".equals(groupRule) ? "in Per te" : "in Altro";
         }
-        if (p != null && p.section.equalsIgnoreCase("Sempre")) return "passa sempre";
+        if (p != null && p.section.equalsIgnoreCase("Sempre")) return "preferito";
         if (until > now) return OPEN + "fino alle " + U.hhmm(until);
         if (p != null) return "in Per te";
         return null;

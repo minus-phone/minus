@@ -60,7 +60,7 @@ public final class Stars {
                 people.add(0, p);
                 added.add(name);
             }
-            Changes.record(c, "Stella in rubrica: " + android.text.TextUtils.join(", ", added) + " passa sempre", new String[]{U.K_CONTACTS});
+            Changes.record(c, "Stella in rubrica: " + android.text.TextUtils.join(", ", added) + " è tra i preferiti", new String[]{U.K_CONTACTS});
             U.prefs(c).edit().putString(U.K_CONTACTS, Rules.peopleText(people)).apply();
         }
         StringBuilder b = new StringBuilder();

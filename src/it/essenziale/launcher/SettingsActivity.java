@@ -249,10 +249,10 @@ public class SettingsActivity extends PageActivity {
 
     private void notif() {
         if (!Goals.on(this, Goals.NOTIF)) {
-            intro(Goals.NOTIF, "Ti avvisano solo chi conta, i servizi e le chiamate ripetute. Il resto aspetta in Notifiche, senza suoni.", "Due schermate e due permessi di Android.");
+            intro(Goals.NOTIF, "Ti avvisano solo i preferiti, i servizi e le chiamate ripetute. Il resto aspetta in Notifiche, senza suoni.", "Due schermate e due permessi di Android.");
             return;
         }
-        goalHeader(Goals.NOTIF, "Ti raggiunge solo chi conta. Spegnendolo, le notifiche tornano quelle di Android");
+        goalHeader(Goals.NOTIF, "Ti raggiungono solo i preferiti. Spegnendolo, le notifiche tornano quelle di Android");
         // 0.18 (Evolutiva 009): COME TI AVVISA con «Contatti e gruppi», poi APP e BARRA DI STATO.
         // Evolutiva 010: «Sblocchi senza scopo» passa in Meno doomscrolling; qui resta un rimando
         body.addView(U.label(this, "Come ti avvisa"));
@@ -266,8 +266,8 @@ public class SettingsActivity extends PageActivity {
         });
         final boolean policy = Onboarding.policy(this);
         final boolean silenceOn = U.prefs(this).getBoolean(U.K_SILENCE, false) && policy;
-        row("Chiamate", !policy ? "Squillano solo chi conta · Non disturbare da concedere" : silenceOn ? "Squillano solo chi conta e le chiamate ripetute · tocca per far squillare tutti"
-                : "Squillano tutti · tocca per far squillare solo chi conta", !policy ? "Concedi ›" : silenceOn ? "✓" : "Spento", new Runnable() {
+        row("Chiamate", !policy ? "Squillano solo i preferiti · Non disturbare da concedere" : silenceOn ? "Squillano solo i preferiti e le chiamate ripetute · tocca per far squillare tutti"
+                : "Squillano tutti · tocca per far squillare solo i preferiti", !policy ? "Concedi ›" : silenceOn ? "✓" : "Spento", new Runnable() {
             public void run() {
                 if (!policy) { Onboarding.openPolicySettings(SettingsActivity.this); return; }
                 boolean next = !silenceOn;
@@ -275,11 +275,10 @@ public class SettingsActivity extends PageActivity {
                 render();
             }
         });
-        // 0.24 (Evolutiva 018): le stesse righe del primo avvio, con lo stesso «3 scelti ›», aprono lo stesso selettore
-        body.addView(U.label(this, "Persone"));
-        nav("Chi conta", "Passano sempre, anche col silenzio", selector(Scegli.PEOPLE), Scegli.countText(this, Scegli.PEOPLE) + " ›");
-        nav("Gruppi", "Quelli che passano sempre", selector(Scegli.GROUPS), Scegli.countText(this, Scegli.GROUPS) + " ›");
-        nav("Contatti e gruppi", contactsSummary(), peopleIntent(this, TITLES[NOTIF]), "›");
+        // 0.26 (Evolutiva 021): un nome solo, «Preferiti»: una riga che apre «Contatti e gruppi» (tab Contatti)
+        body.addView(U.label(this, "Preferiti"));
+        nav("Preferiti", "Contatti e gruppi: chiamate e messaggi passano sempre", peopleIntent(this, TITLES[NOTIF]),
+                Proposte.count(Scegli.count(this, Scegli.PEOPLE) + Scegli.count(this, Scegli.GROUPS), false) + " ›");
         body.addView(U.label(this, "App"));
         nav("Servizi", "Banca, SPID, app IO: codici e accessi", selector(Scegli.SERVICES), Scegli.countText(this, Scegli.SERVICES) + " ›");
         nav("Notifiche delle app", "Per ogni app: passa sempre, in Per te o in Altro", selector(Scegli.APPNOTIF), Scegli.countText(this, Scegli.APPNOTIF) + " ›");
@@ -427,11 +426,11 @@ public class SettingsActivity extends PageActivity {
         for (String[] g : U.rows(U.prefs(this).getString(U.K_GROUPS, ""))) if (g.length >= 2 && "sempre".equals(g[1])) groups++;
         int open = Convs.openMap(this).size();
         StringBuilder b = new StringBuilder();
-        if (people + groups == 0) b.append("Nessuno passa sempre");
+        if (people + groups == 0) b.append("Nessun preferito");
         else {
             if (people > 0) b.append(people).append(people == 1 ? " contatto" : " contatti");
             if (groups > 0) b.append(people > 0 ? " e " : "").append(groups).append(groups == 1 ? " gruppo" : " gruppi");
-            b.append(people + groups == 1 ? " passa sempre" : " passano sempre");
+            b.append(people + groups == 1 ? " preferito" : " preferiti");
         }
         if (open > 0) b.append(" · ").append(open).append(open == 1 ? " aperta ora" : " aperte ora");
         return b.toString();

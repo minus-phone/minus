@@ -413,7 +413,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         query.clearFocus();
         // 0.15: una stella nuova in rubrica fa passare sempre quella persona
         java.util.List<String> starred = Stars.adoptNewStars(this);
-        if (!starred.isEmpty()) U.toast(this, android.text.TextUtils.join(", ", starred) + ": stella in rubrica, ora passa sempre");
+        if (!starred.isEmpty()) U.toast(this, android.text.TextUtils.join(", ", starred) + ": stella in rubrica, ora è tra i preferiti");
         root.requestFocus();
         AppCache.warm(this); // 0.25: la Ricerca trova le app già pronte
         refresh();

@@ -178,7 +178,7 @@ public class PeopleActivity extends PageActivity {
     private void renderList() {
         list.removeAllViews();
         if (step == 2) {
-            if (chosen.isEmpty()) list.addView(U.text(this, "Nessuna persona scelta: con «Fatto» nessuno passa sempre, salvo i servizi e le chiamate ripetute.", 15, U.MUTED, false));
+            if (chosen.isEmpty()) list.addView(U.text(this, "Nessuna persona scelta: con «Fatto» nessuno è tra i preferiti, salvo i servizi e le chiamate ripetute.", 15, U.MUTED, false));
             for (final Rules.Person p : chosen.values()) {
                 list.addView(U.label(this, p.name));
                 LinearLayout chips = U.row(this);

@@ -41,27 +41,19 @@ final class Proposte {
 
     // ---------- Persone ----------
 
-    static final String R_STAR = "Hai la stella in rubrica", R_OFTEN = "Ti scrive spesso", R_RECENT = "Ti ha scritto di recente";
+    static final String R_STAR = "Hai la stella in rubrica";
 
     /**
-     * Il motivo per una persona. La stella vale più di tutto. Dalle notifiche: scrive «spesso» chi ti ha scritto negli ultimi
-     * 7 giorni e a cui hai anche risposto (si scrivete avanti e indietro); chi ti ha scritto negli ultimi 14 giorni, «di recente».
-     * {@code lastMs} = ultimo messaggio ricevuto, {@code mineMs} = ultimo tuo (0 se mai).
+     * 0.26 (Evolutiva 021): le persone si propongono solo se hanno la stella in rubrica (i Preferiti di Android).
+     * Niente «Ti scrive spesso» né «di recente»: al primo avvio non c'è un vero contatore dei messaggi.
+     * Gli altri parametri restano per compatibilità con i chiamanti.
      */
     static String reasonPerson(boolean starred, long lastMs, long mineMs, long nowMs) {
-        if (starred) return R_STAR;
-        if (lastMs > 0 && nowMs - lastMs <= 7 * DAY && mineMs > 0) return R_OFTEN;
-        if (lastMs > 0 && nowMs - lastMs <= 14 * DAY) return R_RECENT;
-        return null;
+        return starred ? R_STAR : null;
     }
 
     static int scorePerson(boolean starred, long lastMs, long mineMs, long nowMs) {
-        String r = reasonPerson(starred, lastMs, mineMs, nowMs);
-        if (r == null) return 0;
-        if (R_STAR.equals(r)) return 1000;
-        // le più recenti prima; «spesso» davanti a «di recente»
-        int base = R_OFTEN.equals(r) ? 500 : 100;
-        return base + (int) Math.max(0, 14 - (nowMs - lastMs) / DAY);
+        return starred ? 1000 : 0;
     }
 
     // ---------- Gruppi ----------

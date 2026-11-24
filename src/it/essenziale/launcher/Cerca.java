@@ -27,7 +27,7 @@ public final class Cerca {
         return compact.length() > 2 && l.replace(" ", "").contains(compact) ? 1 : 0;
     }
 
-    /** Punteggio con preferenza: ciò che hai scelto (persone che passano sempre, app a portata) sta prima. */
+    /** Punteggio con preferenza: ciò che hai scelto (i preferiti, le app a portata) sta prima. */
     public static int rank(String label, String q, boolean preferred) {
         int s = score(label, q);
         return s == 0 ? 0 : s * 10 + (preferred ? 5 : 0);
@@ -83,8 +83,8 @@ public final class Cerca {
 
     /** Pagine di Impostazioni cercabili: titolo | parole chiave | destinazione. */
     public static final String[][] SETTINGS = {
-            {"Meno notifiche", "notifiche filtro per te altro avvisi chi conta silenzio", "area:2"},
-            {"Contatti e gruppi", "persone gruppi conversazioni chat contatti chi passa sempre chi conta whatsapp telegram stella preferiti", "people"},
+            {"Meno notifiche", "notifiche filtro per te altro avvisi chi conta silenzio preferiti preferito", "area:2"},
+            {"Contatti e gruppi", "persone gruppi conversazioni chat contatti chi passa sempre chi conta whatsapp telegram stella preferiti preferito", "people"},
             {"Gruppi", "gruppi silenzio whatsapp telegram", "groups"},
             {"Servizi", "banca spid io otp codici accesso pagamenti poste identità digitale sms", "servizi"},
             {"Conversazioni aperte", "12 ore aperte risposta", "area:2"},
@@ -221,8 +221,8 @@ public final class Cerca {
     public static final int LIMITE_CHIEDI_VUOTO = 3;
     /** In tutto, Migliore e «Chiedi» compresi. */
     public static final int MAX_RIGHE = 8;
-    /** Campo vuoto: Aperte ora 2, Recenti 2, Passano sempre 4, A portata (solo app) 5, e 8 dopo «Vedi tutti». */
-    public static final int VUOTA_APERTE = 2, VUOTA_RECENTI = 2, VUOTA_SEMPRE = 4, VUOTA_PORTATA = 5, VUOTA_PORTATA_TUTTE = 8;
+    /** 0.26 (Evolutiva 021): campo vuoto: Recenti 2, Preferiti 4, A portata (solo app) 5, e 8 dopo «Vedi tutti». Niente più «Aperte ora». */
+    public static final int VUOTA_RECENTI = 2, VUOTA_SEMPRE = 4, VUOTA_PORTATA = 5, VUOTA_PORTATA_TUTTE = 8;
 
     /** 0.25: quante app mostra A portata a campo vuoto: 5, o fino a 8 dopo «Vedi tutti ›». */
     public static int portataMax(boolean expanded) { return expanded ? VUOTA_PORTATA_TUTTE : VUOTA_PORTATA; }
@@ -390,7 +390,7 @@ public final class Cerca {
         return out;
     }
 
-    /** 0.25: solo i candidati di un tipo (A portata a campo vuoto: solo le app; Passano sempre: solo persone e gruppi). */
+    /** 0.25: solo i candidati di un tipo (A portata a campo vuoto: solo le app; Preferiti: solo persone e gruppi). */
     public static List<Cand> only(List<Cand> in, int kind) {
         List<Cand> out = new ArrayList<Cand>();
         for (Cand c : in) if (c.kind == kind) out.add(c);

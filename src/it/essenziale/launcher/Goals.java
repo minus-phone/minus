@@ -12,9 +12,9 @@ public final class Goals {
     static final String NOTIF = "notifiche", DOOM = "doom", SLEEP = "sonno";
     static final String[] ALL = {NOTIF, DOOM, SLEEP};
     static final String[] NAMES = {"Meno notifiche", "Meno doomscrolling", "Meno interferenze sul sonno"};
-    static final String[] SUBS = {"Ti raggiunge solo chi conta. Il resto aspetta che sia tu a guardarlo.",
+    static final String[] SUBS = {"Ti raggiungono solo i preferiti. Il resto aspetta che sia tu a guardarlo.",
             "Le app che ti trattengono ti chiedono prima per cosa le apri.",
-            "La sera il telefono si fa da parte, e di notte ti raggiunge solo chi conta."};
+            "La sera il telefono si fa da parte, e di notte ti raggiungono solo i preferiti."};
 
     static String name(String g) {
         for (int i = 0; i < ALL.length; i++) if (ALL[i].equals(g)) return NAMES[i];
