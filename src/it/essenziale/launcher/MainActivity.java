@@ -1051,7 +1051,10 @@ public class MainActivity extends BaseActivity implements Store.Listener {
 
     private void refreshNotif() {
         boolean on = U.listenerEnabled(this);
-        filterOff.setVisibility(on ? View.GONE : View.VISIBLE);
+        // 0.27: senza «Meno notifiche» −minus non gestisce le notifiche: niente «Notifiche» in alto e niente avviso del filtro spento
+        boolean managed = Goals.on(this, Goals.NOTIF);
+        notifBox.setVisibility(managed ? View.VISIBLE : View.GONE);
+        filterOff.setVisibility(on || !managed ? View.GONE : View.VISIBLE);
         int n = on ? Store.count(this, Store.WAITING) : 0;
         notifCount.set(n == 0 ? "" : String.valueOf(n), hasWindowFocus()); // momento 12: scorre solo se lo vedi cambiare
         notifBadge.setVisibility(n == 0 ? View.GONE : View.VISIBLE);
