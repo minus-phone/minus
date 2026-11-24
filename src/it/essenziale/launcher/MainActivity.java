@@ -415,6 +415,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
         java.util.List<String> starred = Stars.adoptNewStars(this);
         if (!starred.isEmpty()) U.toast(this, android.text.TextUtils.join(", ", starred) + ": stella in rubrica, ora passa sempre");
         root.requestFocus();
+        AppCache.warm(this); // 0.25: la Ricerca trova le app già pronte
         refresh();
         maybeScrollToTasks();
     }

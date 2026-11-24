@@ -78,7 +78,6 @@ public class SearchActivity extends BaseActivity {
     private int expanded = -1;             // gruppo aperto da «Vedi tutti» mentre si scrive
     private boolean portataAll;            // «Vedi tutti» di A portata a campo vuoto
     private final android.os.Handler announce = new android.os.Handler();
-    private final Map<String, Drawable.ConstantState> icons = new HashMap<String, Drawable.ConstantState>();
     // ricerche lente (rubrica, calendario) fuori dal thread principale
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private List<U.Event> events;          // impegni dei prossimi 30 giorni, letti una volta
@@ -234,9 +233,34 @@ public class SearchActivity extends BaseActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        apps = null;
+        // 0.25: le app vengono da AppCache (preparate in home); la prima volta le righe si costruiscono dopo il
+        // primo disegno, così la salita parte subito con campo e intestazione e le righe entrano in dissolvenza
+        apps = AppCache.peek();
         loadEvents();
-        renderNow();
+        if (rendered) { renderNow(); return; }
+        results.setAlpha(0f);
+        if (apps == null) {
+            io.execute(new Runnable() {
+                public void run() {
+                    final List<U.AppInfo> l = AppCache.get(SearchActivity.this);
+                    runOnUiThread(new Runnable() { public void run() { if (!isFinishing()) { apps = l; firstRender(); } } });
+                }
+            });
+        } else {
+            final View decor = getWindow().getDecorView();
+            decor.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
+                public boolean onPreDraw() {
+                    decor.getViewTreeObserver().removeOnPreDrawListener(this);
+                    decor.post(new Runnable() { public void run() { if (!isFinishing()) firstRender(); } });
+                    return true;
+                }
+            });
+        }
+    }
+
+    /** 0.25: il primo disegno delle righe, una volta sola, in dissolvenza RAPIDO. */
+    private void firstRender() {
+        if (!rendered) renderNow();
     }
 
     /** 0.20 (Evolutiva 016): esce verso il basso (salita al contrario, BASE), prima si chiude la tastiera. */
@@ -328,8 +352,10 @@ public class SearchActivity extends BaseActivity {
         hitsNow = 0;
         bestLabel = null;
         if (q.length() == 0) buildEmpty(items); else buildTyped(q, items);
+        boolean first = !rendered;
         show(items);
         rendered = true;
+        if (first && results.getAlpha() < 1f) results.animate().alpha(1f).setDuration(Motion.dur(this, Motion.RAPIDO)).start();
         // un solo annuncio, 600 ms dopo l'ultimo cambiamento, mai uno a tasto
         announce.removeCallbacksAndMessages(null);
         if (q.length() > 0) {
@@ -380,7 +406,7 @@ public class SearchActivity extends BaseActivity {
     private void buildEmpty(List<Item> out) {
         Set<String> paused = U.pausedPkgs(this);
         long now = System.currentTimeMillis();
-        if (apps == null) apps = U.sortedApps(this);
+        if (apps == null) apps = AppCache.get(this);
         Map<String, U.AppInfo> byPkg = new HashMap<String, U.AppInfo>();
         for (U.AppInfo a : apps) byPkg.put(a.pkg, a);
         Set<String> groups = groupNames();
@@ -752,20 +778,7 @@ public class SearchActivity extends BaseActivity {
 
     /** L'icona dell'app così com'è (colori veri), dallo stesso pacchetto; null se non si trova. */
     private Drawable appIcon(String pkg, String cls) {
-        if (pkg == null) return null;
-        Drawable.ConstantState cs = icons.get(pkg);
-        if (cs == null) {
-            try {
-                android.content.pm.PackageManager pm = getPackageManager();
-                Drawable d = cls != null ? pm.getActivityIcon(new android.content.ComponentName(pkg, cls)) : pm.getApplicationIcon(pkg);
-                cs = d.getConstantState();
-                if (cs == null) return d;
-                icons.put(pkg, cs);
-            } catch (Exception e) {
-                return null;
-            }
-        }
-        return cs.newDrawable(getResources());
+        return AppCache.icon(this, pkg, cls); // 0.25: in memoria tra un'apertura e l'altra
     }
 
     /** 0.8: chi passa sempre, persone e gruppi insieme, nell'ordine scelto in A portata: {nome, codice app, "g" se gruppo}. */
@@ -806,7 +819,7 @@ public class SearchActivity extends BaseActivity {
     }
 
     private void buildTyped(final String q, List<Item> out) {
-        if (apps == null) apps = U.sortedApps(this);
+        if (apps == null) apps = AppCache.get(this);
         Map<String, Item> ent = new HashMap<String, Item>();
         List<Cerca.Cand> cands = new ArrayList<Cerca.Cand>();
         long now = System.currentTimeMillis();
@@ -1186,7 +1199,7 @@ public class SearchActivity extends BaseActivity {
 
     private void openApp(String pkg, String label) {
         U.AppInfo a = null;
-        if (apps == null) apps = U.sortedApps(this);
+        if (apps == null) apps = AppCache.get(this);
         for (U.AppInfo x : apps) if (x.pkg.equals(pkg)) { a = x; break; }
         if (a == null) { U.toast(this, label + " non è installata"); return; }
         if (U.open(this, a)) { Motion.scatto(query); remember("app", a.pkg, a.label); logOpen(tapped); } // 0.20: aprire un risultato dà lo scatto
