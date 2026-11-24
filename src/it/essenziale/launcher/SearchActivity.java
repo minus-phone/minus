@@ -178,7 +178,7 @@ public class SearchActivity extends BaseActivity {
         View tint = new View(this);
         tint.setBackgroundColor(blur && blur2 ? (U.BG & 0x00FFFFFF) | 0x99000000 : U.BG);
         headBg.addView(tint, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        final android.widget.FrameLayout header = new android.widget.FrameLayout(this);
+        final android.widget.FrameLayout header = new HeaderFrame(this, head, headBg); // 0.27.1: alto quanto l'intestazione, non tutto lo schermo
         header.addView(headBg, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         header.addView(head, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         header.setClickable(true); // niente tocchi che passano alle righe sotto l'intestazione
@@ -257,6 +257,7 @@ public class SearchActivity extends BaseActivity {
             cv.drawColor(U.BG);
             try {
                 cv.clipRect(0, 0, getWidth(), getHeight());
+                cv.translate(0, -src.getScrollY()); // 0.27.1: draw() diretto non applica lo scorrimento: lo mettiamo noi
                 src.draw(cv);
             } catch (Exception ignored) {}
         }
@@ -272,6 +273,27 @@ public class SearchActivity extends BaseActivity {
             } catch (Throwable t) {
                 return false;
             }
+        }
+    }
+
+    /**
+     * 0.27.1: la cornice dell'intestazione misura solo il suo contenuto (✕, barra, 16 dp) e dà allo sfondo esattamente quell'altezza.
+     * Prima lo sfondo a tutta altezza (lo specchio non ha una misura sua) allargava l'intestazione a tutto lo schermo e copriva la lista.
+     */
+    static final class HeaderFrame extends android.widget.FrameLayout {
+        private final View content, bg;
+        HeaderFrame(Context c, View content, View bg) { super(c); this.content = content; this.bg = bg; }
+
+        @Override protected void onMeasure(int ws, int hs) {
+            content.measure(ws, MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
+            int w = MeasureSpec.getSize(ws), h = content.getMeasuredHeight();
+            bg.measure(MeasureSpec.makeMeasureSpec(w, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(h, MeasureSpec.EXACTLY));
+            setMeasuredDimension(w, h);
+        }
+
+        @Override protected void onLayout(boolean changed, int l, int t, int r, int b) {
+            content.layout(0, 0, r - l, content.getMeasuredHeight());
+            bg.layout(0, 0, r - l, b - t);
         }
     }
 
