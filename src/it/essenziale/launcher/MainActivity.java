@@ -996,6 +996,7 @@ public class MainActivity extends BaseActivity implements Store.Listener {
                 r.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { editTask(MainActivity.this, t); } });
             }
         }
+        TaskRows.addNoteIcon(r, t); // 0.27 (Evolutiva 023): in fondo alla riga, dopo il link all'app
         r.setOnLongClickListener(new View.OnLongClickListener() {
             public boolean onLongClick(View v) { taskMenu(t, scope); return true; }
         });

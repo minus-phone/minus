@@ -10,6 +10,7 @@ import android.text.style.StyleSpan;
 import android.text.style.UpdateAppearance;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 /**
@@ -23,6 +24,27 @@ import android.widget.TextView;
  */
 final class TaskRows {
     private TaskRows() {}
+
+    /**
+     * 0.27 (Evolutiva 023): un task con una nota ha in fondo alla riga (dopo il link all'app) una piccola icona «nota»
+     * (18 dp, U.MUTED, 10 dp a sinistra); TalkBack: «, ha una nota». Senza nota non fa niente.
+     */
+    static void addNoteIcon(LinearLayout row, Tasks.Task t) {
+        if (!hasNote(t)) return;
+        Context c = row.getContext();
+        android.widget.ImageView ic = Ic.view(c, "ic_nota", U.MUTED, 18);
+        if (ic == null) return;
+        ic.setPadding(U.dp(c, 10), 0, 0, 0);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(U.dp(c, 28), U.dp(c, 18));
+        lp.gravity = android.view.Gravity.CENTER_VERTICAL;
+        row.addView(ic, lp);
+        CharSequence d = row.getContentDescription();
+        row.setContentDescription((d == null ? t.title : d) + noteSpoken());
+    }
+
+    static boolean hasNote(Tasks.Task t) { return t != null && Urgenti.hasNote(t.note); }
+
+    static String noteSpoken() { return ", ha una nota"; }
 
     static final int IDLE = 0, CHECKED = 1, GONE = 2;
 

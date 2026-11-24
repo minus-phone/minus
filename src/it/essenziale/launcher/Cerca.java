@@ -221,11 +221,8 @@ public final class Cerca {
     public static final int LIMITE_CHIEDI_VUOTO = 3;
     /** In tutto, Migliore e «Chiedi» compresi. */
     public static final int MAX_RIGHE = 8;
-    /** 0.26 (Evolutiva 021): campo vuoto: Recenti 2, Preferiti 4, A portata (solo app) 5, e 8 dopo «Vedi tutti». Niente più «Aperte ora». */
-    public static final int VUOTA_RECENTI = 2, VUOTA_SEMPRE = 4, VUOTA_PORTATA = 5, VUOTA_PORTATA_TUTTE = 8;
-
-    /** 0.25: quante app mostra A portata a campo vuoto: 5, o fino a 8 dopo «Vedi tutti ›». */
-    public static int portataMax(boolean expanded) { return expanded ? VUOTA_PORTATA_TUTTE : VUOTA_PORTATA; }
+    /** 0.27: campo vuoto: Recenti 2, Preferiti 4 (con «Vedi tutti ›»), A portata (solo app) sempre fino a 8, senza «Vedi tutti». Niente più «Aperte ora». */
+    public static final int VUOTA_RECENTI = 2, VUOTA_SEMPRE = 4, VUOTA_PORTATA = 8;
 
     /** Un risultato possibile: chiave stabile (tipo + identificativo), tipo, titolo e quanto corrisponde. */
     public static final class Cand {

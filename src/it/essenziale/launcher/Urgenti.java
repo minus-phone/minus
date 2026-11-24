@@ -13,6 +13,9 @@ public final class Urgenti {
     /** Oltre questo numero di urgenze nello stesso giorno compare la riga «scegline una». */
     public static final int TOO_MANY = 3;
 
+    /** 0.27 (Evolutiva 023): il task ha una nota (non vuota, spazi esclusi): si mostra l'icona «nota». */
+    public static boolean hasNote(String note) { return note != null && note.trim().length() > 0; }
+
     /** today: inizio di oggi. «Della settimana» vuol dire nei prossimi 7 giorni. */
     public static int group(long due, boolean urgent, long today) {
         if (due == 0) return UNDATED;

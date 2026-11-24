@@ -1015,6 +1015,20 @@ public final class U {
         prefs(c).edit().putLong("last_cal", id).putString("last_cal_name", name).apply();
     }
 
+    /** 0.27 (Evolutiva 024): solo il tipo del calendario («Google Calendar», «Sul telefono», l'app dell'account), mai l'e-mail. */
+    public static String calType(Context c, Cal k) {
+        if (k == null) return "";
+        String app = null;
+        if (!k.google() && !k.local()) {
+            try {
+                for (android.accounts.AuthenticatorDescription d : android.accounts.AccountManager.get(c).getAuthenticatorTypes()) {
+                    if (d.type.equals(k.type)) { app = appLabel(c, d.packageName); break; }
+                }
+            } catch (Exception ignored) {}
+        }
+        return Calendari.typeLabel(k.type, app);
+    }
+
     public static String calNote(Cal k) {
         if (isMinusCal(k)) return "Restano in −minus e su questo telefono: non vanno in Google Calendar";
         if (k == null) return "";

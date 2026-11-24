@@ -258,6 +258,7 @@ public class WeekActivity extends PageActivity {
         if (k.done) {
             r.setOnClickListener(toggle);
             r.setContentDescription(k.title + ", completato. Tocca per riaprirlo");
+            TaskRows.addNoteIcon(r, k); // 0.27 (Evolutiva 023)
             return r;
         }
         final TaskRows.State st = new TaskRows.State();
@@ -280,6 +281,7 @@ public class WeekActivity extends PageActivity {
                 public void onClick(View v) { if (!U.launchPkg(WeekActivity.this, k.app)) U.toast(WeekActivity.this, label + " non si apre. Controlla che sia installata"); }
             });
         } else r.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { MainActivity.editTask(WeekActivity.this, k); } });
+        TaskRows.addNoteIcon(r, k); // 0.27 (Evolutiva 023): in fondo alla riga, dopo il link all'app
         // 0.16: tocco lungo: Modifica task, ! Urgente, Elimina task (subito, con Annulla)
         r.setOnLongClickListener(new View.OnLongClickListener() {
             public boolean onLongClick(View v) {

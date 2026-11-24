@@ -68,6 +68,9 @@ public class SearchActivity extends BaseActivity {
 
     private LinearLayout results;
     private ScrollView scroll;
+    private Mirror mirror;                 // 0.27 (Evolutiva 024): copia sfocata della lista sotto l'intestazione (API 31+)
+    private boolean blur2;
+    private static final int FADE_DP = 16;
     private EditText query;
     private View clear;
     private List<U.AppInfo> apps;
@@ -76,7 +79,6 @@ public class SearchActivity extends BaseActivity {
     private boolean scheduled;             // un solo ridisegno per frame
     private String lastQ = "";
     private int expanded = -1;             // gruppo aperto da «Vedi tutti» mentre si scrive
-    private boolean portataAll;            // «Vedi tutti» di A portata a campo vuoto
     private final android.os.Handler announce = new android.os.Handler();
     // ricerche lente (rubrica, calendario) fuori dal thread principale
     private final ExecutorService io = Executors.newSingleThreadExecutor();
@@ -89,10 +91,13 @@ public class SearchActivity extends BaseActivity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
-        LinearLayout root = U.col(this);
+        // 0.27 (Evolutiva 024): la pagina è una cornice: la lista a tutta altezza (con il margine in alto pari all'intestazione, così
+        // le righe partono sotto la barra e scorrono sotto) e l'intestazione sopra, semitrasparente e sfocata (API 31+)
+        final android.widget.FrameLayout root = new android.widget.FrameLayout(this);
         root.setBackgroundColor(U.BG);
-        root.setPadding(0, U.dp(this, 12), 0, U.dp(this, 0));
         root.setClipChildren(true);
+        LinearLayout head = U.col(this);
+        head.setPadding(0, U.dp(this, 12), 0, 0);
         // prima riga: ✕ a sinistra, «Cambia impostazioni» (icona) a destra
         LinearLayout top = U.row(this);
         top.setPadding(U.dp(this, 6), 0, U.dp(this, 6), 0);
@@ -105,18 +110,21 @@ public class SearchActivity extends BaseActivity {
             public void onClick(View v) { startActivity(new Intent(SearchActivity.this, SettingsActivity.class).putExtra("back", "Cerca")); }
         });
         top.addView(set, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
-        root.addView(top, U.full());
+        head.addView(top, U.full());
 
-        // seconda riga: pulsante telefono e campo (con il microfono), come in home
+        // seconda riga: pulsante telefono e campo (con il microfono), identici alla home (0.27: stesso fondo, bordo, raggio 28, margini, testo 17)
         LinearLayout field = U.row(this);
-        field.setBackground(U.box(this, U.SURFACE, U.INK, 26));
-        field.setPadding(U.dp(this, 16), U.dp(this, 2), U.dp(this, 6), U.dp(this, 2));
+        Press.box(field, U.BG, U.INK, 28, U.CHIP);
+        field.setPadding(U.dp(this, 22), U.dp(this, 6), U.dp(this, 6), U.dp(this, 6));
         query = new EditText(this);
         query.setHint("Cerca o chiedi");
         query.setHintTextColor(U.HINT);
         query.setTextColor(U.INK);
-        query.setTextSize(16);
+        query.setTextSize(17);
+        query.setTypeface(U.SANS);
         query.setBackground(null);
+        query.setPadding(0, 0, 0, 0); // come il testo della home: nessun margine interno del campo
+        query.setGravity(Gravity.CENTER_VERTICAL);
         query.setSingleLine(true);
         query.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         query.setImeOptions(EditorInfo.IME_ACTION_GO);
@@ -133,32 +141,59 @@ public class SearchActivity extends BaseActivity {
         cl.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { query.setText(""); } });
         clear = cl;
         field.addView(clear, new LinearLayout.LayoutParams(U.dp(this, 40), U.dp(this, 44)));
-        MicView mic = new MicView(this, true); // 0.19 (Evolutiva 014): microfono a contorno
+        MicView mic = new MicView(this, true); // 0.19 (Evolutiva 014): microfono a contorno, 44 x 44 come in home (MicView disegna sul lato minore)
         mic.setContentDescription("Comando vocale");
         mic.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { voice(); } });
         field.addView(mic, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
-        field.setMinimumHeight(U.dp(this, 62));
         LinearLayout bar = U.row(this);
+        bar.setPadding(0, U.dp(this, 12), 0, 0); // come la barra della home
         bar.addView(Telefono.button(this), Telefono.buttonLp(this));
         bar.addView(field, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         LinearLayout.LayoutParams flp = U.full();
-        flp.topMargin = U.dp(this, 2);
-        flp.leftMargin = U.dp(this, 12);
-        flp.rightMargin = U.dp(this, 12);
-        root.addView(bar, flp);
+        flp.leftMargin = U.dp(this, 20);
+        flp.rightMargin = U.dp(this, 20);
+        head.addView(bar, flp);
+        head.addView(new View(this), new LinearLayout.LayoutParams(1, U.dp(this, FADE_DP))); // 16 dp sotto la barra: qui lo sfondo sfuma
         // TalkBack: il campo viene letto per primo
         close.setAccessibilityTraversalAfter(query.getId());
 
-        // i risultati scendono dall'alto; il contenitore ritaglia le righe ai suoi bordi (mai sopra l'intestazione)
+        // i risultati scorrono a tutta altezza e passano sotto l'intestazione (il margine in alto lo mette il layout dell'intestazione)
         scroll = new ScrollView(this);
         scroll.setVerticalScrollBarEnabled(false);
         scroll.setClipChildren(true);
-        scroll.setClipToPadding(true);
+        scroll.setClipToPadding(false);
         results = U.col(this);
-        results.setPadding(U.dp(this, 12), U.dp(this, 8), U.dp(this, 12), U.dp(this, 24));
+        results.setPadding(U.dp(this, 12), 0, U.dp(this, 12), U.dp(this, 24));
         results.setClipChildren(true);
         scroll.addView(results, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        root.addView(scroll, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        // lo sfondo dell'intestazione: specchio sfocato della lista + velo del fondo al 60 %, sfumati negli ultimi 16 dp; sotto API 31 fondo pieno sfumato
+        final FadeLayer headBg = new FadeLayer(this, U.dp(this, FADE_DP));
+        final boolean blur = android.os.Build.VERSION.SDK_INT >= 31;
+        if (blur) {
+            mirror = new Mirror(this, scroll);
+            if (!Mirror.blur(mirror, 20f)) { blur2 = false; } else blur2 = true;
+            headBg.addView(mirror, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        }
+        View tint = new View(this);
+        tint.setBackgroundColor(blur && blur2 ? (U.BG & 0x00FFFFFF) | 0x99000000 : U.BG);
+        headBg.addView(tint, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        final android.widget.FrameLayout header = new android.widget.FrameLayout(this);
+        header.addView(headBg, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        header.addView(head, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        header.setClickable(true); // niente tocchi che passano alle righe sotto l'intestazione
+        root.addView(header, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        header.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+            public void onLayoutChange(View v, int l, int t, int r, int bt, int ol, int ot, int or, int ob) {
+                final int h = bt - t;
+                if (scroll.getPaddingTop() != h) scroll.post(new Runnable() { public void run() { scroll.setPadding(0, h, 0, 0); refreshMirror(); } });
+            }
+        });
+        if (mirror != null) {
+            scroll.setOnScrollChangeListener(new View.OnScrollChangeListener() {
+                public void onScrollChange(View v, int x, int y, int ox, int oy) { mirror.invalidate(); }
+            });
+        }
         scroll.setOnTouchListener(new View.OnTouchListener() {
             private float y0, x0;
             private boolean top0, hidden;
@@ -209,6 +244,78 @@ public class SearchActivity extends BaseActivity {
         }
         if (getIntent().getBooleanExtra("voice", false)) voice();
     }
+
+    /**
+     * 0.27 (Evolutiva 024): lo specchio ridisegna la lista (la ScrollView intera, già scorsa) sul proprio fondo e, da API 31, la
+     * sfuma con RenderEffect (via reflection: il jar di compilazione è API 23). La sfocatura è di questa vista, non di ciò che sta dietro.
+     */
+    static final class Mirror extends View {
+        private final View src;
+        Mirror(Context c, View src) { super(c); this.src = src; setClickable(false); setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO); }
+
+        @Override protected void onDraw(android.graphics.Canvas cv) {
+            cv.drawColor(U.BG);
+            try {
+                cv.clipRect(0, 0, getWidth(), getHeight());
+                src.draw(cv);
+            } catch (Exception ignored) {}
+        }
+
+        /** setRenderEffect(RenderEffect.createBlurEffect(r, r, CLAMP)); false se non si può (resta il fondo pieno). */
+        static boolean blur(View v, float radius) {
+            try {
+                Class<?> re = Class.forName("android.graphics.RenderEffect");
+                Object fx = re.getMethod("createBlurEffect", float.class, float.class, android.graphics.Shader.TileMode.class)
+                        .invoke(null, radius, radius, android.graphics.Shader.TileMode.CLAMP);
+                View.class.getMethod("setRenderEffect", re).invoke(v, fx);
+                return true;
+            } catch (Throwable t) {
+                return false;
+            }
+        }
+    }
+
+    /** Lo sfondo dell'intestazione: i figli disegnati in un livello, poi mascherati con un'ombra che sfuma a trasparente negli ultimi {@code fadePx}. */
+    static final class FadeLayer extends android.widget.FrameLayout {
+        private final int fadePx;
+        private final android.graphics.Paint mask = new android.graphics.Paint();
+        FadeLayer(Context c, int fadePx) {
+            super(c);
+            this.fadePx = fadePx;
+            mask.setXfermode(new android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_IN));
+            setClickable(false);
+            setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        }
+
+        @Override protected void dispatchDraw(android.graphics.Canvas cv) {
+            int w = getWidth(), h = getHeight();
+            if (h <= 0) { super.dispatchDraw(cv); return; }
+            int sc = cv.saveLayer(0, 0, w, h, null);
+            super.dispatchDraw(cv);
+            float start = Math.max(0f, (h - fadePx) / (float) h);
+            mask.setShader(new android.graphics.LinearGradient(0, 0, 0, h, new int[]{0xFF000000, 0xFF000000, 0x00000000},
+                    new float[]{0f, start, 1f}, android.graphics.Shader.TileMode.CLAMP));
+            cv.drawRect(0, 0, w, h, mask);
+            cv.restoreToCount(sc);
+        }
+    }
+
+    /** Lo specchio si ridisegna a ogni scorrimento (listener) e, dopo ogni ridisegno della lista, per i prossimi 500 ms (le dissolvenze delle righe). */
+    private void refreshMirror() {
+        if (mirror == null) return;
+        mirror.invalidate();
+        mirror.removeCallbacks(mirrorTick);
+        mirrorUntil = android.os.SystemClock.uptimeMillis() + 500;
+        mirror.postDelayed(mirrorTick, 32);
+    }
+    private long mirrorUntil;
+    private final Runnable mirrorTick = new Runnable() {
+        public void run() {
+            if (mirror == null) return;
+            mirror.invalidate();
+            if (android.os.SystemClock.uptimeMillis() < mirrorUntil) mirror.postDelayed(this, 32);
+        }
+    };
 
     /** Un'icona della direzione A che si tocca: riquadro di {@code boxDp}, icona di {@code sizeDp}, alone da premuta. */
     private ImageView iconButton(String name, String desc, int color, int sizeDp, int boxDp) {
@@ -339,13 +446,14 @@ public class SearchActivity extends BaseActivity {
     }
 
     private void renderNow() {
+        refreshMirror();
         String q = query.getText().toString().trim();
         boolean clearWas = clear.getVisibility() == View.VISIBLE;
         // ✕ del campo: compare e sparisce in dissolvenza (RAPIDO), senza scala
         if (q.length() > 0 && !clearWas) { clear.setVisibility(View.VISIBLE); if (rendered) Motion.enter(clear, 0, Motion.RAPIDO, 0); }
         else if (q.length() == 0 && clearWas) clear.setVisibility(View.GONE);
         // lo scorrimento si azzera solo se il testo diventa vuoto o cambia la prima lettera; altrimenti resta
-        if (Cerca.resetsScroll(lastQ, q)) { scroll.scrollTo(0, 0); expanded = -1; if (q.length() == 0) portataAll = false; }
+        if (Cerca.resetsScroll(lastQ, q)) { scroll.scrollTo(0, 0); expanded = -1; }
         lastQ = q;
         List<Item> items = new ArrayList<Item>();
         best = null;
@@ -513,14 +621,13 @@ public class SearchActivity extends BaseActivity {
         }
         Cerca.Piece pRec = Cerca.take(rec, used, Cerca.VUOTA_RECENTI);
         Cerca.Piece pAlw = Cerca.take(always, used, Cerca.VUOTA_SEMPRE);
-        Cerca.Piece pPort = Cerca.take(port, used, Cerca.portataMax(portataAll));
+        Cerca.Piece pPort = Cerca.take(port, used, Cerca.VUOTA_PORTATA);
         Runnable allPeople = new Runnable() { public void run() {
             startActivity(SettingsActivity.peopleIntent(SearchActivity.this, "Cerca")); // 0.26: «‹ Cerca» in alto a sinistra
         } };
-        Runnable allApps = new Runnable() { public void run() { portataAll = true; render(); } };
         addEmpty(out, "h:recenti", "Recenti", pRec, ent, null);
         addEmpty(out, "h:sempre", "Preferiti", pAlw, ent, allPeople);
-        addEmpty(out, "h:portata", "A portata", pPort, ent, allApps);
+        addEmpty(out, "h:portata", "A portata", pPort, ent, null); // 0.27: A portata mostra subito fino a 8, senza «Vedi tutti»
         if (out.isEmpty()) {
             Item n = new Item();
             n.type = T_NOTE; n.key = "note"; n.title = "Scrivi il nome di una persona, di un'app o di un impegno. Puoi anche chiedere o dire un comando.";

@@ -54,6 +54,7 @@ public class NrtTest {
         notificationsDifferential();
         evolutiva018();
         evolutiva021();
+        evolutiva023024();
         notificationsNew();
         notificationsV04();
         groupsV06();
@@ -623,17 +624,16 @@ public class NrtTest {
         Cerca.Piece pr = Cerca.take(rec, used, Cerca.VUOTA_RECENTI);
         Cerca.Piece pa = Cerca.take(Cerca.only(alw, Cerca.PERSONA), used, Cerca.VUOTA_SEMPRE);
         List<Cerca.Cand> apps = Cerca.only(port, Cerca.APP);
-        Cerca.Piece pp = Cerca.take(apps, used, Cerca.portataMax(false));
+        Cerca.Piece pp = Cerca.take(apps, used, Cerca.VUOTA_PORTATA);
         eq("Recenti: max 2, vengono prima di Preferiti", keys(pr.shown).toString(), "[p:ilde, a:claude]");
         check("Recenti: una voce in più, «more»", pr.more, null);
         eq("Preferiti: max 4, senza chi è già in Recenti", keys(pa.shown).toString(), "[p:fam, p:condo, p:mamma, p:papa]");
         check("Preferiti: «Vedi tutti ›» perché ce n'è altro", pa.more, null);
-        eq("A portata: solo app, max 5, senza doppioni con Recenti", keys(pp.shown).toString(), "[a:maps, a:x0, a:x1, a:x2, a:x3]");
-        check("A portata: «Vedi tutti ›» perché ce n'è altro", pp.more, null);
-        eq("A portata: «Vedi tutti ›» apre fino a 8 (qui 7 app rimaste)", Cerca.take(apps, new java.util.HashSet<String>(java.util.Arrays.asList("a:claude")), Cerca.portataMax(true)).shown.size(), 7);
-        eq("A portata: 5 poi 8", Cerca.portataMax(false) + "/" + Cerca.portataMax(true), "5/8");
+        eq("A portata (0.27): solo app, fino a 8 subito, senza doppioni con Recenti", keys(pp.shown).toString(), "[a:maps, a:x0, a:x1, a:x2, a:x3, a:x4, a:x5]");
+        check("A portata (0.27): niente «Vedi tutti ›» (tutte visibili)", !pp.more, null);
+        eq("A portata (0.27): massimo 8", Cerca.VUOTA_PORTATA, 8);
         check("A portata: nessuna persona né gruppo", Cerca.only(port, Cerca.APP).size() == 8, null);
-        // il bug della 0.24: a campo vuoto ogni ridisegno azzerava «Vedi tutti ›»
+        // il bug della 0.24: a campo vuoto ogni ridisegno azzerava «Vedi tutti ›» (resta per Preferiti)
         check("Vedi tutti a campo vuoto: vuoto→vuoto non azzera", !Cerca.resetsScroll("", ""), null);
         // impostazioni come risultati
         eq("Impostazioni come risultati: «permessi»", Cerca.SETTINGS[Cerca.settingCands("permessi").get(0).order][2], "area:6");
@@ -1336,10 +1336,24 @@ public class NrtTest {
     }
 
     // ---- Evolutiva 018: proposte con il motivo e guida al permesso bloccato ----
+    // ---- Evolutive 023 e 024 (0.27) ----
+    static void evolutiva023024() {
+        sec("Evolutiva 023 · note nei task");
+        check("Nota vuota: niente icona", !Urgenti.hasNote(null) && !Urgenti.hasNote("") && !Urgenti.hasNote("  \n "), null);
+        check("Nota scritta: icona", Urgenti.hasNote("portare il libretto"), null);
+        sec("Evolutiva 024 · tipo del calendario");
+        eq("Google: «Google Calendar»", Calendari.typeLabel("com.google", null), "Google Calendar");
+        eq("Locale: «Sul telefono»", Calendari.typeLabel("LOCAL", null), "Sul telefono");
+        eq("Altro con app: il nome dell'app", Calendari.typeLabel("com.fossify", " Fossify "), "Fossify");
+        eq("Altro senza app: niente", Calendari.typeLabel("com.x", null), "");
+        eq("Due righe: nome e tipo", Calendari.twoLines("Famiglia", "Google Calendar"), "Famiglia\nGoogle Calendar");
+        eq("Due righe: senza tipo, solo il nome", Calendari.twoLines("Famiglia", ""), "Famiglia");
+    }
+
     // ---- Evolutiva 021: «Preferiti» ----
     static void evolutiva021() {
         sec("Evolutiva 021 · un nome solo: Preferiti");
-        eq("Campo vuoto: Recenti 2, Preferiti 4, A portata 5 poi 8", Cerca.VUOTA_RECENTI + "/" + Cerca.VUOTA_SEMPRE + "/" + Cerca.portataMax(false) + "/" + Cerca.portataMax(true), "2/4/5/8");
+        eq("Campo vuoto: Recenti 2, Preferiti 4, A portata 8 (0.27)", Cerca.VUOTA_RECENTI + "/" + Cerca.VUOTA_SEMPRE + "/" + Cerca.VUOTA_PORTATA, "2/4/8");
         check("Cerca «preferiti» trova Contatti e gruppi", Cerca.SETTINGS[Cerca.settingCands("preferiti").get(0).order][0].equals("Contatti e gruppi")
                 || Cerca.SETTINGS[Cerca.settingCands("preferiti").get(0).order][0].equals("Meno notifiche"), null);
         boolean tutti = true;
