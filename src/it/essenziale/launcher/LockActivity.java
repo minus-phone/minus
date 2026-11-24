@@ -317,7 +317,7 @@ public class LockActivity extends Activity {
         }
 
         int n = U.listenerEnabled(this) ? Store.count(this, Store.WAITING) : 0;
-        notifRow.setVisibility(U.listenerEnabled(this) ? View.VISIBLE : View.GONE);
+        notifRow.setVisibility(U.listenerEnabled(this) && Goals.on(this, Goals.NOTIF) ? View.VISIBLE : View.GONE); // 0.27: solo con «Meno notifiche»
         notifN.setText(String.valueOf(n));
         notifN.setVisibility(n == 0 ? View.GONE : View.VISIBLE);
         notifRow.setContentDescription(n == 0 ? "Notifiche" : "Notifiche, " + n + " per te");

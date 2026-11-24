@@ -210,9 +210,11 @@ final class Scegli {
             for (Item i : chosen) row(i, null);
         }
         if (!props.isEmpty()) {
-            heading(propsChecked() ? "Proposte, già scelte · " + props.size() : "Proposte · " + props.size(),
-                    propsChecked() ? "Un tocco per toglierle." : "Un tocco per aggiungerle.");
-            for (Item i : props) row(i, propReason.get(i.key));
+            // 0.26 (Evolutiva 021): persone e gruppi: «PREFERITI · n», senza didascalia e senza il motivo sotto il nome
+            boolean pg = kind == PEOPLE || kind == GROUPS;
+            heading(pg ? "Preferiti · " + props.size() : propsChecked() ? "Proposte, già scelte · " + props.size() : "Proposte · " + props.size(),
+                    pg ? null : propsChecked() ? "Un tocco per toglierle." : "Un tocco per aggiungerle.");
+            for (Item i : props) row(i, pg ? null : propReason.get(i.key));
         }
         boolean none = all.isEmpty();
         if (kind == PEOPLE && !Onboarding.hasContacts(act)) {
@@ -256,7 +258,7 @@ final class Scegli {
         r.setMinimumHeight(U.dp(act, 56));
         final PressB.Face face;
         if (kind == PEOPLE || kind == GROUPS) {
-            TextView ini = U.initial(act, it.label, it.group, 36);
+            View ini = it.group ? U.groupBadge(act, 36) : U.initial(act, it.label, false, 36); // 0.26 (Evolutiva 021): i gruppi, quadrato con l'icona
             face = PressB.rowWithBadge(r, ini); // riga premuta: fondo più scuro e il cerchio dell'iniziale si riempie
             r.addView(ini, new LinearLayout.LayoutParams(U.dp(act, 36), U.dp(act, 36)));
         } else {
@@ -331,7 +333,7 @@ final class Scegli {
         permBox.addView(c, lp);
     }
 
-    /** La persona scelta nella rubrica di Android (ACTION_PICK): entra tra chi conta, con «Aggiunta: X · Annulla». */
+    /** La persona scelta nella rubrica di Android (ACTION_PICK): entra tra i preferiti, con «Aggiunta: X · Annulla». */
     void picked(Uri u) {
         Cursor cur = null;
         try {
@@ -377,9 +379,9 @@ final class Scegli {
 
     static String title(int kind) {
         switch (kind) {
-            case PEOPLE: return "Chi conta";
+            case PEOPLE: return "Preferiti · Contatti";
             case SERVICES: return "Servizi";
-            case GROUPS: return "Gruppi che passano sempre";
+            case GROUPS: return "Preferiti · Gruppi";
             case DOOM: return "App che rapiscono";
             case NIGHT: return "App frenate di notte";
             default: return "Notifiche delle app";
@@ -466,29 +468,14 @@ final class Scegli {
                 Rules.Conv old = conv.get(low(c.name));
                 if (old == null || c.last > old.last) conv.put(low(c.name), c);
             }
-            boolean rubrica = Onboarding.hasContacts(a);
-            Set<String> have = new HashSet<String>();
             for (Item i : all) {
-                have.add(i.key);
                 if (on.contains(i.key)) continue;
                 Rules.Conv c = conv.get(i.key);
                 long last = c == null ? 0 : c.last, mine = c == null ? 0 : c.mine;
                 String r = Proposte.reasonPerson(i.starred, last, mine, now);
                 if (r != null) out.add(new Proposte.Cand(i.key, i.label, r, Proposte.scorePerson(i.starred, last, mine, now)));
             }
-            if (!rubrica) {
-                // senza rubrica le proposte vengono da chi ti ha scritto: la persona si aggiunge all'elenco
-                for (Map.Entry<String, Rules.Conv> e : conv.entrySet()) {
-                    if (have.contains(e.getKey()) || on.contains(e.getKey())) continue;
-                    Rules.Conv c = e.getValue();
-                    String r = Proposte.reasonPerson(false, c.last, c.mine, now);
-                    if (r == null) continue;
-                    Item i = new Item();
-                    i.key = e.getKey(); i.label = c.name;
-                    all.add(i);
-                    out.add(new Proposte.Cand(i.key, i.label, r, Proposte.scorePerson(false, c.last, c.mine, now)));
-                }
-            }
+            // 0.26 (Evolutiva 021): niente proposte da «chi ti ha scritto»: solo le stelle della rubrica
             return out;
         }
 

@@ -40,6 +40,7 @@ public class AddActivity extends PageActivity {
     private long calId = -1;
     private String calName;
     private TextView calNote;
+    private EditText taskNote; // 0.27 (Evolutiva 023)
     private Rec rec = new Rec();
 
     // Modifica
@@ -232,6 +233,20 @@ public class AddActivity extends PageActivity {
         TextView an = U.text(this, "Toccando il task si apre l'app; la casella lo segna come fatto.", 12, U.MUTED, false);
         an.setPadding(0, U.dp(this, 6), 0, 0);
         taskOnly.addView(an);
+        // 0.27 (Evolutiva 023): «Note» del task, ultimo campo prima di Salva; stesso riquadro delle note degli impegni, più alto
+        taskOnly.addView(U.label(this, "Note"));
+        taskNote = new EditText(this);
+        taskNote.setTextSize(15);
+        taskNote.setTextColor(U.INK);
+        taskNote.setHint("Esempio: portare il libretto, chiedere del richiamo");
+        taskNote.setHintTextColor(U.HINT);
+        taskNote.setBackground(U.box(this, U.SURFACE, U.BORDER, 12));
+        taskNote.setPadding(U.dp(this, 14), U.dp(this, 10), U.dp(this, 14), U.dp(this, 10));
+        taskNote.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        taskNote.setMinHeight(U.dp(this, 104));
+        taskNote.setGravity(Gravity.TOP);
+        if (editTask != null) taskNote.setText(editTask.note);
+        taskOnly.addView(taskNote, U.full());
         c.addView(taskOnly, U.full());
         title.addTextChangedListener(new android.text.TextWatcher() {
             public void beforeTextChanged(CharSequence s, int a, int b, int d) {}
@@ -416,7 +431,8 @@ public class AddActivity extends PageActivity {
         toBtn.setTypeface(U.SERIF);
         calBtn.setText(calName != null ? calName : "Scegli");
         U.Cal info = U.calInfo(this, calId);
-        calNote.setText(info == null ? "" : U.calNote(info));
+        // 0.27 (Evolutiva 024): per Google solo il tipo («Google Calendar»); gli avvisi (solo sul telefono, sync spenta) restano
+        calNote.setText(info == null ? "" : info.google() && info.sync ? U.calType(this, info) : U.calNote(info));
         calNote.setVisibility(info == null ? View.GONE : View.VISIBLE);
         repeatBtn.setText(rec.shortLabel(startMillis()));
     }
@@ -482,17 +498,25 @@ public class AddActivity extends PageActivity {
         }
         final List<U.Cal> cals = U.writableCalendars(this);
         if (cals.isEmpty()) { U.toast(this, "Nessun calendario modificabile sul telefono"); return; }
-        List<CharSequence> names = new ArrayList<CharSequence>();
-        for (U.Cal k : cals) {
-            android.text.SpannableString s = new android.text.SpannableString(k.name + "\n" + U.calNote(k));
-            s.setSpan(new android.text.style.RelativeSizeSpan(0.8f), k.name.length() + 1, s.length(), 0);
-            s.setSpan(new android.text.style.ForegroundColorSpan(U.MUTED), k.name.length() + 1, s.length(), 0);
-            names.add(s);
+        // 0.27 (Evolutiva 024): scelta singola con i pallini; sotto il nome solo il tipo, più piccolo e in grigio
+        CharSequence[] names = new CharSequence[cals.size()];
+        int checked = -1;
+        for (int i = 0; i < cals.size(); i++) {
+            U.Cal k = cals.get(i);
+            String type = U.calType(this, k);
+            android.text.SpannableString s = new android.text.SpannableString(Calendari.twoLines(k.name, type));
+            if (type.length() > 0) {
+                s.setSpan(new android.text.style.RelativeSizeSpan(0.8f), k.name.length() + 1, s.length(), 0);
+                s.setSpan(new android.text.style.ForegroundColorSpan(U.MUTED), k.name.length() + 1, s.length(), 0);
+            }
+            names[i] = s;
+            if (k.id == calId) checked = i;
         }
         U.show(U.dlg(this)
-                .setTitle(editing() ? "Sposta in" : "Calendario")
-                .setItems(names.toArray(new CharSequence[0]), new DialogInterface.OnClickListener() {
+                .setTitle("Calendario")
+                .setSingleChoiceItems(names, checked, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface d, int w) {
+                        d.dismiss();
                         U.Cal k = cals.get(w);
                         if (!k.sync && !k.local() && U.setSync(AddActivity.this, k.id, true))
                             U.toast(AddActivity.this, "Ho riacceso la sincronizzazione di " + k.name);
@@ -502,7 +526,8 @@ public class AddActivity extends PageActivity {
                         if (!editing()) U.prefs(AddActivity.this).edit().putLong("last_cal", calId).putString("last_cal_name", calName).apply();
                         render();
                     }
-                }));
+                })
+                .setNegativeButton("Annulla", null));
     }
 
     // ---------- 0.17 · «Si apre con»: combo box ----------
@@ -728,12 +753,12 @@ public class AddActivity extends PageActivity {
             String b = Urgenti.bang(t);
             if (editTask != null) {
                 Changes.record(this, "Task modificato: " + t, new String[]{"tasks"});
-                Tasks.update(this, editTask.id, b != null ? b : t, day, taskApp, urgent || b != null);
+                Tasks.update(this, editTask.id, b != null ? b : t, day, taskApp, urgent || b != null, taskNote.getText().toString().trim());
                 U.toast(this, "Task modificato");
                 finish();
                 return;
             }
-            Tasks.add(this, b != null ? b : t, day, taskApp, urgent || b != null);
+            Tasks.add(this, b != null ? b : t, day, taskApp, urgent || b != null, taskNote.getText().toString().trim());
             U.toast(this, "Task aggiunto");
             finish();
             return;

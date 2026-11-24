@@ -55,9 +55,9 @@ public class SelectorActivity extends PageActivity implements Scegli.Host {
 
     private static String intro(int kind) {
         switch (kind) {
-            case Scegli.PEOPLE: return "Queste persone ti raggiungono sempre, anche col silenzio: messaggi e chiamate.";
+            case Scegli.PEOPLE: return "Le loro chiamate e i messaggi passano sempre, anche col silenzio.";
             case Scegli.SERVICES: return "Banca, pagamenti, SPID, app IO: i loro codici e accessi passano sempre, anche con il silenzio; il resto aspetta in Notifiche, mai in Altro.";
-            case Scegli.GROUPS: return "Quelli che hai visto scrivere. Gli altri aspettano in Per te.";
+            case Scegli.GROUPS: return "I loro messaggi passano sempre. Qui compaiono quelli che hai visto scrivere.";
             case Scegli.DOOM: return "Si aprono dopo qualche secondo di pausa. E se scegli «scopo» ti chiedono anche per cosa e per quanto.";
             case Scegli.NIGHT: return "Dall'ora di staccare alla sveglia queste app ti chiedono per cosa le apri e per quanto: 2 o 5 minuti. Di giorno restano come le hai scelte.";
             default: return "Per ogni app: passa sempre, in Per te o in Altro. Le altre le decide −minus.";

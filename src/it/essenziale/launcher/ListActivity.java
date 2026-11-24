@@ -318,7 +318,7 @@ public class ListActivity extends PageActivity {
             else if (e.last > 0) recent.add(e);
         }
         if (!open.isEmpty()) { section("Aperte ora"); for (Entry e : open) entryRow(e, rub, now); }
-        if (!always.isEmpty()) { section("Passano sempre"); for (Entry e : always) entryRow(e, rub, now); }
+        if (!always.isEmpty()) { section("Preferiti"); for (Entry e : always) entryRow(e, rub, now); }
         if (!recent.isEmpty()) { section("Ti hanno scritto di recente"); for (Entry e : recent) entryRow(e, rub, now); }
         if (open.isEmpty() && always.isEmpty() && recent.isEmpty()) empty(groups);
         // 0.24 (Evolutiva 018): una sola voce, «Tutti i contatti ›» (A–Z con ricerca e lo stato di ogni riga); niente «+ Aggiungi dalla rubrica».
@@ -371,7 +371,7 @@ public class ListActivity extends PageActivity {
         LinearLayout r = U.row(this);
         r.setMinimumHeight(U.dp(this, 60));
         r.setPadding(0, U.dp(this, 8), 0, U.dp(this, 8));
-        TextView ini = U.initial(this, name, group, 36);
+        View ini = group ? U.groupBadge(this, 36) : U.initial(this, name, false, 36); // 0.26 (Evolutiva 021): i gruppi, quadrato con l'icona
         r.addView(ini, new LinearLayout.LayoutParams(U.dp(this, 36), U.dp(this, 36)));
         PressB.rowWithBadge(r, ini); // 0.21: riga premuta: fondo più scuro e il cerchio dell'iniziale si riempie d'inchiostro
         LinearLayout txt = U.col(this);
@@ -490,8 +490,8 @@ public class ListActivity extends PageActivity {
 
     /** Scheda: come passano i suoi messaggi. */
     private void sheet(final Entry e) {
-        final String[] modes = e.group ? new String[]{"Passa sempre", "In Per te", "In Altro"}
-                : new String[]{"Passa sempre", "In Per te · passa mentre vi scrivete", "In Per te · anche mentre vi scrivete"};
+        final String[] modes = e.group ? new String[]{"Preferito · chiamate e messaggi passano sempre", "In Per te", "In Altro"}
+                : new String[]{"Preferito · chiamate e messaggi passano sempre", "In Per te · passa mentre vi scrivete", "In Per te · anche mentre vi scrivete"};
         final int cur = modeOf(this, e);
         final boolean open = e.until > System.currentTimeMillis();
         // 0.6.3: una lista sola di azioni: come passano, con quale app vi scrivete, chiudi, togli
@@ -592,7 +592,7 @@ public class ListActivity extends PageActivity {
 
     private void setMode(final Entry e, final int m) {
         // 0.6: ogni scelta si annulla subito e si ritrova in Modifiche recenti
-        String desc = e.name + (m == 0 ? ": passa sempre" : e.group && m == 2 ? ": in Altro" : ": in Per te");
+        String desc = e.name + (m == 0 ? ": preferito" : e.group && m == 2 ? ": in Altro" : ": in Per te");
         Changes.track(this, desc, e.group ? new String[]{U.K_GROUPS, Convs.KEY} : new String[]{U.K_CONTACTS}, new Runnable() {
             public void run() { applyMode(e, m); }
         }, new Runnable() {

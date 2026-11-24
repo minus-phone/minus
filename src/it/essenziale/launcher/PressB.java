@@ -117,21 +117,25 @@ final class PressB {
     }
 
     /** Riga con il cerchio dell'iniziale (contatti, persone): premuta, il cerchio si riempie d'inchiostro e la lettera diventa chiara. */
-    static Face rowWithBadge(View row, TextView badge) {
+    static Face rowWithBadge(View row, View badge) {
         Face f = row(row);
         f.listener = new BadgeFx(badge);
         return f;
     }
 
     private static final class BadgeFx implements Press.OnPress {
-        private final TextView badge;
+        private final View badge;
+        private final android.widget.ImageView icon; // 0.26 (Evolutiva 021): il badge dei gruppi ha un'icona al posto della lettera
         private final GradientDrawable bg;
         private final int chip = U.CHIP, ink = U.INK, light = U.BG;
         private ValueAnimator a;
         private float k;
 
-        BadgeFx(TextView badge) {
+        BadgeFx(View badge) {
             this.badge = badge;
+            this.icon = badge instanceof android.view.ViewGroup && ((android.view.ViewGroup) badge).getChildCount() > 0
+                    && ((android.view.ViewGroup) badge).getChildAt(0) instanceof android.widget.ImageView
+                    ? (android.widget.ImageView) ((android.view.ViewGroup) badge).getChildAt(0) : null;
             this.bg = badge.getBackground() instanceof GradientDrawable ? (GradientDrawable) badge.getBackground() : null;
         }
 
@@ -144,7 +148,9 @@ final class PressB {
                 public void onAnimationUpdate(ValueAnimator v) {
                     k = (Float) v.getAnimatedValue();
                     if (bg != null) bg.setColor(MotionLogic.mix(chip, ink, k));
-                    badge.setTextColor(MotionLogic.mix(ink, light, k));
+                    int fg = MotionLogic.mix(ink, light, k);
+                    if (badge instanceof TextView) ((TextView) badge).setTextColor(fg);
+                    else if (icon != null) icon.setColorFilter(fg, android.graphics.PorterDuff.Mode.SRC_IN);
                 }
             });
             a.start();

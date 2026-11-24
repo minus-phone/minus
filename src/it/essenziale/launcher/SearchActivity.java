@@ -68,6 +68,9 @@ public class SearchActivity extends BaseActivity {
 
     private LinearLayout results;
     private ScrollView scroll;
+    private Mirror mirror;                 // 0.27 (Evolutiva 024): copia sfocata della lista sotto l'intestazione (API 31+)
+    private boolean blur2;
+    private static final int FADE_DP = 16;
     private EditText query;
     private View clear;
     private List<U.AppInfo> apps;
@@ -76,7 +79,6 @@ public class SearchActivity extends BaseActivity {
     private boolean scheduled;             // un solo ridisegno per frame
     private String lastQ = "";
     private int expanded = -1;             // gruppo aperto da «Vedi tutti» mentre si scrive
-    private boolean portataAll;            // «Vedi tutti» di A portata a campo vuoto
     private final android.os.Handler announce = new android.os.Handler();
     // ricerche lente (rubrica, calendario) fuori dal thread principale
     private final ExecutorService io = Executors.newSingleThreadExecutor();
@@ -89,10 +91,13 @@ public class SearchActivity extends BaseActivity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
-        LinearLayout root = U.col(this);
+        // 0.27 (Evolutiva 024): la pagina è una cornice: la lista a tutta altezza (con il margine in alto pari all'intestazione, così
+        // le righe partono sotto la barra e scorrono sotto) e l'intestazione sopra, semitrasparente e sfocata (API 31+)
+        final android.widget.FrameLayout root = new android.widget.FrameLayout(this);
         root.setBackgroundColor(U.BG);
-        root.setPadding(0, U.dp(this, 12), 0, U.dp(this, 0));
         root.setClipChildren(true);
+        LinearLayout head = U.col(this);
+        head.setPadding(0, U.dp(this, 12), 0, 0);
         // prima riga: ✕ a sinistra, «Cambia impostazioni» (icona) a destra
         LinearLayout top = U.row(this);
         top.setPadding(U.dp(this, 6), 0, U.dp(this, 6), 0);
@@ -102,21 +107,24 @@ public class SearchActivity extends BaseActivity {
         top.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
         ImageView set = iconButton("ic_impostazioni", "Cambia impostazioni", U.INK, 24, 44);
         set.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { startActivity(new Intent(SearchActivity.this, SettingsActivity.class).putExtra("back", "Ricerca")); }
+            public void onClick(View v) { startActivity(new Intent(SearchActivity.this, SettingsActivity.class).putExtra("back", "Cerca")); }
         });
         top.addView(set, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
-        root.addView(top, U.full());
+        head.addView(top, U.full());
 
-        // seconda riga: pulsante telefono e campo (con il microfono), come in home
+        // seconda riga: pulsante telefono e campo (con il microfono), identici alla home (0.27: stesso fondo, bordo, raggio 28, margini, testo 17)
         LinearLayout field = U.row(this);
-        field.setBackground(U.box(this, U.SURFACE, U.INK, 26));
-        field.setPadding(U.dp(this, 16), U.dp(this, 2), U.dp(this, 6), U.dp(this, 2));
+        Press.box(field, U.BG, U.INK, 28, U.CHIP);
+        field.setPadding(U.dp(this, 22), U.dp(this, 6), U.dp(this, 6), U.dp(this, 6));
         query = new EditText(this);
         query.setHint("Cerca o chiedi");
         query.setHintTextColor(U.HINT);
         query.setTextColor(U.INK);
-        query.setTextSize(16);
+        query.setTextSize(17);
+        query.setTypeface(U.SANS);
         query.setBackground(null);
+        query.setPadding(0, 0, 0, 0); // come il testo della home: nessun margine interno del campo
+        query.setGravity(Gravity.CENTER_VERTICAL);
         query.setSingleLine(true);
         query.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         query.setImeOptions(EditorInfo.IME_ACTION_GO);
@@ -133,32 +141,59 @@ public class SearchActivity extends BaseActivity {
         cl.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { query.setText(""); } });
         clear = cl;
         field.addView(clear, new LinearLayout.LayoutParams(U.dp(this, 40), U.dp(this, 44)));
-        MicView mic = new MicView(this, true); // 0.19 (Evolutiva 014): microfono a contorno
+        MicView mic = new MicView(this, true); // 0.19 (Evolutiva 014): microfono a contorno, 44 x 44 come in home (MicView disegna sul lato minore)
         mic.setContentDescription("Comando vocale");
         mic.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { voice(); } });
         field.addView(mic, new LinearLayout.LayoutParams(U.dp(this, 44), U.dp(this, 44)));
-        field.setMinimumHeight(U.dp(this, 62));
         LinearLayout bar = U.row(this);
+        bar.setPadding(0, U.dp(this, 12), 0, 0); // come la barra della home
         bar.addView(Telefono.button(this), Telefono.buttonLp(this));
         bar.addView(field, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         LinearLayout.LayoutParams flp = U.full();
-        flp.topMargin = U.dp(this, 2);
-        flp.leftMargin = U.dp(this, 12);
-        flp.rightMargin = U.dp(this, 12);
-        root.addView(bar, flp);
+        flp.leftMargin = U.dp(this, 20);
+        flp.rightMargin = U.dp(this, 20);
+        head.addView(bar, flp);
+        head.addView(new View(this), new LinearLayout.LayoutParams(1, U.dp(this, FADE_DP))); // 16 dp sotto la barra: qui lo sfondo sfuma
         // TalkBack: il campo viene letto per primo
         close.setAccessibilityTraversalAfter(query.getId());
 
-        // i risultati scendono dall'alto; il contenitore ritaglia le righe ai suoi bordi (mai sopra l'intestazione)
+        // i risultati scorrono a tutta altezza e passano sotto l'intestazione (il margine in alto lo mette il layout dell'intestazione)
         scroll = new ScrollView(this);
         scroll.setVerticalScrollBarEnabled(false);
         scroll.setClipChildren(true);
-        scroll.setClipToPadding(true);
+        scroll.setClipToPadding(false);
         results = U.col(this);
-        results.setPadding(U.dp(this, 12), U.dp(this, 8), U.dp(this, 12), U.dp(this, 24));
+        results.setPadding(U.dp(this, 12), 0, U.dp(this, 12), U.dp(this, 24));
         results.setClipChildren(true);
         scroll.addView(results, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        root.addView(scroll, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        // lo sfondo dell'intestazione: specchio sfocato della lista + velo del fondo al 60 %, sfumati negli ultimi 16 dp; sotto API 31 fondo pieno sfumato
+        final FadeLayer headBg = new FadeLayer(this, U.dp(this, FADE_DP));
+        final boolean blur = android.os.Build.VERSION.SDK_INT >= 31;
+        if (blur) {
+            mirror = new Mirror(this, scroll);
+            if (!Mirror.blur(mirror, 20f)) { blur2 = false; } else blur2 = true;
+            headBg.addView(mirror, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        }
+        View tint = new View(this);
+        tint.setBackgroundColor(blur && blur2 ? (U.BG & 0x00FFFFFF) | 0x99000000 : U.BG);
+        headBg.addView(tint, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        final android.widget.FrameLayout header = new android.widget.FrameLayout(this);
+        header.addView(headBg, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        header.addView(head, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        header.setClickable(true); // niente tocchi che passano alle righe sotto l'intestazione
+        root.addView(header, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        header.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+            public void onLayoutChange(View v, int l, int t, int r, int bt, int ol, int ot, int or, int ob) {
+                final int h = bt - t;
+                if (scroll.getPaddingTop() != h) scroll.post(new Runnable() { public void run() { scroll.setPadding(0, h, 0, 0); refreshMirror(); } });
+            }
+        });
+        if (mirror != null) {
+            scroll.setOnScrollChangeListener(new View.OnScrollChangeListener() {
+                public void onScrollChange(View v, int x, int y, int ox, int oy) { mirror.invalidate(); }
+            });
+        }
         scroll.setOnTouchListener(new View.OnTouchListener() {
             private float y0, x0;
             private boolean top0, hidden;
@@ -209,6 +244,78 @@ public class SearchActivity extends BaseActivity {
         }
         if (getIntent().getBooleanExtra("voice", false)) voice();
     }
+
+    /**
+     * 0.27 (Evolutiva 024): lo specchio ridisegna la lista (la ScrollView intera, già scorsa) sul proprio fondo e, da API 31, la
+     * sfuma con RenderEffect (via reflection: il jar di compilazione è API 23). La sfocatura è di questa vista, non di ciò che sta dietro.
+     */
+    static final class Mirror extends View {
+        private final View src;
+        Mirror(Context c, View src) { super(c); this.src = src; setClickable(false); setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO); }
+
+        @Override protected void onDraw(android.graphics.Canvas cv) {
+            cv.drawColor(U.BG);
+            try {
+                cv.clipRect(0, 0, getWidth(), getHeight());
+                src.draw(cv);
+            } catch (Exception ignored) {}
+        }
+
+        /** setRenderEffect(RenderEffect.createBlurEffect(r, r, CLAMP)); false se non si può (resta il fondo pieno). */
+        static boolean blur(View v, float radius) {
+            try {
+                Class<?> re = Class.forName("android.graphics.RenderEffect");
+                Object fx = re.getMethod("createBlurEffect", float.class, float.class, android.graphics.Shader.TileMode.class)
+                        .invoke(null, radius, radius, android.graphics.Shader.TileMode.CLAMP);
+                View.class.getMethod("setRenderEffect", re).invoke(v, fx);
+                return true;
+            } catch (Throwable t) {
+                return false;
+            }
+        }
+    }
+
+    /** Lo sfondo dell'intestazione: i figli disegnati in un livello, poi mascherati con un'ombra che sfuma a trasparente negli ultimi {@code fadePx}. */
+    static final class FadeLayer extends android.widget.FrameLayout {
+        private final int fadePx;
+        private final android.graphics.Paint mask = new android.graphics.Paint();
+        FadeLayer(Context c, int fadePx) {
+            super(c);
+            this.fadePx = fadePx;
+            mask.setXfermode(new android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_IN));
+            setClickable(false);
+            setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        }
+
+        @Override protected void dispatchDraw(android.graphics.Canvas cv) {
+            int w = getWidth(), h = getHeight();
+            if (h <= 0) { super.dispatchDraw(cv); return; }
+            int sc = cv.saveLayer(0, 0, w, h, null);
+            super.dispatchDraw(cv);
+            float start = Math.max(0f, (h - fadePx) / (float) h);
+            mask.setShader(new android.graphics.LinearGradient(0, 0, 0, h, new int[]{0xFF000000, 0xFF000000, 0x00000000},
+                    new float[]{0f, start, 1f}, android.graphics.Shader.TileMode.CLAMP));
+            cv.drawRect(0, 0, w, h, mask);
+            cv.restoreToCount(sc);
+        }
+    }
+
+    /** Lo specchio si ridisegna a ogni scorrimento (listener) e, dopo ogni ridisegno della lista, per i prossimi 500 ms (le dissolvenze delle righe). */
+    private void refreshMirror() {
+        if (mirror == null) return;
+        mirror.invalidate();
+        mirror.removeCallbacks(mirrorTick);
+        mirrorUntil = android.os.SystemClock.uptimeMillis() + 500;
+        mirror.postDelayed(mirrorTick, 32);
+    }
+    private long mirrorUntil;
+    private final Runnable mirrorTick = new Runnable() {
+        public void run() {
+            if (mirror == null) return;
+            mirror.invalidate();
+            if (android.os.SystemClock.uptimeMillis() < mirrorUntil) mirror.postDelayed(this, 32);
+        }
+    };
 
     /** Un'icona della direzione A che si tocca: riquadro di {@code boxDp}, icona di {@code sizeDp}, alone da premuta. */
     private ImageView iconButton(String name, String desc, int color, int sizeDp, int boxDp) {
@@ -339,13 +446,14 @@ public class SearchActivity extends BaseActivity {
     }
 
     private void renderNow() {
+        refreshMirror();
         String q = query.getText().toString().trim();
         boolean clearWas = clear.getVisibility() == View.VISIBLE;
         // ✕ del campo: compare e sparisce in dissolvenza (RAPIDO), senza scala
         if (q.length() > 0 && !clearWas) { clear.setVisibility(View.VISIBLE); if (rendered) Motion.enter(clear, 0, Motion.RAPIDO, 0); }
         else if (q.length() == 0 && clearWas) clear.setVisibility(View.GONE);
         // lo scorrimento si azzera solo se il testo diventa vuoto o cambia la prima lettera; altrimenti resta
-        if (Cerca.resetsScroll(lastQ, q)) { scroll.scrollTo(0, 0); expanded = -1; if (q.length() == 0) portataAll = false; }
+        if (Cerca.resetsScroll(lastQ, q)) { scroll.scrollTo(0, 0); expanded = -1; }
         lastQ = q;
         List<Item> items = new ArrayList<Item>();
         best = null;
@@ -376,6 +484,10 @@ public class SearchActivity extends BaseActivity {
         int type, lead, group;
         String key, title, sub, q, pkg, cls, icon, hint, desc, dupSub;
         boolean best, more, personRow;
+        /** 0.26 (Evolutiva 021): un gruppo (badge quadrato con l'icona), le app con cui si apre (codici WA, TG, SMS, TEL) e lo stato «○ fino alle…». */
+        boolean isGroup;
+        List<String> codes;
+        String status;
         Runnable run;
 
         static Item row(String key, int lead, String title) { Item i = new Item(); i.type = T_ROW; i.key = key; i.lead = lead; i.title = title; return i; }
@@ -393,6 +505,34 @@ public class SearchActivity extends BaseActivity {
         return i;
     }
 
+    /**
+     * 0.26 (Evolutiva 021): persona o gruppo con le icone delle app sotto il nome al posto di «Gruppo» o «WhatsApp e Telegram».
+     * Senza app note resta il testo di prima (per un gruppo «Gruppo»).
+     */
+    private static void channels(Item it, boolean group, List<String> codes) {
+        it.isGroup = group;
+        if (codes != null && !codes.isEmpty()) { it.codes = codes; if ("Gruppo".equals(it.sub)) it.sub = null; }
+        else if (group && it.sub == null) it.sub = "Gruppo";
+    }
+
+    /** 0.26 (Evolutiva 021): le app con cui si apre ogni persona o gruppo noto (nome normalizzato → codici). */
+    private Map<String, List<String>> channelCodes() {
+        Map<String, List<String>> m = new HashMap<String, List<String>>();
+        for (Rules.Conv c : Convs.load(this)) {
+            if (c.code == null) continue;
+            List<String> l = new ArrayList<String>();
+            l.add(c.code);
+            String k = Cerca.norm(Rules.groupName(c.name));
+            if (!m.containsKey(k)) m.put(k, l);
+        }
+        for (Rules.Person p : Rules.people(U.cfg(this, U.K_CONTACTS, U.DEF_CONTACTS)))
+            m.put(Cerca.norm(p.name), new ArrayList<String>(p.apps.isEmpty() ? java.util.Collections.singletonList("WA") : p.apps));
+        return m;
+    }
+
+    /** 0.26 (Evolutiva 021): «○ fino alle 21:01», lo stato di una conversazione aperta con chi non è tra i preferiti. */
+    private static String openStatus(long until) { return Pass.OPEN + "fino alle " + U.hhmm(until); }
+
     private Item appItem(final U.AppInfo a, Set<String> paused, final boolean tap) {
         Item i = Item.row("a:" + a.pkg, L_APP, a.label);
         i.pkg = a.pkg; i.cls = a.cls;
@@ -401,7 +541,7 @@ public class SearchActivity extends BaseActivity {
         return i;
     }
 
-    // ---------- Campo vuoto: Aperte ora, Recenti, A portata ----------
+    // ---------- Campo vuoto: Recenti, Preferiti, A portata (0.26: senza «Aperte ora») ----------
 
     private void buildEmpty(List<Item> out) {
         Set<String> paused = U.pausedPkgs(this);
@@ -414,27 +554,22 @@ public class SearchActivity extends BaseActivity {
         Set<String> used = new HashSet<String>();
         Map<String, Item> ent = new HashMap<String, Item>();
 
-        // Aperte ora: le conversazioni aperte (solo se ce ne sono), la più recente prima
-        List<Cerca.Cand> open = new ArrayList<Cerca.Cand>();
+        // 0.26 (Evolutiva 021): niente più «Aperte ora». Le conversazioni aperte con chi NON è tra i preferiti
+        // mostrano «○ fino alle…» a destra della riga, in Recenti (e mentre si scrive). Chi è tra i preferiti non lo mostra.
+        Map<String, Long> openUntil = new HashMap<String, Long>();
+        Set<String> favs = new HashSet<String>();
+        for (String[] f : fixed) favs.add(Cerca.norm(f[0]));
         if (U.prefs(this).getBoolean(K_ACTIVE_ON, true)) {
-            List<Rules.Conv> cs = new ArrayList<Rules.Conv>();
-            for (Rules.Conv c : Convs.load(this)) if (c.isOpen(now) && c.listed(now) && !Rules.isCallTitle(c.name)) cs.add(c);
-            Collections.sort(cs, new Comparator<Rules.Conv>() {
-                public int compare(Rules.Conv a, Rules.Conv b) { return Long.compare(Rules.touched(b), Rules.touched(a)); }
-            });
             Map<String, Set<String>> nums = new HashMap<String, Set<String>>();
-            for (Rules.Conv c : cs) {
-                String[] f = fixedMatch(c, fixed, nums);
-                String name = f != null ? f[0] : Rules.groupName(c.name);
-                String key = "p:" + Cerca.norm(name);
-                if (ent.containsKey(key)) continue;
-                final Hit h = new Hit();
-                h.name = Rules.groupName(c.name); h.code = c.code; h.group = c.group;
-                Item it = personItem(key, name, "aperta fino alle " + U.hhmm(c.until), new Runnable() { public void run() { openHit(h); } });
-                ent.put(key, it);
-                open.add(new Cerca.Cand(key, Cerca.PERSONA, name, 0));
+            for (Rules.Conv c : Convs.load(this)) {
+                if (!(c.isOpen(now) && c.listed(now)) || Rules.isCallTitle(c.name)) continue;
+                if (fixedMatch(c, fixed, nums) != null) continue;
+                String k = Cerca.norm(Rules.groupName(c.name));
+                Long o = openUntil.get(k);
+                if (o == null || c.until > o) openUntil.put(k, c.until);
             }
         }
+        Map<String, List<String>> codesOf = channelCodes();
         // Recenti: ciò che hai cercato nelle ultime 2 ore
         List<Cerca.Cand> rec = new ArrayList<Cerca.Cand>();
         if (U.prefs(this).getBoolean(K_RECENT_ON, true)) {
@@ -450,20 +585,28 @@ public class SearchActivity extends BaseActivity {
                     it.run = new Runnable() { public void run() { openRecent(r); } };
                 } else {
                     key = "p:" + Cerca.norm(r[2]);
-                    it = personItem(key, r[2], groups.contains(Cerca.norm(r[2])) ? "Gruppo" : null, new Runnable() { public void run() { openRecent(r); } });
+                    boolean g = groups.contains(Cerca.norm(r[2]));
+                    it = personItem(key, r[2], null, new Runnable() { public void run() { openRecent(r); } });
+                    channels(it, g, codesOf.get(Cerca.norm(r[2])));
+                    Long ou = favs.contains(Cerca.norm(r[2])) ? null : openUntil.get(Cerca.norm(r[2]));
+                    if (ou != null) it.status = openStatus(ou);
                 }
                 if (ent.containsKey(key)) continue;
                 ent.put(key, it);
                 rec.add(new Cerca.Cand(key, "app".equals(r[0]) ? Cerca.APP : Cerca.PERSONA, r[2], 0));
             }
         }
-        // Passano sempre: persone E gruppi che passano sempre (nell'ordine scelto), con l'iniziale
+        // Preferiti: persone E gruppi che passano sempre (nell'ordine scelto), con l'iniziale o il quadrato dei gruppi
         List<Cerca.Cand> always = new ArrayList<Cerca.Cand>();
         for (final String[] f : fixed) {
             String key = "p:" + Cerca.norm(f[0]);
             if (!ent.containsKey(key)) {
                 boolean g = "g".equals(f[2]);
-                ent.put(key, personItem(key, f[0], g ? "Gruppo" : null, new Runnable() { public void run() { openFixed(f); } }));
+                Item fi = personItem(key, f[0], null, new Runnable() { public void run() { openFixed(f); } });
+                List<String> fc = codesOf.get(Cerca.norm(f[0]));
+                if (fc == null && f[1] != null) fc = new ArrayList<String>(java.util.Collections.singletonList(f[1]));
+                channels(fi, g, fc);
+                ent.put(key, fi);
             }
             always.add(new Cerca.Cand(key, Cerca.PERSONA, f[0], 0));
         }
@@ -476,18 +619,15 @@ public class SearchActivity extends BaseActivity {
             if (!ent.containsKey(key)) ent.put(key, appItem(ai, paused, true));
             port.add(new Cerca.Cand(key, Cerca.APP, ai.label, 0));
         }
-        Cerca.Piece pOpen = Cerca.take(open, used, Cerca.VUOTA_APERTE);
         Cerca.Piece pRec = Cerca.take(rec, used, Cerca.VUOTA_RECENTI);
         Cerca.Piece pAlw = Cerca.take(always, used, Cerca.VUOTA_SEMPRE);
-        Cerca.Piece pPort = Cerca.take(port, used, Cerca.portataMax(portataAll));
+        Cerca.Piece pPort = Cerca.take(port, used, Cerca.VUOTA_PORTATA);
         Runnable allPeople = new Runnable() { public void run() {
-            startActivity(new Intent(SearchActivity.this, ListActivity.class).putExtra(ListActivity.EXTRA_MODE, ListActivity.MODE_CONTACTS));
+            startActivity(SettingsActivity.peopleIntent(SearchActivity.this, "Cerca")); // 0.26: «‹ Cerca» in alto a sinistra
         } };
-        Runnable allApps = new Runnable() { public void run() { portataAll = true; render(); } };
-        addEmpty(out, "h:aperte", "Aperte ora", pOpen, ent, null);
         addEmpty(out, "h:recenti", "Recenti", pRec, ent, null);
-        addEmpty(out, "h:sempre", "Passano sempre", pAlw, ent, allPeople);
-        addEmpty(out, "h:portata", "A portata", pPort, ent, allApps);
+        addEmpty(out, "h:sempre", "Preferiti", pAlw, ent, allPeople);
+        addEmpty(out, "h:portata", "A portata", pPort, ent, null); // 0.27: A portata mostra subito fino a 8, senza «Vedi tutti»
         if (out.isEmpty()) {
             Item n = new Item();
             n.type = T_NOTE; n.key = "note"; n.title = "Scrivi il nome di una persona, di un'app o di un impegno. Puoi anche chiedere o dire un comando.";
@@ -696,8 +836,10 @@ public class SearchActivity extends BaseActivity {
      * Alta almeno 52 dp; margini 10, intervallo 12. Niente frecce, linee, link.
      */
     private final class RowView extends LinearLayout {
-        final TextView title, sub, hint;
+        final TextView title, sub, hint, status;
+        final LinearLayout icons;  // 0.26 (Evolutiva 021): le icone delle app sotto il nome
         final TextView badge;      // l'iniziale (persone), per lo stato premuto
+        final View badgeView;      // il badge, anche quello quadrato dei gruppi
         final ImageView appIcon;   // l'icona dell'app, quando c'è
         final Press.Fade fx;
         Runnable action;
@@ -711,9 +853,14 @@ public class SearchActivity extends BaseActivity {
             setPadding(U.dp(c, 10), 0, U.dp(c, 10), 0);
             FrameLayout lead = new FrameLayout(c);
             TextView ini = null;
+            View bv = null;
             ImageView ai = null;
-            if (it.lead == L_PERSON) {
-                ini = U.initial(c, it.title, false, 32); // sempre un cerchio, anche per i gruppi
+            if (it.lead == L_PERSON && it.isGroup) {
+                bv = U.groupBadge(c, 32); // 0.26 (Evolutiva 021): i gruppi, quadrato grigio con l'icona
+                lead.addView(bv, new FrameLayout.LayoutParams(U.dp(c, 32), U.dp(c, 32)));
+            } else if (it.lead == L_PERSON) {
+                ini = U.initial(c, it.title, false, 32); // le persone, un cerchio con l'iniziale
+                bv = ini;
                 lead.addView(ini, new FrameLayout.LayoutParams(U.dp(c, 32), U.dp(c, 32)));
             } else if (it.lead == L_APP) {
                 ai = new ImageView(c);
@@ -735,6 +882,7 @@ public class SearchActivity extends BaseActivity {
             lead.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
             addView(lead, new LinearLayout.LayoutParams(U.dp(c, 32), U.dp(c, 32)));
             badge = ini;
+            badgeView = bv;
             appIcon = ai;
             LinearLayout tx = U.col(c);
             tx.setGravity(Gravity.CENTER_VERTICAL);
@@ -743,6 +891,10 @@ public class SearchActivity extends BaseActivity {
             title.setSingleLine(true);
             title.setEllipsize(TextUtils.TruncateAt.END);
             tx.addView(title);
+            icons = U.row(c);
+            icons.setPadding(0, U.dp(c, 2), 0, 0);
+            icons.setVisibility(View.GONE);
+            tx.addView(icons);
             sub = U.text(c, "", 13, U.MUTED, false);
             sub.setSingleLine(true);
             sub.setEllipsize(TextUtils.TruncateAt.END);
@@ -752,7 +904,11 @@ public class SearchActivity extends BaseActivity {
             hint = U.text(c, "", 13, U.INK, true);
             hint.setVisibility(View.GONE);
             addView(hint, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-            fx = Press.rowSwitch(this, ini);
+            status = U.text(c, "", 13, U.INK, false); // 0.26: «○ fino alle 21:01», come in Contatti e gruppi
+            status.setVisibility(View.GONE);
+            status.setPadding(U.dp(c, 8), 0, 0, 0);
+            addView(status, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            fx = Press.rowSwitch(this, bv);
             setClickable(true);
             setFocusable(true);
             setOnClickListener(new View.OnClickListener() { public void onClick(View v) { if (action != null) action.run(); } });
@@ -766,11 +922,30 @@ public class SearchActivity extends BaseActivity {
             int[] m = it.q == null ? null : Cerca.match(it.title, it.q);
             if (m != null) s.setSpan(new Bold(), m[0], m[1], Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             title.setText(s);
+            // 0.26 (Evolutiva 021): sotto il nome le icone delle app (il nome dell'app se l'icona non c'è); il testo muto solo se serve
+            icons.removeAllViews();
+            if (it.codes != null && !it.codes.isEmpty()) {
+                for (String code : it.codes) {
+                    View b = AppIcons.badge(SearchActivity.this, AppIcons.pkgOfCode(SearchActivity.this, code), Rules.appName(code), U.MUTED);
+                    b.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+                    if (icons.getChildCount() == 0) b.setPadding(0, 0, b.getPaddingRight(), 0);
+                    icons.addView(b, b.getLayoutParams() != null ? b.getLayoutParams() : new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, U.dp(SearchActivity.this, 18)));
+                }
+                icons.setVisibility(View.VISIBLE);
+            } else icons.setVisibility(View.GONE);
             if (it.sub != null && it.sub.length() > 0) { sub.setText(it.sub); sub.setVisibility(View.VISIBLE); } else sub.setVisibility(View.GONE);
+            boolean showHint = it.best && it.hint != null;
             hint.setText(it.hint == null ? "" : it.hint);
-            hint.setVisibility(it.best && it.hint != null ? View.VISIBLE : View.GONE);
+            hint.setVisibility(showHint ? View.VISIBLE : View.GONE);
+            // 0.26: lo stato di una conversazione aperta sta a destra; sulla preselezionata resta il suggerimento («Apri»)
+            if (it.status != null && !showHint) { Pass.asLink(status, it.status); status.setVisibility(View.VISIBLE); } else status.setVisibility(View.GONE);
             action = it.run;
-            String d = it.desc != null ? it.desc : it.title + (it.sub != null && it.sub.length() > 0 ? ", " + it.sub : "");
+            StringBuilder dd = new StringBuilder(it.title);
+            if (it.isGroup) dd.append(", gruppo");
+            if (it.codes != null) for (String code : it.codes) dd.append(", ").append(Rules.appName(code));
+            if (it.sub != null && it.sub.length() > 0) dd.append(", ").append(it.sub);
+            if (it.status != null) dd.append(", ").append(Pass.spoken(it.status));
+            String d = it.desc != null ? it.desc : dd.toString();
             setContentDescription(it.best ? d + ", primo risultato" : d);
             fx.setBest(it.best, animateBest);
         }
@@ -812,7 +987,8 @@ public class SearchActivity extends BaseActivity {
     private static class Hit {
         int rank;
         String name, code, number, apps;
-        boolean group, strong;
+        boolean group, strong, fav;
+        List<String> codes;
         Rules.Person person;
         long contactId = -1;
         long until, last;
@@ -845,10 +1021,10 @@ public class SearchActivity extends BaseActivity {
             for (final Hit h : people) {
                 String key = "p:" + Cerca.norm(h.name);
                 Item it = personItem(key, h.name, null, new Runnable() { public void run() { openHit(h); } });
-                if (h.until > now) it.sub = "aperta fino alle " + U.hhmm(h.until);
-                else if (h.group) it.sub = "Gruppo";
+                channels(it, h.group, h.codes);
+                if (h.until > now && !h.fav) it.status = openStatus(h.until); // 0.26 (Evolutiva 021): «○ fino alle…», non più «aperta fino alle…» sotto il nome
                 it.q = q;
-                it.dupSub = h.contactId >= 0 ? "in rubrica" : h.apps;
+                it.dupSub = h.contactId >= 0 ? "in rubrica" : it.codes == null ? h.apps : null;
                 ent.put(key, it);
                 Long rt = recentAt.get(key);
                 cands.add(new Cerca.Cand(key, Cerca.PERSONA, h.name, h.rank).recent(Math.max(h.last, rt == null ? 0 : rt)));
@@ -1026,6 +1202,8 @@ public class SearchActivity extends BaseActivity {
             h.rank = s; h.name = p.name; h.person = p; h.strong = always;
             h.code = p.apps.isEmpty() ? "WA" : p.apps.get(0);
             h.apps = names(p.apps);
+            h.fav = always;
+            h.codes = new ArrayList<String>(p.apps.isEmpty() ? java.util.Collections.singletonList("WA") : p.apps);
             if (c != null) { h.until = c.isOpen(now) ? c.until : 0; h.last = Rules.touched(c); }
             out.add(h); seen.add(Cerca.norm(p.name));
         }
@@ -1038,6 +1216,8 @@ public class SearchActivity extends BaseActivity {
             Hit h = new Hit();
             h.rank = s; h.name = Rules.groupName(c.name); h.code = c.code; h.group = c.group;
             h.apps = Rules.appName(c.code);
+            h.fav = Rules.groupAlways(rule);
+            if (c.code != null) h.codes = new ArrayList<String>(java.util.Collections.singletonList(c.code));
             h.until = c.isOpen(now) ? c.until : 0; h.last = Rules.touched(c);
             out.add(h); seen.add(k);
         }
@@ -1232,9 +1412,9 @@ public class SearchActivity extends BaseActivity {
         if (dest.startsWith("area:")) {
             i = new Intent(this, SettingsActivity.class);
             i.putExtra("area", Integer.parseInt(dest.substring(5)));
-            i.putExtra("back", "Ricerca");
-        } else if ("people".equals(dest)) i = SettingsActivity.peopleIntent(this, "Ricerca");
-        else if ("groups".equals(dest)) i = SettingsActivity.peopleIntent(this, "Ricerca").putExtra("tab", 1);
+            i.putExtra("back", "Cerca");
+        } else if ("people".equals(dest)) i = SettingsActivity.peopleIntent(this, "Cerca");
+        else if ("groups".equals(dest)) i = SettingsActivity.peopleIntent(this, "Cerca").putExtra("tab", 1);
         else if ("servizi".equals(dest)) i = SelectorActivity.intent(this, Scegli.SERVICES, null);
         else if ("waiting".equals(dest)) { i = new Intent(this, ContainerActivity.class); i.putExtra("tab", ContainerActivity.TAB_WAITING); }
         else if ("portata".equals(dest)) i = new Intent(this, PortataActivity.class);
@@ -1250,7 +1430,7 @@ public class SearchActivity extends BaseActivity {
         else if ("wellbeing".equals(dest)) { Session.openWellbeing(this); return; }
         else if ("alarms".equals(dest)) { U.openAlarms(this); return; }
         else return;
-        if (!i.hasExtra("back")) i.putExtra("back", "Ricerca");
+        if (!i.hasExtra("back")) i.putExtra("back", "Cerca");
         startActivity(i);
     }
 

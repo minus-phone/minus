@@ -22,6 +22,7 @@ public final class Tasks {
         public long doneAt;
         public long order;    // 0.15: ordine scelto nella giornata (0 = non scelto: per scadenza)
         public boolean urgent; // E001: urgente, sempre con una scadenza
+        public String note = ""; // 0.27 (Evolutiva 023): note del task; mancante nei task salvati prima = vuota
     }
 
     /** 0.15: i completati restano per la vista settimana, nel giorno in cui sono stati spuntati. */
@@ -44,6 +45,7 @@ public final class Tasks {
                 if (t.app.length() == 0) t.app = null;
                 t.order = o.optLong("order");
                 t.urgent = o.optBoolean("urgent");
+                t.note = o.optString("note", ""); // 0.27 (Evolutiva 023)
                 // 0.15: i completati restano 35 giorni, per la vista settimana
                 if (t.done && t.doneAt < System.currentTimeMillis() - KEEP_DONE_MS) continue;
                 out.add(t);
@@ -62,6 +64,7 @@ public final class Tasks {
                 if (t.app != null) o.put("app", t.app);
                 if (t.order != 0) o.put("order", t.order);
                 if (t.urgent) o.put("urgent", true);
+                if (t.note != null && t.note.length() > 0) o.put("note", t.note); // 0.27 (Evolutiva 023)
                 a.put(o);
             }
         } catch (Exception ignored) {}
@@ -73,11 +76,15 @@ public final class Tasks {
     public static synchronized void add(Context c, String title, long due, String app) { add(c, title, due, app, false); }
 
     /** E001: urgente vuol dire con una scadenza: senza data diventa oggi. */
-    public static synchronized void add(Context c, String title, long due, String app, boolean urgent) {
+    public static synchronized void add(Context c, String title, long due, String app, boolean urgent) { add(c, title, due, app, urgent, ""); }
+
+    /** 0.27 (Evolutiva 023): con le note. */
+    public static synchronized void add(Context c, String title, long due, String app, boolean urgent, String note) {
         List<Task> list = all(c);
         Task t = new Task();
         t.app = app;
         t.urgent = urgent;
+        t.note = note == null ? "" : note;
         if (urgent) due = Urgenti.dueWhenUrgent(due, U.startOfDay(0));
         t.id = String.valueOf(System.currentTimeMillis());
         t.title = title;
@@ -94,9 +101,15 @@ public final class Tasks {
 
     /** 0.16: Modifica task. */
     public static synchronized void update(Context c, String id, String title, long due, String app, boolean urgent) {
+        update(c, id, title, due, app, urgent, null);
+    }
+
+    /** 0.27 (Evolutiva 023): con le note (null = lasciale come sono). */
+    public static synchronized void update(Context c, String id, String title, long due, String app, boolean urgent, String note) {
         List<Task> list = all(c);
         for (Task t : list) if (t.id.equals(id)) {
             t.title = title; t.app = app; t.urgent = urgent;
+            if (note != null) t.note = note;
             t.due = urgent ? Urgenti.dueWhenUrgent(due, U.startOfDay(0)) : due;
         }
         save(c, list);

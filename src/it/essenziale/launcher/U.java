@@ -267,6 +267,24 @@ public final class U {
         return t;
     }
 
+    /**
+     * 0.26 (Evolutiva 021): il badge di un gruppo: quadrato grigio (angoli sizeDp/4, nessun bordo) con l'icona dei gruppi
+     * al posto dell'iniziale. Il fondo è il drawable del FrameLayout (PressB.rowWithBadge lo riempie al tocco).
+     */
+    public static android.widget.FrameLayout groupBadge(Context c, int sizeDp) {
+        android.widget.FrameLayout f = new android.widget.FrameLayout(c);
+        f.setBackground(box(c, CHIP, 0, sizeDp / 4));
+        int ic = Math.round(sizeDp * 0.58f);
+        android.widget.ImageView v = Ic.view(c, "ic_gruppi", INK, ic);
+        if (v != null) {
+            v.setTag("ic");
+            f.addView(v, new android.widget.FrameLayout.LayoutParams(dp(c, ic), dp(c, ic), Gravity.CENTER));
+        }
+        f.setContentDescription("Gruppo");
+        f.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        return f;
+    }
+
     /** 0.15: il pallino grigio chiaro con un numero (accanto a «Notifiche», «TASK»). */
     public static TextView badge(Context c, int fg, int bg) {
         TextView t = text(c, "", 12, fg, false);
@@ -995,6 +1013,20 @@ public final class U {
     /** 0.15: i nuovi impegni vanno in questo calendario (id e nome), o nel calendario di −minus. */
     public static void setDefaultCalendar(Context c, long id, String name) {
         prefs(c).edit().putLong("last_cal", id).putString("last_cal_name", name).apply();
+    }
+
+    /** 0.27 (Evolutiva 024): solo il tipo del calendario («Google Calendar», «Sul telefono», l'app dell'account), mai l'e-mail. */
+    public static String calType(Context c, Cal k) {
+        if (k == null) return "";
+        String app = null;
+        if (!k.google() && !k.local()) {
+            try {
+                for (android.accounts.AuthenticatorDescription d : android.accounts.AccountManager.get(c).getAuthenticatorTypes()) {
+                    if (d.type.equals(k.type)) { app = appLabel(c, d.packageName); break; }
+                }
+            } catch (Exception ignored) {}
+        }
+        return Calendari.typeLabel(k.type, app);
     }
 
     public static String calNote(Cal k) {

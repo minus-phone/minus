@@ -53,6 +53,8 @@ public class NrtTest {
         TimeZone.setDefault(TimeZone.getTimeZone("Europe/Rome"));
         notificationsDifferential();
         evolutiva018();
+        evolutiva021();
+        evolutiva023024();
         notificationsNew();
         notificationsV04();
         groupsV06();
@@ -602,9 +604,8 @@ public class NrtTest {
         check("Scorrimento: la prima lettera cambia, si azzera", Cerca.resetsScroll("ma", "pa"), null);
         check("Scorrimento: testo vuoto, si azzera", Cerca.resetsScroll("ma", ""), null);
         check("Scorrimento: da vuoto a scritto, si azzera", Cerca.resetsScroll("", "m"), null);
-        // campo vuoto (0.25): Aperte ora, Recenti, Passano sempre (persone e gruppi), A portata (solo app), senza doppioni
-        List<Cerca.Cand> open = new ArrayList<Cerca.Cand>(), rec = new ArrayList<Cerca.Cand>(), alw = new ArrayList<Cerca.Cand>(), port = new ArrayList<Cerca.Cand>();
-        open.add(cd("p:ilde", Cerca.PERSONA, "Ilde", 0));
+        // campo vuoto (0.26, Evolutiva 021): Recenti, Preferiti (persone e gruppi), A portata (solo app), senza doppioni; niente «Aperte ora»
+        List<Cerca.Cand> rec = new ArrayList<Cerca.Cand>(), alw = new ArrayList<Cerca.Cand>(), port = new ArrayList<Cerca.Cand>();
         rec.add(cd("p:ilde", Cerca.PERSONA, "Ilde", 0));
         rec.add(cd("a:claude", Cerca.APP, "Claude", 0));
         rec.add(cd("p:marta", Cerca.PERSONA, "Marta", 0));
@@ -620,21 +621,19 @@ public class NrtTest {
         port.add(cd("a:claude", Cerca.APP, "Claude", 0));
         for (int i = 0; i < 6; i++) port.add(cd("a:x" + i, Cerca.APP, "X" + i, 0));
         java.util.Set<String> used = new java.util.HashSet<String>();
-        Cerca.Piece po = Cerca.take(open, used, Cerca.VUOTA_APERTE), pr = Cerca.take(rec, used, Cerca.VUOTA_RECENTI);
+        Cerca.Piece pr = Cerca.take(rec, used, Cerca.VUOTA_RECENTI);
         Cerca.Piece pa = Cerca.take(Cerca.only(alw, Cerca.PERSONA), used, Cerca.VUOTA_SEMPRE);
         List<Cerca.Cand> apps = Cerca.only(port, Cerca.APP);
-        Cerca.Piece pp = Cerca.take(apps, used, Cerca.portataMax(false));
-        eq("Aperte ora: max 2", Cerca.VUOTA_APERTE, 2);
-        eq("Recenti: niente doppioni con Aperte ora, max 2", keys(pr.shown).toString(), "[a:claude, p:marta]");
+        Cerca.Piece pp = Cerca.take(apps, used, Cerca.VUOTA_PORTATA);
+        eq("Recenti: max 2, vengono prima di Preferiti", keys(pr.shown).toString(), "[p:ilde, a:claude]");
         check("Recenti: una voce in più, «more»", pr.more, null);
-        eq("Passano sempre: max 4, senza chi è già in Aperte ora", keys(pa.shown).toString(), "[p:fam, p:condo, p:mamma, p:papa]");
-        check("Passano sempre: «Vedi tutti ›» perché ce n'è altro", pa.more, null);
-        eq("A portata: solo app, max 5, senza doppioni con Recenti", keys(pp.shown).toString(), "[a:maps, a:x0, a:x1, a:x2, a:x3]");
-        check("A portata: «Vedi tutti ›» perché ce n'è altro", pp.more, null);
-        eq("A portata: «Vedi tutti ›» apre fino a 8 (qui 7 app rimaste)", Cerca.take(apps, new java.util.HashSet<String>(java.util.Arrays.asList("a:claude")), Cerca.portataMax(true)).shown.size(), 7);
-        eq("A portata: 5 poi 8", Cerca.portataMax(false) + "/" + Cerca.portataMax(true), "5/8");
+        eq("Preferiti: max 4, senza chi è già in Recenti", keys(pa.shown).toString(), "[p:fam, p:condo, p:mamma, p:papa]");
+        check("Preferiti: «Vedi tutti ›» perché ce n'è altro", pa.more, null);
+        eq("A portata (0.27): solo app, fino a 8 subito, senza doppioni con Recenti", keys(pp.shown).toString(), "[a:maps, a:x0, a:x1, a:x2, a:x3, a:x4, a:x5]");
+        check("A portata (0.27): niente «Vedi tutti ›» (tutte visibili)", !pp.more, null);
+        eq("A portata (0.27): massimo 8", Cerca.VUOTA_PORTATA, 8);
         check("A portata: nessuna persona né gruppo", Cerca.only(port, Cerca.APP).size() == 8, null);
-        // il bug della 0.24: a campo vuoto ogni ridisegno azzerava «Vedi tutti ›»
+        // il bug della 0.24: a campo vuoto ogni ridisegno azzerava «Vedi tutti ›» (resta per Preferiti)
         check("Vedi tutti a campo vuoto: vuoto→vuoto non azzera", !Cerca.resetsScroll("", ""), null);
         // impostazioni come risultati
         eq("Impostazioni come risultati: «permessi»", Cerca.SETTINGS[Cerca.settingCands("permessi").get(0).order][2], "area:6");
@@ -1337,17 +1336,41 @@ public class NrtTest {
     }
 
     // ---- Evolutiva 018: proposte con il motivo e guida al permesso bloccato ----
+    // ---- Evolutive 023 e 024 (0.27) ----
+    static void evolutiva023024() {
+        sec("Evolutiva 023 · note nei task");
+        check("Nota vuota: niente icona", !Urgenti.hasNote(null) && !Urgenti.hasNote("") && !Urgenti.hasNote("  \n "), null);
+        check("Nota scritta: icona", Urgenti.hasNote("portare il libretto"), null);
+        sec("Evolutiva 024 · tipo del calendario");
+        eq("Google: «Google Calendar»", Calendari.typeLabel("com.google", null), "Google Calendar");
+        eq("Locale: «Sul telefono»", Calendari.typeLabel("LOCAL", null), "Sul telefono");
+        eq("Altro con app: il nome dell'app", Calendari.typeLabel("com.fossify", " Fossify "), "Fossify");
+        eq("Altro senza app: niente", Calendari.typeLabel("com.x", null), "");
+        eq("Due righe: nome e tipo", Calendari.twoLines("Famiglia", "Google Calendar"), "Famiglia\nGoogle Calendar");
+        eq("Due righe: senza tipo, solo il nome", Calendari.twoLines("Famiglia", ""), "Famiglia");
+    }
+
+    // ---- Evolutiva 021: «Preferiti» ----
+    static void evolutiva021() {
+        sec("Evolutiva 021 · un nome solo: Preferiti");
+        eq("Campo vuoto: Recenti 2, Preferiti 4, A portata 8 (0.27)", Cerca.VUOTA_RECENTI + "/" + Cerca.VUOTA_SEMPRE + "/" + Cerca.VUOTA_PORTATA, "2/4/8");
+        check("Cerca «preferiti» trova Contatti e gruppi", Cerca.SETTINGS[Cerca.settingCands("preferiti").get(0).order][0].equals("Contatti e gruppi")
+                || Cerca.SETTINGS[Cerca.settingCands("preferiti").get(0).order][0].equals("Meno notifiche"), null);
+        boolean tutti = true;
+        for (Cerca.Cand c : Cerca.settingCands("preferito")) if (c.label == null) tutti = false;
+        check("Cerca «preferito» trova almeno una pagina di Impostazioni", !Cerca.settingCands("preferito").isEmpty() && tutti, null);
+        check("Le vecchie parole restano: «silenzio» trova ancora Meno notifiche", !Cerca.settingCands("silenzio").isEmpty(), null);
+    }
+
     static void evolutiva018() {
         sec("Evolutiva 018 · proposte con il motivo");
         long now = 100L * Proposte.DAY, d = Proposte.DAY;
         eq("Motivo: contatto con la stella", Proposte.reasonPerson(true, 0, 0, now), "Hai la stella in rubrica");
         eq("Motivo: la stella vale più delle notifiche", Proposte.reasonPerson(true, now - d, now - d, now), "Hai la stella in rubrica");
-        eq("Motivo: scrive spesso (ultimi 7 giorni, hai risposto)", Proposte.reasonPerson(false, now - 2 * d, now - 3 * d, now), "Ti scrive spesso");
-        eq("Motivo: scritto di recente, mai risposto", Proposte.reasonPerson(false, now - 5 * d, 0, now), "Ti ha scritto di recente");
-        eq("Motivo: scritto 10 giorni fa, anche con risposta: di recente", Proposte.reasonPerson(false, now - 10 * d, now - 10 * d, now), "Ti ha scritto di recente");
-        check("Motivo: 20 giorni fa nessun motivo, nessuna proposta", Proposte.reasonPerson(false, now - 20 * d, now - 20 * d, now) == null && Proposte.scorePerson(false, now - 20 * d, 1, now) == 0, null);
-        check("Punteggio: stella > spesso > recente", Proposte.scorePerson(true, 0, 0, now) > Proposte.scorePerson(false, now - d, now - d, now)
-                && Proposte.scorePerson(false, now - d, now - d, now) > Proposte.scorePerson(false, now - d, 0, now), null);
+        // 0.26 (Evolutiva 021): le persone si propongono solo con la stella; niente «Ti scrive spesso» né «di recente»
+        check("Motivo: scrive spesso o di recente, senza stella, nessuna proposta", Proposte.reasonPerson(false, now - 2 * d, now - 3 * d, now) == null && Proposte.reasonPerson(false, now - 5 * d, 0, now) == null
+                && Proposte.scorePerson(false, now - d, now - d, now) == 0, null);
+        check("Punteggio: la stella conta, il resto no", Proposte.scorePerson(true, 0, 0, now) > 0 && Proposte.scorePerson(false, now - d, now - d, now) == 0, null);
         eq("Gruppo: questa settimana", Proposte.reasonGroup(now - 3 * d, now), "Ti ha scritto nel gruppo questa settimana");
         eq("Gruppo: di recente", Proposte.reasonGroup(now - 20 * d, now), "Ti ha scritto nel gruppo di recente");
         check("Gruppo: oltre 30 giorni o mai, niente motivo", Proposte.reasonGroup(now - 40 * d, now) == null && Proposte.reasonGroup(0, now) == null, null);

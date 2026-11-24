@@ -108,7 +108,7 @@ public class GroupsActivity extends PageActivity {
             t.setPadding(0, U.dp(this, 14), 0, 0);
             list.addView(t);
         } else {
-            list.addView(U.label(this, "Passano sempre"));
+            list.addView(U.label(this, "Preferiti"));
             if (always.isEmpty()) list.addView(U.text(this, "Nessuno. Tocca un gruppo qui sotto per farlo passare sempre.", 14, U.MUTED, false));
             for (G g : always) row(g, true);
             list.addView(U.label(this, "Aspettano"));
@@ -147,14 +147,14 @@ public class GroupsActivity extends PageActivity {
         r.addView(act);
         View.OnClickListener l = new View.OnClickListener() {
             public void onClick(View v) {
-                Changes.track(GroupsActivity.this, g.name + (always ? ": aspetta" : ": passa sempre"), new String[]{U.K_GROUPS},
+                Changes.track(GroupsActivity.this, g.name + (always ? ": aspetta" : ": preferito"), new String[]{U.K_GROUPS},
                         new Runnable() { public void run() { U.setGroupRule(GroupsActivity.this, g.name, always ? "silenzio" : "sempre"); } },
                         new Runnable() { public void run() { render(); } });
             }
         };
         r.setOnClickListener(l);
         act.setOnClickListener(l);
-        r.setContentDescription(g.name + (always ? ", passa sempre" : ", aspetta"));
+        r.setContentDescription(g.name + (always ? ", preferito" : ", aspetta"));
         list.addView(r, U.full());
         list.addView(U.divider(this));
     }
